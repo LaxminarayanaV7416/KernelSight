@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 memchr = "2.8.3"
 serde = { workspace = true }
+basic-toml = { workspace = true }

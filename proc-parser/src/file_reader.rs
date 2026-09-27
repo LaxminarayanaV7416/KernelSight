@@ -2,11 +2,6 @@ use super::parser_utils::{parse_u64_swar, search_char, search_start_end_chars};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
-// idealogy:
-// for now we will  work with array that holds buffer and fixed size
-// this fixed size can be configured by the user but later we can
-// implements a circular queue as needed
-
 pub trait Parsers {
     fn parse_paranthesis(
         &mut self,
@@ -21,6 +16,17 @@ pub trait Parsers {
     ) -> Result<(usize, usize), Box<dyn std::error::Error>>;
     fn parse_number(&mut self, start: usize, end: usize) -> u64;
     fn parse_string(&mut self, start: usize, end: usize) -> String;
+}
+
+pub trait LinearParser {
+    fn parse(&mut self, 
+        newline_array: &mut [i16],
+        space_array: &mut [i16],
+        paranthesis_array: &mut [i16],
+        square_paranthesis_array: &mut [i16],
+        colon_array: &mut [i16],
+        tab_array: &mut [i16],
+    );
 }
 
 pub struct ProcFileReader<const BUFFER_ARRAY_SIZE: usize> {

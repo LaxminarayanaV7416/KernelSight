@@ -1,82 +1,246 @@
 pub const PROC_FS_ROOT_PATH: &str = "/proc";
-pub const SYS_FS_ROOT_PATH: &str = "/sys";
 
 // PROC folder constants
 // The folder is not important in metrics collection
 // =================================================
-// pub const PROC_ACPI_FOLDER_SLUG: &str = "acpi";
-// pub const PROC_ASOUND_FOLDER_SLUG: &str = "asound";
-// pub const PROC_BUS_FOLDER_SLUG: &str = "bus";
-// pub const PROC_DRIVER_FOLDER_SLUG: &str = "driver";
-// pub const PROC_DYNAMIC_DEBUG_FOLDER_SLUG: &str = "dynamic_debug";
-// // The above folder contains only config file which is used to debug
-// // running kernel, not important for metrics collection but we can
-// // still collect it for debugging purposes; enable in future
-// pub const PROC_FS_FOLDER_SLUG: &str = "fs";
-// pub const PROC_IRQ_FOLDER_SLUG: &str = "irq";
 pub const PROC_PRESSURE_FOLDER_SLUG: &str = "pressure";
-pub const PROC_SCSI_FOLDER_SLUG: &str = "scsi";
 pub const PROC_SYS_FOLDER_SLUG: &str = "sys";
-pub const PROC_SYSVIPC_FOLDER_SLUG: &str = "sysvipc";
-pub const PROC_TTY_FOLDER_SLUG: &str = "tty";
-// pub const PROC_NET_FOLDER_SLUG: &str = "net";
-// pub const PROC_THREAD_SELF_FILE_SLUG: &str = "thread-self";
-// pub const PROC_SELF_FILE_SLUG: &str = "self";
 
 // PROC FOLDER pressure files
 pub const PROC_PRESSURE_CPU_FILE_SLUG: &str = "cpu";
 pub const PROC_PRESSURE_MEMORY_FILE_SLUG: &str = "memory";
 pub const PROC_PRESSURE_IO_FILE_SLUG: &str = "io";
-pub const PROC_PRESSURE_IRQ_FILE_SLUG: &str = "irq";
+
+// PROC FOLDER sys files
+pub const PROC_SYS_KERNEL_FOLDER_SLUG: &str = "kernel";
+pub const PROC_SYS_KERNEL_FOLDER_PID_MAX_FILE_SLUG: &str = "pid_max";
+pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 
 // PROC file constants
-pub const PROC_BOOTCONFIG_FILE_SLUG: &str = "bootconfig";
-pub const PROC_BUDDYINFO_FILE_SLUG: &str = "buddyinfo";
-pub const PROC_CGROUPS_FILE_SLUG: &str = "cgroups";
-pub const PROC_CMDLINE_FILE_SLUG: &str = "cmdline";
-pub const PROC_CONSOLES_FILE_SLUG: &str = "consoles";
-pub const PROC_CPUINFO_FILE_SLUG: &str = "cpuinfo";
-pub const PROC_CRYPTO_FILE_SLUG: &str = "crypto";
-pub const PROC_DEVICES_FILE_SLUG: &str = "devices";
+// =================================================
+// PROC root files used by the monitoring parser
+// =================================================
+
+pub const RequiredForParserProcFiles: &[&str] = &Box::new([
+    "diskstats",
+    "interrupts",
+    "loadavg",
+    "meminfo",
+    "schedstat",
+    "softirqs",
+    "stat",
+    "uptime",
+    "vmstat",
+]);
+
+pub const NotRequiredForParserProcFiles: &[&str] = &Box::new([
+    "bootconfig",
+    "buddyinfo",
+    "cgroups",
+    "cmdline",
+    "consoles",
+    "cpuinfo",
+    "crypto",
+    "devices",
+    "dma",
+    "execdomains",
+    "fb",
+    "filesystems",
+    "iomem",
+    "ioports",
+    "kallsyms",
+    "kcore",
+    "key-users",
+    "keys",
+    "kmsg",
+    "kpagecgroup",
+    "kpagecount",
+    "kpageflags",
+    "locks",
+    "misc",
+    "modules",
+    "mtd",
+    "mtrr",
+    "pagetypeinfo",
+    "partitions",
+    "slabinfo",
+    "swaps",
+    "sysrq-trigger",
+    "timer_list",
+    "version",
+    "vmallocinfo",
+    "zoneinfo",
+]);
+
+// =================================================
+// PROC root file constants
+// =================================================
+
+/*
+ * Contains cumulative block-device I/O statistics for disks and partitions.
+ * Includes reads, writes, sectors, I/O time, queue time, discard and flush counters.
+ */
 pub const PROC_DISKSTATS_FILE_SLUG: &str = "diskstats";
-pub const PROC_DMA_FILE_SLUG: &str = "dma";
-pub const PROC_EXECDOMAINS_FILE_SLUG: &str = "execdomains";
-pub const PROC_FB_FILE_SLUG: &str = "fb";
-pub const PROC_FILESYSTEMS_FILE_SLUG: &str = "filesystems";
+
+/*
+ * Shows hardware interrupt counts independently for each logical CPU.
+ * Useful for detecting interrupt load, IRQ imbalance and device-related CPU activity.
+ */
 pub const PROC_INTERRUPTS_FILE_SLUG: &str = "interrupts";
-pub const PROC_IOMEM_FILE_SLUG: &str = "iomem";
-pub const PROC_IOPORTS_FILE_SLUG: &str = "ioports";
-pub const PROC_KALLSYMS_FILE_SLUG: &str = "kallsyms";
-pub const PROC_KCORE_FILE_SLUG: &str = "kcore";
-pub const PROC_USERS_FILE_SLUG: &str = "key-users";
-pub const PROC_KEYS_FILE_SLUG: &str = "keys";
-pub const PROC_KMSG_FILE_SLUG: &str = "kmsg";
-pub const PROC_KPAGECGROUP_FILE_SLUG: &str = "kpagecgroup";
-pub const PROC_KPAGECOUNT_FILE_SLUG: &str = "kpagecount";
-pub const PROC_KPAGEFLAGS_FILE_SLUG: &str = "kpageflags";
+
+/*
+ * Contains 1, 5 and 15 minute load averages plus runnable/total task counts.
+ * Example: 1.42 1.17 0.93 3/825 22341
+ */
 pub const PROC_LOADAVG_FILE_SLUG: &str = "loadavg";
-pub const PROC_LOCKS_FILE_SLUG: &str = "locks";
+
+/*
+ * Contains system-wide physical memory and swap utilization statistics.
+ * Includes MemAvailable, Cached, Active, Dirty, Slab, SwapFree and many other counters.
+ */
 pub const PROC_MEMINFO_FILE_SLUG: &str = "meminfo";
-pub const PROC_MISC_FILE_SLUG: &str = "misc";
-pub const PROC_MODULES_FILE_SLUG: &str = "modules";
-pub const PROC_MTD_FILE_SLUG: &str = "mtd";
-pub const PROC_MTRR_FILE_SLUG: &str = "mtrr";
-pub const PROC_PAGETYPEINFO_FILE_SLUG: &str = "pagetypeinfo";
-pub const PROC_PARTITIONS_FILE_SLUG: &str = "partitions";
+
+/*
+ * Contains system-wide scheduler statistics for every CPU and scheduling domain.
+ * Useful for studying CPU runtime, scheduler activity and load-balancing behavior.
+ */
 pub const PROC_SCHEDSTAT_FILE_SLUG: &str = "schedstat";
-pub const PROC_SLABINFO_FILE_SLUG: &str = "slabinfo";
+
+/*
+ * Contains cumulative softirq handler counts independently for each CPU.
+ * Useful for monitoring network, timer, scheduler, block and RCU processing activity.
+ */
 pub const PROC_SOFTIRQS_FILE_SLUG: &str = "softirqs";
+
+/*
+ * Contains system-wide cumulative CPU and kernel activity counters since boot.
+ * Includes CPU times, context switches, interrupts, runnable tasks and process creation.
+ */
 pub const PROC_STAT_FILE_SLUG: &str = "stat";
-pub const PROC_SWAPS_FILE_SLUG: &str = "swaps";
-pub const PROC_TRIGGER_FILE_SLUG: &str = "sysrq-trigger";
-pub const PROC_TIMER_LIST_FILE_SLUG: &str = "timer_list";
+
+/*
+ * Contains system uptime and accumulated CPU idle time in seconds.
+ * Example: 148527.34 1123875.92
+ */
 pub const PROC_UPTIME_FILE_SLUG: &str = "uptime";
-pub const PROC_VERSION_FILE_SLUG: &str = "version";
-pub const PROC_VMALLOCINFO_FILE_SLUG: &str = "vmallocinfo";
+
+/*
+ * Contains cumulative virtual-memory activity counters maintained by the kernel.
+ * Includes page faults, paging, swapping, reclaim, NUMA and page allocator activity.
+ */
 pub const PROC_VMSTAT_FILE_SLUG: &str = "vmstat";
-pub const PROC_ZONEINFO_FILE_SLUG: &str = "zoneinfo";
-// pub const PROC_CONFIG_GZ_FILE_SLUG: &str = "config.gz";
-// pub const PROC_MOUNTS_FILE_SLUG: &str = "mounts";
+
+// =================================================
+// PROC PID files used by the monitoring parser
+// =================================================
+
+pub const RequiredForParserPIDFiles: &[&str] = &Box::new([
+    "cmdline",
+    "comm",
+    "cgroup",
+    "io",
+    "schedstat",
+    "smaps_rollup",
+    "stat",
+    "statm",
+    "status",
+]);
+
+pub const NotRequiredForParserPIDFiles: &[&str] = &Box::new([
+    "arch_status",
+    "autogroup",
+    "auxv",
+    "clear_refs",
+    "coredump_filter",
+    "cpu_resctrl_groups",
+    "environ",
+    "gid_map",
+    "ksm_merging_pages",
+    "ksm_stat",
+    "limits",
+    "loginuid",
+    "maps",
+    "mem",
+    "mountinfo",
+    "mounts",
+    "mountstats",
+    "numa_maps",
+    "oom_adj",
+    "oom_score",
+    "oom_score_adj",
+    "pagemap",
+    "personality",
+    "projid_map",
+    "sched",
+    "sessionid",
+    "setgroups",
+    "smaps",
+    "stack",
+    "syscall",
+    "timens_offsets",
+    "timers",
+    "timerslack_ns",
+    "uid_map",
+    "wchan",
+]);
+
+// =================================================
+// PROC PID file constants
+// =================================================
+
+/*
+ * Shows the control groups to which the process belongs.
+ * Useful for associating processes with containers, services and resource groups.
+ */
+pub const PROC_PID_CGROUP_FILE_SLUG: &str = "cgroup";
+
+/*
+ * Contains the process command-line arguments separated by NUL bytes.
+ * Example: /usr/bin/python3\0worker.py\0--port\08000\0
+ */
+pub const PROC_PID_CMDLINE_FILE_SLUG: &str = "cmdline";
+
+/*
+ * Contains the process/task command name and is limited to TASK_COMM_LEN.
+ * Example: python3
+ */
+pub const PROC_PID_COMM_FILE_SLUG: &str = "comm";
+
+/*
+ * Contains cumulative per-process read/write syscall and storage I/O counters.
+ * Example: read_bytes: 4096, write_bytes: 8192, syscr: 120.
+ */
+pub const PROC_PID_IO_FILE_SLUG: &str = "io";
+
+/*
+ * Contains compact scheduler runtime, run-queue wait time and timeslice count.
+ * Useful for detecting CPU scheduling contention with very small parsing overhead.
+ */
+pub const PROC_PID_SCHEDSTAT_FILE_SLUG: &str = "schedstat";
+
+/*
+ * Aggregates smaps statistics across all VMAs into one process-wide record.
+ * Provides RSS, PSS, USS-related fields, swap and anonymous/file/shared memory.
+ */
+pub const PROC_PID_SMAPS_ROLLUP_FILE_SLUG: &str = "smaps_rollup";
+
+/*
+ * Compact single-line process statistics including CPU time, faults, PID/PPID and state.
+ * Also includes threads, start time, virtual memory, RSS and last scheduled CPU.
+ */
+pub const PROC_PID_STAT_FILE_SLUG: &str = "stat";
+
+/*
+ * Provides seven compact process memory counters measured in pages.
+ * Includes virtual size, resident pages and shared pages.
+ */
+pub const PROC_PID_STATM_FILE_SLUG: &str = "statm";
+
+/*
+ * Human-readable process metadata covering IDs, state, memory and context switches.
+ * Useful fields include PPid, VmRSS, Threads, Uid/Gid and voluntary context switches.
+ */
+pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 
 // PROC PID FOLDER CONSTANTS
 pub const PROC_PID_ATTR_FOLDER_SLUG: &str = "attr";
@@ -86,54 +250,3 @@ pub const PROC_PID_MAP_FILES_FOLDER_SLUG: &str = "map_files";
 pub const PROC_PID_NET_FOLDER_SLUG: &str = "net";
 pub const PROC_PID_NS_FOLDER_SLUG: &str = "ns";
 pub const PROC_PID_TASK_FOLDER_SLUG: &str = "task";
-
-// PROC PID file constans
-pub const PROC_PID_ARCH_STATUS_FILE_SLUG: &str = "arch_status";
-pub const PROC_PID_AUTOGROUP_FILE_SLUG: &str = "autogroup";
-pub const PROC_PID_AUXV_FILE_SLUG: &str = "auxv";
-pub const PROC_PID_CGROUP_FILE_SLUG: &str = "cgroup";
-pub const PROC_PID_CLEAR_REFS_FILE_SLUG: &str = "clear_refs";
-pub const PROC_PID_CMDLINE_FILE_SLUG: &str = "cmdline";
-pub const PROC_PID_COMM_FILE_SLUG: &str = "comm";
-pub const PROC_PID_COREDUMP_FILTER_FILE_SLUG: &str = "coredump_filter";
-pub const PROC_PID_CPU_RECTRL_GROUPS_FILE_SLUG: &str = "cpu_resctrl_groups";
-pub const PROC_PID_ENVIRON_FILE_SLUG: &str = "environ";
-pub const PROC_PID_GID_MAP_FILE_SLUG: &str = "gid_map";
-pub const PROC_PID_IO_FILE_SLUG: &str = "io";
-pub const PROC_PID_KSM_MERGING_PAGES_FILE_SLUG: &str = "ksm_merging_pages";
-pub const PROC_PID_KSM_STAT_FILE_SLUG: &str = "ksm_stat";
-pub const PROC_PID_LIMITS_FILE_SLUG: &str = "limits";
-pub const PROC_PID_LOGINUID_FILE_SLUG: &str = "loginuid";
-pub const PROC_PID_MAPS_FILE_SLUG: &str = "maps";
-pub const PROC_PID_MEM_FILE_SLUG: &str = "mem";
-pub const PROC_PID_MOUNTINFO_FILE_SLUG: &str = "mountinfo";
-pub const PROC_PID_MOUNTS_FILE_SLUG: &str = "mounts";
-pub const PROC_PID_MOUNTSTATS_FILE_SLUG: &str = "mountstats";
-pub const PROC_PID_NUMA_MAPS_FILE_SLUG: &str = "numa_maps";
-pub const PROC_PID_OOM_ADJ_FILE_SLUG: &str = "oom_adj";
-pub const PROC_PID_OOM_SCORE_FILE_SLUG: &str = "oom_score";
-pub const PROC_PID_OOM_SCORE_ADJ_FILE_SLUG: &str = "oom_score_adj";
-pub const PROC_PID_PAGEMAP_FILE_SLUG: &str = "pagemap";
-pub const PROC_PID_PERSONALITY_FILE_SLUG: &str = "personality";
-pub const PROC_PID_PROJID_MAP_FILE_SLUG: &str = "projid_map";
-pub const PROC_PID_SCHED_FILE_SLUG: &str = "sched";
-pub const PROC_PID_SCHEDSTAT_FILE_SLUG: &str = "schedstat";
-pub const PROC_PID_SESSIONID_FILE_SLUG: &str = "sessionid";
-pub const PROC_PID_SETGROUPS_FILE_SLUG: &str = "setgroups";
-pub const PROC_PID_SMAPS_FILE_SLUG: &str = "smaps";
-pub const PROC_PID_SMAPS_ROLLUP_FILE_SLUG: &str = "smaps_rollup";
-pub const PROC_PID_STACK_FILE_SLUG: &str = "stack";
-pub const PROC_PID_STAT_FILE_SLUG: &str = "stat";
-pub const PROC_PID_STATM_FILE_SLUG: &str = "statm";
-pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
-pub const PROC_PID_SYSCALL_FILE_SLUG: &str = "syscall";
-pub const PROC_PID_TIMENS_OFFSETS_FILE_SLUG: &str = "timens_offsets";
-pub const PROC_PID_TIMERS_FILE_SLUG: &str = "timers";
-pub const PROC_PID_TIMERSLACK_NS_FILE_SLUG: &str = "timerslack_ns";
-pub const PROC_PID_UID_MAP_FILE_SLUG: &str = "uid_map";
-pub const PROC_PID_WCHAN_FILE_SLUG: &str = "wchan";
-// pub const PROC_PID_CWD_FILE_SLUG: &str = "cwd";
-// pub const PROC_PID_EXE_FILE_SLUG: &str = "exe";
-// pub const PROC_PID_ROOT_FILE_SLUG: &str = "root";
-
-// FILES Buffer sizes of all the files

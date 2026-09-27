@@ -57,6 +57,7 @@ dependencies = [
 name = "proc-parser"
 version = "0.1.0"
 dependencies = [
+ "basic-toml",
  "memchr",
  "serde",
 ]

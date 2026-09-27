@@ -12,3 +12,11 @@ pub fn signal_handler() -> Arc<AtomicBool> {
 
     term
 }
+
+
+pub fn xor_bytes(a: &[u8], b: &[u8], dest: &mut [u8]) {
+    assert!(a.len() == b.len() && b.len() == dest.len());
+    for ((out_byte, &a_byte), &b_byte) in dest.iter_mut().zip(a.iter()).zip(b.iter()) {
+        *out_byte = a_byte ^ b_byte;
+    }
+}

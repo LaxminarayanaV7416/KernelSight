@@ -1,7 +1,7 @@
 mod toml_parser;
 mod utils;
 
-use libc;
+use libc::{self, printf};
 use proc_parser::{Parsers, ProcFilePIDStat};
 use std::collections::HashMap;
 use std::error::Error;
@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use toml_parser::PROC_ROOT_PATH;
-use utils::signal_handler;
+use utils::{signal_handler, xor_bytes};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let is_root = unsafe { libc::getuid() == 0 };
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(v) => v,
             None => continue,
         };
-        let pid_path = proc_path.join(pid_val.to_string()).join("status");
+        let pid_path = proc_path.join(pid_val.to_string()).join("arch_status");
         let cmdline = ProcFilePIDStat::new(&pid_path.to_str().unwrap());
         if cmdline.is_none() {
             continue;
@@ -43,22 +43,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     // form the keys array from pid_map keys
     let keys: Vec<u32> = pid_map.keys().cloned().collect();
     while !signal_hook.load(Ordering::Relaxed) {
+        // let mut prev_data: [u8; 1024] = [0; 1024];
+        // let mut xor_results: [u8; 1024] = prev_data.clone();
         for key in keys.iter() {
-            if *key == 1781 {
-                let cmdline = pid_map.get_mut(&key).unwrap();
-                let mut lines: [usize; 5] = [0; 5];
-                let mut spaces: [usize; 40] = [0; 40];
-                cmdline.read();
-                // let parens = cmdline.parse_string(5, 19);
-                cmdline.parse_newlines(&mut lines);
-                cmdline.parse_spaces(&mut spaces);
-                println!("Spaces: {:?} ,lines: {:?}", spaces, lines);
-                let data = cmdline.parse_bytes();
-                println!("data: {:?}", data);
-                // println!("{:?}", cmdline.buffer);
-            }
+            // if *key == 1781 {
+            let cmdline = pid_map.get_mut(&key).unwrap();
+            // let mut lines: [usize; 5] = [0; 5];
+            // let mut spaces: [usize; 40] = [0; 40];
+            cmdline.read();
+            // xor with previous data
+            // xor_bytes(&cmdline.buffer, &prev_data, &mut xor_results);
+            // println!("xor_results: {:?}", xor_results);
+            // let parens = cmdline.parse_string(5, 19);
+            // cmdline.parse_newlines(&mut lines);
+            // cmdline.parse_spaces(&mut spaces);
+            // println!("Spaces: {:?} ,lines: {:?}", spaces, lines);
+            let data = cmdline.parse_bytes();
+            println!("PID: {} data: {:?}", key, data);
+            // assign to previous buffer
+            // prev_data = cmdline.buffer.clone();
+            // println!("{:?}", cmdline.buffer);
+            // }
         }
-        // break;
+        break;
         std::thread::sleep(Duration::from_millis(1));
     }
 

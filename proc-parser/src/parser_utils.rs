@@ -76,7 +76,7 @@ pub fn search_start_end_chars(
     start_char: u8,
     end_char: u8,
 ) -> Result<(usize, usize), Box<dyn std::error::Error>> {
-    let mut result = memchr2_iter(start_char, end_char, &self.buffer[start..self.buffer_len]);
+    let mut result = memchr2_iter(start_char, end_char, &buffer);
     let paren_start = start + result.next().ok_or("no opening paren")?;
     let paren_end = start + result.next_back().ok_or("no closing paren")?;
     Ok((paren_start, paren_end))
