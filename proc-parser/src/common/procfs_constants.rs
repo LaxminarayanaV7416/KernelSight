@@ -1,4 +1,5 @@
 pub const PROC_FS_ROOT_PATH: &str = "/proc";
+pub const SYS_FS_ROOT_PATH: &str = "/sys";
 
 // PROC folder constants
 // The folder is not important in metrics collection
@@ -21,7 +22,7 @@ pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 // PROC root files used by the monitoring parser
 // =================================================
 
-pub const RequiredForParserProcFiles: &[&str] = &Box::new([
+pub const RequiredForParserProcFiles: &[&str; 9] = &[
     "diskstats",
     "interrupts",
     "loadavg",
@@ -31,9 +32,9 @@ pub const RequiredForParserProcFiles: &[&str] = &Box::new([
     "stat",
     "uptime",
     "vmstat",
-]);
+];
 
-pub const NotRequiredForParserProcFiles: &[&str] = &Box::new([
+pub const NotRequiredForParserProcFiles: &[&str; 36] = &[
     "bootconfig",
     "buddyinfo",
     "cgroups",
@@ -70,7 +71,7 @@ pub const NotRequiredForParserProcFiles: &[&str] = &Box::new([
     "version",
     "vmallocinfo",
     "zoneinfo",
-]);
+];
 
 // =================================================
 // PROC root file constants
@@ -134,7 +135,7 @@ pub const PROC_VMSTAT_FILE_SLUG: &str = "vmstat";
 // PROC PID files used by the monitoring parser
 // =================================================
 
-pub const RequiredForParserPIDFiles: &[&str] = &Box::new([
+pub const RequiredForParserPIDFiles: &[&str; 9] = &[
     "cmdline",
     "comm",
     "cgroup",
@@ -144,9 +145,9 @@ pub const RequiredForParserPIDFiles: &[&str] = &Box::new([
     "stat",
     "statm",
     "status",
-]);
+];
 
-pub const NotRequiredForParserPIDFiles: &[&str] = &Box::new([
+pub const NotRequiredForParserPIDFiles: &[&str; 35] = &[
     "arch_status",
     "autogroup",
     "auxv",
@@ -182,7 +183,7 @@ pub const NotRequiredForParserPIDFiles: &[&str] = &Box::new([
     "timerslack_ns",
     "uid_map",
     "wchan",
-]);
+];
 
 // =================================================
 // PROC PID file constants
@@ -242,11 +243,5 @@ pub const PROC_PID_STATM_FILE_SLUG: &str = "statm";
  */
 pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 
-// PROC PID FOLDER CONSTANTS
-pub const PROC_PID_ATTR_FOLDER_SLUG: &str = "attr";
-pub const PROC_PID_FD_FOLDER_SLUG: &str = "fd";
-pub const PROC_PID_FDINFO_FOLDER_SLUG: &str = "fdinfo";
-pub const PROC_PID_MAP_FILES_FOLDER_SLUG: &str = "map_files";
-pub const PROC_PID_NET_FOLDER_SLUG: &str = "net";
-pub const PROC_PID_NS_FOLDER_SLUG: &str = "ns";
-pub const PROC_PID_TASK_FOLDER_SLUG: &str = "task";
+// NOTE: We are not going to monitor any subfolders under /proc/<pid>
+// This is because it becomes very inappropriate to do so, daemon gets very beefier

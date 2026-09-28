@@ -6,7 +6,7 @@ pub const CGROUP_V2_MOUNT_PATH: &str = "/sys/fs/cgroup";
 // CGROUP V2 files used by monitoring parser
 // =================================================
 
-pub const RequiredForParserCgroupFiles: &[&str] = &Box::new([
+pub const RequiredForParserCgroupFiles: &[&str; 14] = &[
     "cgroup.events",
     "cgroup.procs",
     "cpu.stat",
@@ -21,9 +21,9 @@ pub const RequiredForParserCgroupFiles: &[&str] = &Box::new([
     "pids.current",
     "pids.peak",
     "pids.events",
-]);
+];
 
-pub const NotRequiredForParserCgroupFiles: &[&str] = &Box::new([
+pub const NotRequiredForParserCgroupFiles: &[&str; 49] = &[
     // Core configuration/control
     "cgroup.controllers",
     "cgroup.freeze",
@@ -83,7 +83,7 @@ pub const NotRequiredForParserCgroupFiles: &[&str] = &Box::new([
     "hugetlb.2MB.numa_stat",
     "hugetlb.2MB.rsvd.current",
     "hugetlb.2MB.rsvd.max",
-]);
+];
 
 // =================================================
 // CGROUP CORE FILE CONSTANTS

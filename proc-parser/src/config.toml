@@ -1,0 +1,21 @@
+[diskstats]
+read = true
+
+[[diskstats_fields]]
+reads_completed = true
+reads_merged = true
+sectors_read = true
+time_spent_reading = true
+writes_completed = true
+writes_merged = true
+sectors_written = true
+time_spent_writing = true
+io_in_progress = true
+time_spent_doing_io = true
+weighted_number_of_seconds_spent_doing_io = true
+discards_completed = true
+discards_merged = true
+sectors_discarded = true
+time_spent_discarding = true
+flushes_completed = true
+time_spent_flushing = true
