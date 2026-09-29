@@ -1,0 +1,58 @@
+use crate::common::file_reader::ProcFileReader;
+use crate::common::kernel_types::{UNSIGNED_INT, UNSIGNED_LONG};
+use crate::common::parser_utils::{CharacterType, parse_u64_swar};
+use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
+use std::collections::HashMap;
+use std::fs::read_dir;
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::thread::JoinHandle;
+
+/*
+Field Number
+Field 1 - Float
+ */
+
+#[derive(Debug)]
+struct ProcLoadAvgFields<'a> {
+    pub load_avg_1m: (u8, &'a [u8], f64),
+}
+
+impl<'a> ProcLoadAvgFields<'a> {
+    pub fn new(upates: Vec<usize, usize, usize>, buffer: &'a [u8]) -> Self {
+        Self {
+            load_avg_1m: upates[0] as f64,
+        }
+    }
+
+    pub fn parse_as_human_readable(&mut self, field_ids: &[u8]) {
+        for &field_id in field_ids {
+            match field_id {
+                0 => self.load_avg_1m = 10,
+                _ => {}
+            }
+        }
+    }
+}
+
+pub type ProcFileLoadAvg = ProcFileReader<32, ProcLoadAvgFields<'static>>;
+
+impl ProcFileLoadAvg {
+    pub fn parse(
+        &mut self,
+        character_type_map: &mut HashMap<usize, CharacterType>,
+    ) -> ProcLoadAvgFields<'_> {
+    }
+}
+
+pub fn parse_procfs_loadavg(signal_hook: Arc<AtomicBool>) -> JoinHandle<()> {
+    let thread_handle = thread::spawn(move || {
+        loop {
+            while !signal_hook.load(Ordering::Relaxed) {}
+            println!("Killed LoadAvg thread!!");
+        }
+    });
+    thread_handle
+}

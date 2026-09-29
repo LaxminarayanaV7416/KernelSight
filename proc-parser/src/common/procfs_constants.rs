@@ -23,9 +23,9 @@ pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 // =================================================
 
 pub const RequiredForParserProcFiles: &[&str; 9] = &[
-    "diskstats",
+    "diskstats", // done, Got this from /sys/block/<device>/stat (no sudo required)
     "interrupts",
-    "loadavg",
+    "loadavg", // currently working on this from /proc/loadavg (no sudo required)
     "meminfo",
     "schedstat",
     "softirqs",

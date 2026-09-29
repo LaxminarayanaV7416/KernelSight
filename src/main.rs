@@ -13,9 +13,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("is_root: {}", is_root);
 
     let signal_hook = signal_handler();
-    parse_diskstats();
+    let diskstats_thread = parse_diskstats(signal_hook.clone(), 1000);
     while !signal_hook.load(Ordering::Relaxed) {
-        std::thread::sleep(Duration::from_secs(300));
+        std::thread::sleep(Duration::from_secs(1));
     }
+    diskstats_thread.join().unwrap();
     Ok(())
 }

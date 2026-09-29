@@ -1,12 +1,15 @@
-use std::thread;
-
+use crate::common::config::DiskStatsConfig;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::{UNSIGNED_INT, UNSIGNED_LONG};
-use crate::common::parser_utils::{CharacterType, parse_u64_swar};
+use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::thread::JoinHandle;
 
 /*
 Both files contain the same 17 statistics. /sys/block/<device>/stat contains the fields for <device>.
@@ -74,180 +77,106 @@ Field 17 -- # of milliseconds spent flushing
 LAX Calculations for the memory
 */
 
-#[derive(Debug)]
-struct DiskStatsFields<'a> {
-    pub ReadsCompleted: (u8, &'a [u8], UNSIGNED_LONG),
-    pub ReadsMerged: (u8, &'a [u8], UNSIGNED_LONG),
-    pub SectorsRead: (u8, &'a [u8], UNSIGNED_LONG),
-    pub TimeSpentReading: (u8, &'a [u8], UNSIGNED_INT),
-    pub WritesCompleted: (u8, &'a [u8], UNSIGNED_LONG),
-    pub WritesMerged: (u8, &'a [u8], UNSIGNED_LONG),
-    pub SectorsWritten: (u8, &'a [u8], UNSIGNED_LONG),
-    pub TimeSpentWriting: (u8, &'a [u8], UNSIGNED_INT),
-    pub IOsInProgress: (u8, &'a [u8], UNSIGNED_INT),
-    pub TimeSpentDoingIO: (u8, &'a [u8], UNSIGNED_INT),
-    pub WeightedNumberofSecondsSpentDoingIO: (u8, &'a [u8], UNSIGNED_INT),
-    pub DiscardsCompleted: (u8, &'a [u8], UNSIGNED_LONG),
-    pub DiscardsMerged: (u8, &'a [u8], UNSIGNED_LONG),
-    pub SectorsDiscarded: (u8, &'a [u8], UNSIGNED_LONG),
-    pub TimeSpentDiscarding: (u8, &'a [u8], UNSIGNED_INT),
-    pub FlushesCompleted: (u8, &'a [u8], UNSIGNED_LONG),
-    pub TimeSpentFlushing: (u8, &'a [u8], UNSIGNED_INT),
+pub struct DiskStatsReader {
+    reader: ProcFileReader<512, ()>,
+    values: DiskStatsValues,
 }
 
-impl<'a> DiskStatsFields<'a> {
-    pub fn new(updates: Vec<(usize, usize, usize)>, buffer: &'a [u8]) -> Self {
-        // Start with empty slices.
-        let empty: &[u8] = &buffer[0..0];
-        let mut fields = Self {
-            ReadsCompleted: (1, empty, 0),
-            ReadsMerged: (2, empty, 0),
-            SectorsRead: (3, empty, 0),
-            TimeSpentReading: (4, empty, 0),
-            WritesCompleted: (5, empty, 0),
-            WritesMerged: (6, empty, 0),
-            SectorsWritten: (7, empty, 0),
-            TimeSpentWriting: (8, empty, 0),
-            IOsInProgress: (9, empty, 0),
-            TimeSpentDoingIO: (10, empty, 0),
-            WeightedNumberofSecondsSpentDoingIO: (11, empty, 0),
-            DiscardsCompleted: (12, empty, 0),
-            DiscardsMerged: (13, empty, 0),
-            SectorsDiscarded: (14, empty, 0),
-            TimeSpentDiscarding: (15, empty, 0),
-            FlushesCompleted: (16, empty, 0),
-            TimeSpentFlushing: (17, empty, 0),
-        };
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DiskStatsValues {
+    pub reads_completed: UNSIGNED_LONG,
+    pub reads_merged: UNSIGNED_LONG,
+    pub sectors_read: UNSIGNED_LONG,
+    pub time_spent_reading: UNSIGNED_INT,
+    pub writes_completed: UNSIGNED_LONG,
+    pub writes_merged: UNSIGNED_LONG,
+    pub sectors_written: UNSIGNED_LONG,
+    pub time_spent_writing: UNSIGNED_INT,
+    pub ios_in_progress: UNSIGNED_INT,
+    pub time_spent_doing_io: UNSIGNED_INT,
+    pub weighted_time_spent_doing_io: UNSIGNED_INT,
+    pub discards_completed: UNSIGNED_LONG,
+    pub discards_merged: UNSIGNED_LONG,
+    pub sectors_discarded: UNSIGNED_LONG,
+    pub time_spent_discarding: UNSIGNED_INT,
+    pub flushes_completed: UNSIGNED_LONG,
+    pub time_spent_flushing: UNSIGNED_INT,
+}
 
-        for &(field_id, start, end) in updates.iter() {
-            let value = &buffer[start..end];
+impl DiskStatsReader {
+    pub fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
+            reader: ProcFileReader::new(path, false)?,
+            values: DiskStatsValues::default(),
+        })
+    }
 
-            match field_id {
-                1 => fields.ReadsCompleted.1 = value,
-                2 => fields.ReadsMerged.1 = value,
-                3 => fields.SectorsRead.1 = value,
-                4 => fields.TimeSpentReading.1 = value,
-                5 => fields.WritesCompleted.1 = value,
-                6 => fields.WritesMerged.1 = value,
-                7 => fields.SectorsWritten.1 = value,
-                8 => fields.TimeSpentWriting.1 = value,
-                9 => fields.IOsInProgress.1 = value,
-                10 => fields.TimeSpentDoingIO.1 = value,
-                11 => fields.WeightedNumberofSecondsSpentDoingIO.1 = value,
-                12 => fields.DiscardsCompleted.1 = value,
-                13 => fields.DiscardsMerged.1 = value,
-                14 => fields.SectorsDiscarded.1 = value,
-                15 => fields.TimeSpentDiscarding.1 = value,
-                16 => fields.FlushesCompleted.1 = value,
-                17 => fields.TimeSpentFlushing.1 = value,
-                // TODO handled the panic later
-                _ => panic!("Invalid DiskStats field id: {}", field_id),
+    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) {
+        self.reader.read();
+        self.parse_buffer(&field_filter);
+    }
+
+    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+        let mut field = 0usize;
+        let mut start: Option<usize> = None;
+
+        for i in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[i];
+
+            if byte == b' ' || byte == b'\n' || byte == b'\0' {
+                if let Some(s) = start.take() {
+                    field += 1;
+                    if field_filter.get(&field).copied().unwrap_or(false) {
+                        self.set_field(field, s, i);
+                    }
+                }
+            } else if start.is_none() {
+                start = Some(i);
             }
         }
 
-        fields
-    }
-
-    pub fn parse_as_human_readable(&mut self, field_ids: &[u8]) {
-        for &field_id in field_ids {
-            match field_id {
-                1 => self.ReadsCompleted.2 = parse_u64_swar(self.ReadsCompleted.1).unwrap(),
-                2 => self.ReadsMerged.2 = parse_u64_swar(self.ReadsMerged.1).unwrap(),
-                3 => self.SectorsRead.2 = parse_u64_swar(self.SectorsRead.1).unwrap(),
-                4 => {
-                    self.TimeSpentReading.2 =
-                        parse_u64_swar(self.TimeSpentReading.1).unwrap() as UNSIGNED_INT
-                }
-                5 => self.WritesCompleted.2 = parse_u64_swar(self.WritesCompleted.1).unwrap(),
-                6 => self.WritesMerged.2 = parse_u64_swar(self.WritesMerged.1).unwrap(),
-                7 => self.SectorsWritten.2 = parse_u64_swar(self.SectorsWritten.1).unwrap(),
-                8 => {
-                    self.TimeSpentWriting.2 =
-                        parse_u64_swar(self.TimeSpentWriting.1).unwrap() as UNSIGNED_INT
-                }
-                9 => {
-                    self.IOsInProgress.2 =
-                        parse_u64_swar(self.IOsInProgress.1).unwrap() as UNSIGNED_INT
-                }
-                10 => {
-                    self.TimeSpentDoingIO.2 =
-                        parse_u64_swar(self.TimeSpentDoingIO.1).unwrap() as UNSIGNED_INT
-                }
-                11 => {
-                    self.WeightedNumberofSecondsSpentDoingIO.2 =
-                        parse_u64_swar(self.WeightedNumberofSecondsSpentDoingIO.1).unwrap()
-                            as UNSIGNED_INT
-                }
-                12 => self.DiscardsCompleted.2 = parse_u64_swar(self.DiscardsCompleted.1).unwrap(),
-                13 => self.DiscardsMerged.2 = parse_u64_swar(self.DiscardsMerged.1).unwrap(),
-                14 => self.SectorsDiscarded.2 = parse_u64_swar(self.SectorsDiscarded.1).unwrap(),
-                15 => {
-                    self.TimeSpentDiscarding.2 =
-                        parse_u64_swar(self.TimeSpentDiscarding.1).unwrap() as UNSIGNED_INT
-                }
-                16 => self.FlushesCompleted.2 = parse_u64_swar(self.FlushesCompleted.1).unwrap(),
-                17 => {
-                    self.TimeSpentFlushing.2 =
-                        parse_u64_swar(self.TimeSpentFlushing.1).unwrap() as UNSIGNED_INT
-                }
-                // TODO handled the panic later
-                _ => panic!("Invalid DiskStats field id: {}", field_id),
+        if let Some(s) = start {
+            field += 1;
+            if field_filter.get(&field).copied().unwrap_or(false) {
+                self.set_field(field, s, self.reader.buffer_len);
             }
         }
     }
-}
 
-pub type ProcFileDiskStats = ProcFileReader<512, DiskStatsFields<'static>>;
+    fn set_field(&mut self, field: usize, start: usize, end: usize) {
+        let bytes = &self.reader.buffer[start..end];
+        let value = parse_u64_swar(bytes).unwrap_or_default();
 
-impl ProcFileDiskStats {
-    pub fn parse(
-        &mut self,
-        character_type_map: &mut HashMap<usize, CharacterType>,
-    ) -> DiskStatsFields<'_> {
-        self.buffer_counter = 0;
-        let mut found_character: bool = false;
-        let mut field: usize = 0;
-        let mut start: usize = 0;
-        let mut prev_char_was_special: bool = false;
-        let mut index_traces: Vec<(usize, usize, usize)> = Vec::new();
-        while self.buffer_counter < self.buffer_len {
-            let byte = self.buffer[self.buffer_counter];
-            if byte == b'\n' {
-                character_type_map.insert(self.buffer_counter, CharacterType::NewLine);
-                if prev_char_was_special == false && found_character == true {
-                    index_traces.push((field, start, self.buffer_counter));
-                }
-                prev_char_was_special = true;
-                found_character = false;
-            } else if byte == b' ' {
-                character_type_map.insert(self.buffer_counter, CharacterType::Space);
-                if prev_char_was_special == false && found_character == true {
-                    index_traces.push((field, start, self.buffer_counter));
-                }
-                prev_char_was_special = true;
-                found_character = false;
-            } else if byte == b'\0' {
-                character_type_map.insert(self.buffer_counter, CharacterType::EndOfFile);
-                if prev_char_was_special == false && found_character == true {
-                    index_traces.push((field, start, self.buffer_counter));
-                }
-                prev_char_was_special = true;
-                found_character = false;
-            } else if found_character == false {
-                field += 1;
-                start = self.buffer_counter;
-                found_character = true;
-                prev_char_was_special = false;
-            }
-            self.buffer_counter += 1;
+        match field {
+            1 => self.values.reads_completed = value,
+            2 => self.values.reads_merged = value,
+            3 => self.values.sectors_read = value,
+            4 => self.values.time_spent_reading = value as UNSIGNED_INT,
+            5 => self.values.writes_completed = value,
+            6 => self.values.writes_merged = value,
+            7 => self.values.sectors_written = value,
+            8 => self.values.time_spent_writing = value as UNSIGNED_INT,
+            9 => self.values.ios_in_progress = value as UNSIGNED_INT,
+            10 => self.values.time_spent_doing_io = value as UNSIGNED_INT,
+            11 => self.values.weighted_time_spent_doing_io = value as UNSIGNED_INT,
+            12 => self.values.discards_completed = value,
+            13 => self.values.discards_merged = value,
+            14 => self.values.sectors_discarded = value,
+            15 => self.values.time_spent_discarding = value as UNSIGNED_INT,
+            16 => self.values.flushes_completed = value,
+            17 => self.values.time_spent_flushing = value as UNSIGNED_INT,
+            _ => {}
         }
-        DiskStatsFields::new(index_traces, &self.buffer.as_slice()[..self.buffer_counter])
+    }
+
+    pub fn values(&self) -> &DiskStatsValues {
+        &self.values
     }
 }
 
 // this function parses the diskstats files from each block device including zram
 // its thread so it runs in parallel with other parsers
-pub fn parse_diskstats() {
+pub fn parse_diskstats(signal_hook: Arc<AtomicBool>, monitoring_heartbeat: u64) -> JoinHandle<()> {
     let sys_block_path = Path::new(SYS_FS_ROOT_PATH).join("block");
     let mut diskstats_paths = Vec::new();
     for entry in read_dir(&sys_block_path).into_iter().flatten().flatten() {
@@ -257,7 +186,7 @@ pub fn parse_diskstats() {
     }
     let mut diskstats = Vec::new();
     for path in diskstats_paths {
-        let diskstat = ProcFileDiskStats::new(&path.to_str().unwrap(), false);
+        let diskstat = DiskStatsReader::new(&path.to_str().unwrap());
         match diskstat {
             Ok(diskstat) => diskstats.push(diskstat),
             Err(_) => {
@@ -268,23 +197,40 @@ pub fn parse_diskstats() {
             }
         }
     }
-    thread::spawn(move || {
-        loop {
+
+    let threads_info = thread::spawn(move || {
+        while !signal_hook.load(Ordering::Relaxed) {
             for diskstat in diskstats.iter_mut() {
-                diskstat.read();
-                let string_converted = diskstat.parse_bytes();
-                println!("String converted: {}", string_converted);
-                // println!("Bytes: {:?}", diskstat.buffer);
-                let mut character_type_map = HashMap::new();
-                let mut parsed = diskstat.parse(&mut character_type_map);
-                parsed.parse_as_human_readable(&[
-                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                if signal_hook.load(Ordering::Relaxed) {
+                    break;
+                }
+                // TODO: Hook the config path here
+                let filter_map = HashMap::from([
+                    (1, true),
+                    (2, true),
+                    (3, true),
+                    (4, true),
+                    (5, true),
+                    (6, true),
+                    (7, true),
+                    (8, true),
+                    (9, true),
+                    (10, true),
+                    (11, true),
+                    (12, true),
+                    (13, true),
+                    (14, true),
+                    (15, true),
+                    (16, true),
+                    (17, true),
                 ]);
-                println!("Parsed: {:?}", parsed);
+                diskstat.read_and_parse(&filter_map);
+                println!("Parsed: {:?}", diskstat.values());
                 println!("=====================================");
-                // println!("Parsed: {:?}", character_type_map);
-                thread::sleep(std::time::Duration::from_millis(1));
             }
+            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
         }
+        println!("diskstats thread exiting");
     });
+    threads_info
 }
