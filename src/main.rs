@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let signal_hook = signal_handler();
     parse_diskstats();
     while !signal_hook.load(Ordering::Relaxed) {
-        std::thread::sleep(Duration::from_millis(1));
+        std::thread::sleep(Duration::from_secs(300));
     }
     Ok(())
 }
