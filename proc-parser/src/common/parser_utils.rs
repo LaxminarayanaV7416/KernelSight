@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CharacterType {
     NewLine,
@@ -69,4 +71,95 @@ pub fn parse_u64_swar(bytes: &[u8]) -> Option<u64> {
         pos += 8;
     }
     Some(result)
+}
+
+#[inline(always)]
+pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
+    if bytes.is_empty() {
+        return None;
+    }
+    let mut integer_part: u64 = 0;
+    let mut fractional_part: u64 = 0;
+    let mut fractional_divisor: f64 = 1.0;
+    let mut seen_dot = false;
+    for &byte in bytes {
+        match byte {
+            b'0'..=b'9' => {
+                let digit = (byte - b'0') as u64;
+                if seen_dot {
+                    fractional_part = fractional_part.checked_mul(10)?;
+                    fractional_part = fractional_part.checked_add(digit)?;
+                    fractional_divisor *= 10.0;
+                } else {
+                    integer_part = integer_part.checked_mul(10)?;
+                    integer_part = integer_part.checked_add(digit)?;
+                }
+            }
+            b'.' => {
+                if seen_dot {
+                    return None;
+                }
+                seen_dot = true;
+            }
+            _ => {
+                return None;
+            }
+        }
+    }
+    Some(integer_part as f64 + fractional_part as f64 / fractional_divisor)
+}
+
+pub fn line_tracker(buffer: &[u8], config: &HashMap<&str, (usize, bool)>) -> HashMap<usize, usize> {
+    // this will give me the line number I need to look for
+    // Logic of finding the line number, to keyword matching
+    // we get buffers, hashmaps which contains the keyword as key,
+    // values include struct position id and boolean result yes/no
+    // do the strcmp with buffer and get the line number
+    // when you do strcmp, you immediately know the field id and required yes/no
+    // return line number, field id
+    //
+    // now parser will take the line numbers to look for when encountered
+    // it will pass to the set field which takes the input of the field id
+    // and assigns the value to the field in struct
+    let mut result: HashMap<usize, usize> = HashMap::new();
+    let mut line_number: usize = 1;
+    let mut line_start: usize = 0;
+    let mut colon_index: Option<usize> = None;
+    let mut buffer_counter = 0;
+    while buffer_counter < buffer.len() {
+        let byte = buffer[buffer_counter];
+        if byte == b':' && colon_index.is_none() {
+            colon_index = Some(buffer_counter);
+        }
+        if byte == b'\n' {
+            if let Some(colon_pos) = colon_index {
+                let key_bytes = &buffer[line_start..colon_pos];
+
+                if let Ok(key) = std::str::from_utf8(key_bytes) {
+                    if let Some((field_id, enabled)) = config.get(key) {
+                        if *enabled {
+                            result.insert(line_number, field_id.clone());
+                        }
+                    }
+                }
+            }
+            line_number = line_number.saturating_add(1);
+            line_start = buffer_counter + 1;
+            colon_index = None;
+        }
+        buffer_counter += 1;
+    }
+    if !config.is_empty() && line_start < buffer.len() {
+        if let Some(colon_pos) = colon_index {
+            let key_bytes = &buffer[line_start..colon_pos];
+            if let Ok(key) = std::str::from_utf8(key_bytes) {
+                if let Some((field_id, enabled)) = config.get(key) {
+                    if *enabled {
+                        result.insert(line_number, field_id.clone());
+                    }
+                }
+            }
+        }
+    }
+    result
 }

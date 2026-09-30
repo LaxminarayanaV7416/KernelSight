@@ -9,7 +9,8 @@ pub mod common {
 pub mod cgroupfs {}
 pub mod procfs {
     pub mod pidfs {}
-    // pub mod loadavg;
+    pub mod loadavg;
+    pub mod meminfo;
 }
 pub mod sysfs {
     pub mod diskstats;

@@ -8,11 +8,12 @@ pub struct ProcFileReader<const BUFFER_ARRAY_SIZE: usize, T> {
     pub buffer_len: usize,               // length of the buffer we read every time into
     pub buffer_counter: usize,           // for keeping track of buffer read for each parsing
     pub is_cachable: bool,               // if its cachable, we dont read the file every time
+    pub is_root: bool,                   // if its root, we read the file every time
     pub parsed_values: Option<T>,
 }
 
 impl<const BUFFER_ARRAY_SIZE: usize, T> ProcFileReader<BUFFER_ARRAY_SIZE, T> {
-    pub fn new(path: &str, is_cachable: bool) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &str, is_cachable: bool, is_root: bool) -> Result<Self, Box<dyn Error>> {
         let proc_file = File::open(path)?;
         Ok(Self {
             proc_file,
@@ -20,6 +21,7 @@ impl<const BUFFER_ARRAY_SIZE: usize, T> ProcFileReader<BUFFER_ARRAY_SIZE, T> {
             buffer_len: 0,
             buffer_counter: 0,
             is_cachable,
+            is_root,
             parsed_values: None,
         })
     }

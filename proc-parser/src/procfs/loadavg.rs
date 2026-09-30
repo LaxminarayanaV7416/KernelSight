@@ -1,9 +1,9 @@
+use crate::common::config::ProcLoadAvgConfig;
 use crate::common::file_reader::ProcFileReader;
-use crate::common::kernel_types::{UNSIGNED_INT, UNSIGNED_LONG};
-use crate::common::parser_utils::{CharacterType, parse_u64_swar};
-use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
+use crate::common::parser_utils::parse_decimal_f64;
+use crate::common::parser_utils::parse_u64_swar;
+use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use std::collections::HashMap;
-use std::fs::read_dir;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,55 +32,120 @@ Field 5 - int32
     The Process ID (PID) of the most recently allocated process or thread on the system.
  */
 
-#[derive(Debug)]
-struct ProcLoadAvgFields<'a> {
-    pub load_avg_1m: (u8, &'a [u8], f64),
-    pub load_avg_5m: (u8, &'a [u8], f64),
-    pub load_avg_15m: (u8, &'a [u8], f64),
-    pub num_runnable: (u8, &'a [u8], u64),
-    pub num_total: (u8, &'a [u8], u64),
-    pub last_pid: (u8, &'a [u8], u64),
+pub struct ProcFSLoadAvgReader {
+    reader: ProcFileReader<512, ()>,
+    values: ProcLoadAvgFields,
 }
 
-impl<'a> ProcLoadAvgFields<'a> {
-    pub fn new(upates: Vec<usize, usize, usize>, buffer: &'a [u8]) -> Self {
-        // start with empty slices.
-        Self {
-            load_avg_1m: upates[0] as f64,
-            load_avg_5m: upates[1] as f64,
-            load_avg_15m: upates[2] as f64,
-            num_runnable: 0,
-            num_total: 0,
-            last_pid: 0,
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ProcLoadAvgFields {
+    pub load_avg_1m: f64,
+    pub load_avg_5m: f64,
+    pub load_avg_15m: f64,
+    pub num_runnable: u64,
+    pub num_total: u64,
+    pub last_pid: u64,
+}
+
+impl ProcFSLoadAvgReader {
+    pub fn new(
+        path: &str,
+        is_cachable: bool,
+        is_root: bool,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
+            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            values: ProcLoadAvgFields::default(),
+        })
+    }
+
+    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) {
+        self.reader.read();
+        self.parse_buffer(&field_filter);
+    }
+
+    pub fn values(&self) -> &ProcLoadAvgFields {
+        &self.values
+    }
+
+    fn set_field(&mut self, field: usize, start: usize, end: usize) {
+        let bytes = &self.reader.buffer[start..end];
+        if field >= 4 {
+            let value = parse_u64_swar(bytes).unwrap_or(0);
+            match field {
+                4 => self.values.num_runnable = value,
+                5 => self.values.num_total = value,
+                6 => self.values.last_pid = value,
+                _ => {}
+            }
+        } else {
+            let value = parse_decimal_f64(bytes).unwrap_or(0.0);
+            match field {
+                1 => self.values.load_avg_1m = value,
+                2 => self.values.load_avg_5m = value,
+                3 => self.values.load_avg_15m = value,
+                _ => {}
+            }
         }
     }
 
-    pub fn parse_as_human_readable(&mut self, field_ids: &[u8]) {
-        for &field_id in field_ids {
-            match field_id {
-                0 => self.load_avg_1m = 10,
-                _ => {}
+    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+        let mut field = 0usize;
+        let mut start: Option<usize> = None;
+
+        for i in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[i];
+
+            if byte == b' ' || byte == b'\n' || byte == b'\0' || byte == b'/' {
+                if let Some(s) = start.take() {
+                    field += 1;
+                    if field_filter.get(&field).copied().unwrap_or(false) {
+                        self.set_field(field, s, i);
+                    }
+                }
+            } else if start.is_none() {
+                start = Some(i);
+            }
+        }
+
+        if let Some(s) = start {
+            field += 1;
+            if field_filter.get(&field).copied().unwrap_or(false) {
+                self.set_field(field, s, self.reader.buffer_len);
             }
         }
     }
 }
 
-pub type ProcFileLoadAvg = ProcFileReader<32, ProcLoadAvgFields<'static>>;
-
-impl ProcFileLoadAvg {
-    pub fn parse(
-        &mut self,
-        character_type_map: &mut HashMap<usize, CharacterType>,
-    ) -> ProcLoadAvgFields<'_> {
-    }
-}
-
-pub fn parse_procfs_loadavg(signal_hook: Arc<AtomicBool>) -> JoinHandle<()> {
+pub fn parse_procfs_loadavg(
+    signal_hook: Arc<AtomicBool>,
+    monitoring_heartbeat: u64,
+    is_cachable: bool,
+    is_root: bool,
+) -> JoinHandle<()> {
+    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("loadavg");
+    let load_avg_temp_reader =
+        ProcFSLoadAvgReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
+    let mut load_avg_reader = match load_avg_temp_reader {
+        Ok(reader) => Box::new(reader),
+        Err(e) => panic!("Failed to create loadavg reader: {}", e),
+    };
+    let filter_map = HashMap::from([
+        (1, true),
+        (2, true),
+        (3, true),
+        (4, true),
+        (5, true),
+        (6, true),
+    ]);
     let thread_handle = thread::spawn(move || {
-        loop {
-            while !signal_hook.load(Ordering::Relaxed) {}
-            println!("Killed LoadAvg thread!!");
+        while !signal_hook.load(Ordering::Relaxed) {
+            load_avg_reader.read_and_parse(&filter_map);
+            println!("Parsed: {:?}", load_avg_reader.values());
+            println!("=====================================");
+            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
         }
+        println!("Killed LoadAvg thread!!");
     });
     thread_handle
 }

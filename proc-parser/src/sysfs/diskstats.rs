@@ -104,9 +104,13 @@ pub struct DiskStatsValues {
 }
 
 impl DiskStatsReader {
-    pub fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        path: &str,
+        is_cachable: bool,
+        is_root: bool,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, false)?,
+            reader: ProcFileReader::new(path, is_cachable, is_root)?,
             values: DiskStatsValues::default(),
         })
     }
@@ -145,7 +149,7 @@ impl DiskStatsReader {
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
-        let value = parse_u64_swar(bytes).unwrap_or_default();
+        let value = parse_u64_swar(bytes).unwrap_or(0);
 
         match field {
             1 => self.values.reads_completed = value,
@@ -176,7 +180,12 @@ impl DiskStatsReader {
 
 // this function parses the diskstats files from each block device including zram
 // its thread so it runs in parallel with other parsers
-pub fn parse_diskstats(signal_hook: Arc<AtomicBool>, monitoring_heartbeat: u64) -> JoinHandle<()> {
+pub fn parse_diskstats(
+    signal_hook: Arc<AtomicBool>,
+    monitoring_heartbeat: u64,
+    is_cachable: bool,
+    is_root: bool,
+) -> JoinHandle<()> {
     let sys_block_path = Path::new(SYS_FS_ROOT_PATH).join("block");
     let mut diskstats_paths = Vec::new();
     for entry in read_dir(&sys_block_path).into_iter().flatten().flatten() {
@@ -186,7 +195,7 @@ pub fn parse_diskstats(signal_hook: Arc<AtomicBool>, monitoring_heartbeat: u64) 
     }
     let mut diskstats = Vec::new();
     for path in diskstats_paths {
-        let diskstat = DiskStatsReader::new(&path.to_str().unwrap());
+        let diskstat = DiskStatsReader::new(&path.to_str().unwrap(), is_cachable, is_root);
         match diskstat {
             Ok(diskstat) => diskstats.push(diskstat),
             Err(_) => {
@@ -197,33 +206,32 @@ pub fn parse_diskstats(signal_hook: Arc<AtomicBool>, monitoring_heartbeat: u64) 
             }
         }
     }
-
+    // TODO: Hook the config path here
+    let filter_map = HashMap::from([
+        (1, true),
+        (2, true),
+        (3, true),
+        (4, true),
+        (5, true),
+        (6, true),
+        (7, true),
+        (8, true),
+        (9, true),
+        (10, true),
+        (11, true),
+        (12, true),
+        (13, true),
+        (14, true),
+        (15, true),
+        (16, true),
+        (17, true),
+    ]);
     let threads_info = thread::spawn(move || {
         while !signal_hook.load(Ordering::Relaxed) {
             for diskstat in diskstats.iter_mut() {
                 if signal_hook.load(Ordering::Relaxed) {
                     break;
                 }
-                // TODO: Hook the config path here
-                let filter_map = HashMap::from([
-                    (1, true),
-                    (2, true),
-                    (3, true),
-                    (4, true),
-                    (5, true),
-                    (6, true),
-                    (7, true),
-                    (8, true),
-                    (9, true),
-                    (10, true),
-                    (11, true),
-                    (12, true),
-                    (13, true),
-                    (14, true),
-                    (15, true),
-                    (16, true),
-                    (17, true),
-                ]);
                 diskstat.read_and_parse(&filter_map);
                 println!("Parsed: {:?}", diskstat.values());
                 println!("=====================================");
