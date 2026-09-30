@@ -1,8 +1,8 @@
-use crate::common::config::ProcMemInfoConfig;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::UNSIGNED_LONG;
 use crate::common::parser_utils::{line_tracker, parse_u64_swar};
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
+use crate::configs::procfs_meminfo_config::ProcMemInfoConfig;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

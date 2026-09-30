@@ -6,6 +6,11 @@ pub mod common {
     pub mod parser_utils;
     pub mod procfs_constants;
 }
+pub mod configs {
+    pub mod procfs_loadavg_config;
+    pub mod procfs_meminfo_config;
+    pub mod sysfs_diskstats_config;
+}
 pub mod cgroupfs {}
 pub mod procfs {
     pub mod pidfs {}

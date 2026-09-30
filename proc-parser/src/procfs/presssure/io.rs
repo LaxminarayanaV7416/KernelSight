@@ -1,8 +1,8 @@
+use crate::common::config::ProcLoadAvgConfig;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_decimal_f64;
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

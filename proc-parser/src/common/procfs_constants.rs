@@ -24,14 +24,14 @@ pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 
 pub const RequiredForParserProcFiles: &[&str; 9] = &[
     "diskstats", // done, Got this from /sys/block/<device>/stat (no sudo required)
-    "interrupts",
-    "loadavg", // done, working on this from /proc/loadavg (no sudo required) parsing float is pending
+    "interrupts", // not too much important, lets see later on
+    "loadavg", // done, working on this from /proc/loadavg (no sudo required)
     "meminfo", // done, working on this from /proc/meminfo (no sudo required)
-    "schedstat",
-    "softirqs",
-    "stat",
-    "uptime",
-    "vmstat",
+    "schedstat", // currently working on this from /proc/schedstat (no sudo required)
+    "softirqs", // currently working on this from /proc/softirqs (no sudo required)
+    "stat", // currently working on this from /proc/stat (no sudo required)
+    "uptime", // currently working on this from /proc/uptime (no sudo required)
+    "vmstat", // currently working on this from /proc/vmstat (no sudo required)
 ];
 
 pub const NotRequiredForParserProcFiles: &[&str; 36] = &[
