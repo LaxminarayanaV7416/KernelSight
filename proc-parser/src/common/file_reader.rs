@@ -45,7 +45,7 @@ impl<const BUFFER_ARRAY_SIZE: usize, T> ProcFileReader<BUFFER_ARRAY_SIZE, T> {
         }
     }
 
-    pub fn parse_bytes(&mut self) -> String {
+    pub fn parse_bytes_to_string(&mut self) -> String {
         // let result: String = String::from_utf8(self.buffer.clone()).unwrap_or_default();
         let result = String::from_utf8(self.buffer.to_vec()).unwrap_or_default();
         result

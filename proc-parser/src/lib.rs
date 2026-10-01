@@ -13,7 +13,16 @@ pub mod configs {
 }
 pub mod cgroupfs {}
 pub mod procfs {
-    pub mod pidfs {}
+    pub mod pidfs {
+        pub mod cgroup;
+    }
+    pub mod pressure {
+        pub mod cpu;
+        pub mod io;
+        pub mod irq;
+        pub mod memory;
+        mod pressure_util;
+    }
     pub mod loadavg;
     pub mod meminfo;
 }

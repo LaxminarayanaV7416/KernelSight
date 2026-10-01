@@ -136,15 +136,15 @@ pub const PROC_VMSTAT_FILE_SLUG: &str = "vmstat";
 // =================================================
 
 pub const RequiredForParserPIDFiles: &[&str; 9] = &[
-    "cmdline",
-    "comm",
-    "cgroup",
-    "io",
-    "schedstat",
-    "smaps_rollup",
-    "stat",
-    "statm",
-    "status",
+    "cmdline", // no sudo required
+    "comm", // no sudo required
+    "cgroup", // no sudo required
+    "io", // sudo required
+    "schedstat", // no sudo required
+    "smaps_rollup", // sudo required
+    "stat", // no sudo required
+    "statm", // no sudo required
+    "status", // no sudo required
 ];
 
 pub const NotRequiredForParserPIDFiles: &[&str; 35] = &[
