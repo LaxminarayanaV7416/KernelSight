@@ -14,7 +14,8 @@ pub mod configs {
 pub mod cgroupfs {}
 pub mod procfs {
     pub mod pidfs {
-        pub mod cgroup;
+        pub mod cachable_reads;
+        pub mod schedstat;
     }
     pub mod pressure {
         pub mod cpu;

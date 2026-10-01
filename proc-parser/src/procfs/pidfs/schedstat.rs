@@ -11,43 +11,26 @@ use std::thread;
 use std::thread::JoinHandle;
 
 /*
-Field Number
-Field 1 - Float
-    1-Minute Load Average
-    The average number of scheduling entities (processes/threads) that were either executable (State R)
-    or blocked waiting for disk I/O (State D) over the last minute.
-Field 2 - Float
-    5-Minute Load Average
-    The same workload metric averaged over the last 5 minutes.
-Field 3 - Float
-    15-Minute Load Average
-    The same workload metric averaged over the last 15 minutes.
-Field 4 - int32/int32
-    Runnable / Total Entities
-    Consists of two numbers separated by a slash (/):
-    Numerator: The number of kernel scheduling entities currently executable and waiting to run.
-    Denominator: The total number of kernel scheduling entities that currently exist on the system.
-Field 5 - int32
-    Last Created PID
-    The Process ID (PID) of the most recently allocated process or thread on the system.
+schedstats also adds a new /proc/<pid>/schedstat file to include some of the same information on a per-process level.
+There are three fields in this file correlating for that process to:
+- time spent on the cpu (in nanoseconds)
+- time spent waiting on a runqueue (in nanoseconds)
+- # of timeslices run on this cpu
  */
 
-pub struct ProcFSLoadAvgReader {
-    reader: ProcFileReader<512, ()>,
-    values: ProcLoadAvgFields,
+pub struct ProcFSPIDSchedStatReader {
+    reader: ProcFileReader<64, ()>,
+    values: ProcPIDSchedStatFields,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ProcLoadAvgFields {
-    pub load_avg_1m: f64,
-    pub load_avg_5m: f64,
-    pub load_avg_15m: f64,
-    pub num_runnable: u64,
-    pub num_total: u64,
-    pub last_pid: u64,
+pub struct ProcPIDSchedStatFields {
+    pub time_on_cpu: u64,
+    pub time_waiting: u64,
+    pub timeslices_run_count: u64,
 }
 
-impl ProcFSLoadAvgReader {
+impl ProcFSPIDSchedStatReader {
     pub fn new(
         path: &str,
         is_cachable: bool,
@@ -55,7 +38,7 @@ impl ProcFSLoadAvgReader {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
-            values: ProcLoadAvgFields::default(),
+            values: ProcPIDSchedStatFields::default(),
         })
     }
 
@@ -67,28 +50,18 @@ impl ProcFSLoadAvgReader {
         read_status
     }
 
-    pub fn values(&self) -> &ProcLoadAvgFields {
+    pub fn values(&self) -> &ProcPIDSchedStatFields {
         &self.values
     }
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
-        if field >= 4 {
-            let value = parse_u64_swar(bytes).unwrap_or(0);
-            match field {
-                4 => self.values.num_runnable = value,
-                5 => self.values.num_total = value,
-                6 => self.values.last_pid = value,
-                _ => {}
-            }
-        } else {
-            let value = parse_decimal_f64(bytes).unwrap_or(0.0);
-            match field {
-                1 => self.values.load_avg_1m = value,
-                2 => self.values.load_avg_5m = value,
-                3 => self.values.load_avg_15m = value,
-                _ => {}
-            }
+        let value = parse_u64_swar(bytes).unwrap_or(0);
+        match field {
+            1 => self.values.time_on_cpu = value,
+            2 => self.values.time_waiting = value,
+            3 => self.values.timeslices_run_count = value,
+            _ => {}
         }
     }
 
@@ -99,7 +72,7 @@ impl ProcFSLoadAvgReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b' ' || byte == b'\n' || byte == b'\0' || byte == b'/' {
+            if byte == b' ' || byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {
@@ -120,27 +93,23 @@ impl ProcFSLoadAvgReader {
     }
 }
 
-pub fn parse_procfs_loadavg(
+pub fn parse_procfs_pid_schedstat(
     signal_hook: Arc<AtomicBool>,
     monitoring_heartbeat: u64,
     is_cachable: bool,
     is_root: bool,
+    pid: usize,
 ) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("loadavg");
+    let load_avg_path = Path::new(PROC_FS_ROOT_PATH)
+        .join(pid.to_string())
+        .join("schedstat");
     let load_avg_temp_reader =
-        ProcFSLoadAvgReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
+        ProcFSPIDSchedStatReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
     let mut load_avg_reader = match load_avg_temp_reader {
         Ok(reader) => Box::new(reader),
         Err(e) => panic!("Failed to create loadavg reader: {}", e),
     };
-    let filter_map = HashMap::from([
-        (1, true),
-        (2, true),
-        (3, true),
-        (4, true),
-        (5, true),
-        (6, true),
-    ]);
+    let filter_map = HashMap::from([(1, true), (2, true), (3, true)]);
     let thread_handle = thread::spawn(move || {
         while !signal_hook.load(Ordering::Relaxed) {
             let read_status = load_avg_reader.read_and_parse(&filter_map);

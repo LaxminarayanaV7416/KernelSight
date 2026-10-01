@@ -6,17 +6,17 @@ use std::collections::HashMap;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct ProcPidfsSchedstatConfig {
-    pub sum_exec_runtime: bool,
-    pub run_delay: bool,
-    pub pcount: bool,
+    pub time_on_cpu: bool,
+    pub time_waiting: bool,
+    pub timeslices_run_count: bool,
 }
 
 impl ProcPidfsSchedstatConfig {
     pub fn get_hashmap(&self) -> HashMap<usize, bool> {
         HashMap::from([
-            (1, self.sum_exec_runtime),
-            (2, self.run_delay),
-            (3, self.pcount),
+            (1, self.time_on_cpu),
+            (2, self.time_waiting),
+            (3, self.timeslices_run_count),
         ])
     }
 }
