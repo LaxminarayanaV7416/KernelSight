@@ -115,9 +115,12 @@ impl DiskStatsReader {
         })
     }
 
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) {
-        self.reader.read();
-        self.parse_buffer(&field_filter);
+    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            self.parse_buffer(&field_filter);
+        }
+        read_status
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
@@ -232,7 +235,11 @@ pub fn parse_diskstats(
                 if signal_hook.load(Ordering::Relaxed) {
                     break;
                 }
-                diskstat.read_and_parse(&filter_map);
+                let read_status = diskstat.read_and_parse(&filter_map);
+                if !read_status {
+                    println!("Failed to read diskstats, ProcFS File closed!");
+                    break;
+                }
                 println!("Parsed: {:?}", diskstat.values());
                 println!("=====================================");
             }

@@ -385,9 +385,12 @@ impl ProcFSMemInfoReader {
         })
     }
 
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
-        self.reader.read();
-        self.parse_buffer(&field_filter);
+    pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            self.parse_buffer(&field_filter);
+        }
+        read_status
     }
 
     pub fn values(&self) -> &ProcMemInfoFields {
@@ -647,10 +650,15 @@ pub fn parse_procfs_meminfo(
     ]);
     let thread_handle = thread::spawn(move || {
         while !signal_hook.load(Ordering::Relaxed) {
-            load_avg_reader.read_and_parse(&filter_map);
-            println!("Parsed: {:?}", load_avg_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
+            let read_status = load_avg_reader.read_and_parse(&filter_map);
+            if read_status {
+                println!("Parsed: {:?}", load_avg_reader.values());
+                println!("=====================================");
+                thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
+            } else {
+                println!("Failed to read meminfo, ProcFS File closed!");
+                break;
+            }
         }
     });
     println!("Killed LoadAvg thread!!");

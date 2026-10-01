@@ -59,9 +59,12 @@ impl ProcFSLoadAvgReader {
         })
     }
 
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) {
-        self.reader.read();
-        self.parse_buffer(&field_filter);
+    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            self.parse_buffer(&field_filter);
+        }
+        read_status
     }
 
     pub fn values(&self) -> &ProcLoadAvgFields {
@@ -140,7 +143,11 @@ pub fn parse_procfs_loadavg(
     ]);
     let thread_handle = thread::spawn(move || {
         while !signal_hook.load(Ordering::Relaxed) {
-            load_avg_reader.read_and_parse(&filter_map);
+            let read_status = load_avg_reader.read_and_parse(&filter_map);
+            if !read_status {
+                println!("Failed to read loadavg, ProcFS File closed!");
+                break;
+            }
             println!("Parsed: {:?}", load_avg_reader.values());
             println!("=====================================");
             thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
