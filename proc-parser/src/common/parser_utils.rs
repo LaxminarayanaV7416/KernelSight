@@ -74,6 +74,39 @@ pub fn parse_u64_swar(bytes: &[u8]) -> Option<u64> {
 }
 
 #[inline(always)]
+pub fn parse_i64_swar(bytes: &[u8]) -> Option<i64> {
+    if bytes.is_empty() {
+        return None;
+    }
+    if bytes[0] == b'-' {
+        let unsigned = parse_u64_swar(&bytes[1..])?;
+
+        if unsigned == (i64::MAX as u64) + 1 {
+            Some(i64::MIN)
+        } else if unsigned <= i64::MAX as u64 {
+            Some(-1 *(unsigned as i64))
+        } else {
+            None
+        }
+    } else if bytes[0] == b'+' {
+        let unsigned = parse_u64_swar(&bytes[1..])?;
+        if unsigned <= i64::MAX as u64 {
+            Some(unsigned as i64)
+        } else {
+            None
+        }
+    } else {
+        let unsigned = parse_u64_swar(bytes)?;
+        if unsigned <= i64::MAX as u64 {
+            Some(unsigned as i64)
+        } else {
+            None
+        }
+    }
+}
+
+
+#[inline(always)]
 pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
     if bytes.is_empty() {
         return None;
@@ -107,6 +140,20 @@ pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
         }
     }
     Some(integer_part as f64 + fractional_part as f64 / fractional_divisor)
+}
+
+pub fn parse_string(buffer: &[u8]) -> Option<String> {
+    let mut result = String::new();
+    match str::from_utf8(buffer) {
+        Ok(s) => result.push_str(s),
+        Err(_) => return None,
+    }
+    Some(result)
+}
+
+pub fn parse_char(buffer: &u8) -> Option<char> {
+    let result = char::from(*buffer);
+    Some(result)
 }
 
 pub fn line_tracker(buffer: &[u8], config: &HashMap<&str, (usize, bool)>) -> HashMap<usize, usize> {

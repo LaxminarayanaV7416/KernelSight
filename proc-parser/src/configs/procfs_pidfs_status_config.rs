@@ -5,7 +5,7 @@ use std::collections::HashMap;
 // its from the /proc/<PID>/status
 
 #[derive(Debug, Default, Deserialize)]
-pub struct ProcLoadAvgConfig {
+pub struct ProcPIDStatusConfig {
     pub name: bool,
     pub umask: bool,
     pub state: bool,
@@ -69,7 +69,7 @@ pub struct ProcLoadAvgConfig {
     pub x86_thread_features_locked: bool,
 }
 
-impl ProcLoadAvgConfig {
+impl ProcPIDStatusConfig {
     pub fn get_hashmap(&self) -> HashMap<usize, bool> {
         HashMap::from([
             (1, self.name),
