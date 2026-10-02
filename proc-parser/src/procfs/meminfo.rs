@@ -1,6 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::UNSIGNED_LONG;
-use crate::common::parser_utils::{CharacterType, line_tracker, parse_u64_swar};
+use crate::common::parser_utils::{line_tracker, parse_u64_swar};
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::procfs_meminfo_config::ProcMemInfoConfig;
 use std::collections::HashMap;
@@ -404,7 +404,7 @@ impl ProcFSMemInfoReader {
         let mut digit_end: usize = 0;
         for (i, &byte) in bytes.iter().enumerate() {
             if !seen_colon {
-                if byte == CharacterType::Colon as u8 {
+                if byte == b':' {
                     seen_colon = true;
                 }
                 continue;
@@ -526,7 +526,7 @@ impl ProcFSMemInfoReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == CharacterType::NewLine as u8 || byte == CharacterType::EndOfFile as u8 {
+            if byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     parser_line_number += 1;
                     // now get the field number from the line number

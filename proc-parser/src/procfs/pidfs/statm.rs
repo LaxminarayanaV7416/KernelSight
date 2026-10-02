@@ -1,5 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::CharacterType;
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
@@ -82,22 +81,22 @@ impl ProcFSPIDStatmReader {
             2 => self.values.resident = value,
             3 => self.values.shared = value,
             4 => self.values.text = value,
-            5 => self.values.data = value,
-            6 => self.values.lib = value,
+            5 => self.values.lib = value,
+            6 => self.values.data = value,
             7 => self.values.dirty = value,
             _ => {}
         }
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+        if field_filter.is_empty() {
+            return;
+        }
         let mut field = 0usize;
         let mut start: Option<usize> = None;
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
-            if byte == CharacterType::Space as u8
-                || byte == CharacterType::NewLine as u8
-                || byte == CharacterType::EndOfFile as u8
-            {
+            if byte == b' ' || byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {
