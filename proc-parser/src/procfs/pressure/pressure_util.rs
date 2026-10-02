@@ -1,4 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
+use crate::common::parser_utils::CharacterType;
 use crate::common::parser_utils::parse_decimal_f64;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
@@ -52,7 +53,6 @@ impl ProcProcessGeneralReader {
             2 => self.values.some_avg_60 = parse_decimal_f64(bytes).unwrap_or(0.0),
             3 => self.values.some_avg_300 = parse_decimal_f64(bytes).unwrap_or(0.0),
             4 => self.values.some_total = parse_u64_swar(bytes).unwrap_or(0),
-
             5 => self.values.full_avg_10 = parse_decimal_f64(bytes).unwrap_or(0.0),
             6 => self.values.full_avg_60 = parse_decimal_f64(bytes).unwrap_or(0.0),
             7 => self.values.full_avg_300 = parse_decimal_f64(bytes).unwrap_or(0.0),

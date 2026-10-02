@@ -112,206 +112,56 @@ impl ProcFSPIDStatReader {
             }
         } else {
             match field {
-                1 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.pid = value;
-                }
-                4 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.ppid = value;
-                }
-                5 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.pgrp = value;
-                }
-                6 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.session = value;
-                }
-                7 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.tty_nr = value;
-                }
-                8 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.tpgid = value;
-                }
-                9 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.flags = value;
-                }
-                10 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.minflt = value;
-                }
-                11 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.cminflt = value;
-                }
-                12 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.majflt = value;
-                }
-                13 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.cmajflt = value;
-                }
-                14 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.utime = value;
-                }
-                15 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.stime = value;
-                }
-                16 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.cutime = value;
-                }
-                17 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.cstime = value;
-                }
-                18 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.priority = value;
-                }
-                19 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.nice = value;
-                }
-                20 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.num_threads = value;
-                }
-                21 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.itrealvalue = value;
-                }
-                22 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.starttime = value;
-                }
-                23 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.vsize = value;
-                }
-                24 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.rss = value;
-                }
-                25 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.rsslim = value;
-                }
-                26 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.startcode = value;
-                }
-                27 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.endcode = value;
-                }
-                28 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.startstack = value;
-                }
-                29 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.kstkesp = value;
-                }
-                30 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.kstkeip = value;
-                }
-                31 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.signal = value;
-                }
-                32 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.blocked = value;
-                }
-                33 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.sigignore = value;
-                }
-                34 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.sigcatch = value;
-                }
-                35 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.wchan = value;
-                }
-                36 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.nswap = value;
-                }
-                37 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.cnswap = value;
-                }
-                38 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.exit_signal = value;
-                }
-                39 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.processor = value;
-                }
-                40 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.rt_priority = value;
-                }
-                41 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.policy = value;
-                }
-                42 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.delayacct_blkio_ticks = value;
-                }
-                43 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.guest_time = value;
-                }
-                44 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.cguest_time = value;
-                }
-                45 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.start_data = value;
-                }
-                46 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.end_data = value;
-                }
-                47 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.start_brk = value;
-                }
-                48 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.arg_start = value;
-                }
-                49 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.arg_end = value;
-                }
-                50 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.env_start = value;
-                }
-                51 => {
-                    let value = parse_u64_swar(bytes).unwrap_or(0);
-                    self.values.env_end = value;
-                }
-                52 => {
-                    let value = parse_i64_swar(bytes).unwrap_or(0);
-                    self.values.exit_code = value;
-                }
+                1 => self.values.pid = parse_i64_swar(bytes).unwrap_or(0),
+                4 => self.values.ppid = parse_i64_swar(bytes).unwrap_or(0),
+                5 => self.values.pgrp = parse_i64_swar(bytes).unwrap_or(0),
+                6 => self.values.session = parse_i64_swar(bytes).unwrap_or(0),
+                7 => self.values.tty_nr = parse_i64_swar(bytes).unwrap_or(0),
+                8 => self.values.tpgid = parse_i64_swar(bytes).unwrap_or(0),
+                9 => self.values.flags = parse_u64_swar(bytes).unwrap_or(0),
+                10 => self.values.minflt = parse_u64_swar(bytes).unwrap_or(0),
+                11 => self.values.cminflt = parse_u64_swar(bytes).unwrap_or(0),
+                12 => self.values.majflt = parse_u64_swar(bytes).unwrap_or(0),
+                13 => self.values.cmajflt = parse_u64_swar(bytes).unwrap_or(0),
+                14 => self.values.utime = parse_u64_swar(bytes).unwrap_or(0),
+                15 => self.values.stime = parse_u64_swar(bytes).unwrap_or(0),
+                16 => self.values.cutime = parse_i64_swar(bytes).unwrap_or(0),
+                17 => self.values.cstime = parse_i64_swar(bytes).unwrap_or(0),
+                18 => self.values.priority = parse_i64_swar(bytes).unwrap_or(0),
+                19 => self.values.nice = parse_i64_swar(bytes).unwrap_or(0),
+                20 => self.values.num_threads = parse_i64_swar(bytes).unwrap_or(0),
+                21 => self.values.itrealvalue = parse_i64_swar(bytes).unwrap_or(0),
+                22 => self.values.starttime = parse_u64_swar(bytes).unwrap_or(0),
+                23 => self.values.vsize = parse_u64_swar(bytes).unwrap_or(0),
+                24 => self.values.rss = parse_i64_swar(bytes).unwrap_or(0),
+                25 => self.values.rsslim = parse_u64_swar(bytes).unwrap_or(0),
+                26 => self.values.startcode = parse_u64_swar(bytes).unwrap_or(0),
+                27 => self.values.endcode = parse_u64_swar(bytes).unwrap_or(0),
+                28 => self.values.startstack = parse_u64_swar(bytes).unwrap_or(0),
+                29 => self.values.kstkesp = parse_u64_swar(bytes).unwrap_or(0),
+                30 => self.values.kstkeip = parse_u64_swar(bytes).unwrap_or(0),
+                31 => self.values.signal = parse_u64_swar(bytes).unwrap_or(0),
+                32 => self.values.blocked = parse_u64_swar(bytes).unwrap_or(0),
+                33 => self.values.sigignore = parse_u64_swar(bytes).unwrap_or(0),
+                34 => self.values.sigcatch = parse_u64_swar(bytes).unwrap_or(0),
+                35 => self.values.wchan = parse_u64_swar(bytes).unwrap_or(0),
+                36 => self.values.nswap = parse_u64_swar(bytes).unwrap_or(0),
+                37 => self.values.cnswap = parse_u64_swar(bytes).unwrap_or(0),
+                38 => self.values.exit_signal = parse_i64_swar(bytes).unwrap_or(0),
+                39 => self.values.processor = parse_i64_swar(bytes).unwrap_or(0),
+                40 => self.values.rt_priority = parse_u64_swar(bytes).unwrap_or(0),
+                41 => self.values.policy = parse_u64_swar(bytes).unwrap_or(0),
+                42 => self.values.delayacct_blkio_ticks = parse_u64_swar(bytes).unwrap_or(0),
+                43 => self.values.guest_time = parse_u64_swar(bytes).unwrap_or(0),
+                44 => self.values.cguest_time = parse_i64_swar(bytes).unwrap_or(0),
+                45 => self.values.start_data = parse_u64_swar(bytes).unwrap_or(0),
+                46 => self.values.end_data = parse_u64_swar(bytes).unwrap_or(0),
+                47 => self.values.start_brk = parse_u64_swar(bytes).unwrap_or(0),
+                48 => self.values.arg_start = parse_u64_swar(bytes).unwrap_or(0),
+                49 => self.values.arg_end = parse_u64_swar(bytes).unwrap_or(0),
+                50 => self.values.env_start = parse_u64_swar(bytes).unwrap_or(0),
+                51 => self.values.env_end = parse_u64_swar(bytes).unwrap_or(0),
+                52 => self.values.exit_code = parse_i64_swar(bytes).unwrap_or(0),
                 _ => {}
             }
         }

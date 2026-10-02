@@ -18,6 +18,7 @@ pub mod procfs {
         pub mod cachable_reads;
         pub mod schedstat;
         pub mod stat;
+        pub mod statm;
     }
     pub mod pressure {
         pub mod cpu;

@@ -1,19 +1,21 @@
 use std::collections::HashMap;
 
+#[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CharacterType {
-    NewLine,
-    Space,
-    Tab,
-    ParanthesisStart,
-    ParanthesisEnd,
-    SquareParanthesisStart,
-    SquareParanthesisEnd,
-    Colon,
-    Comma,
-    SemiColon,
-    EndOfFile,
-    Value,
+    NewLine = b'\n',
+    Space = b' ',
+    Tab = b'\t',
+    ParanthesisStart = b'(',
+    ParanthesisEnd = b')',
+    SquareParanthesisStart = b'[',
+    SquareParanthesisEnd = b']',
+    Colon = b':',
+    Comma = b',',
+    SemiColon = b';',
+    EndOfFile = b'\0',
+    Slash = b'/',
+    Equal = b'=',
 }
 
 #[inline(always)]
@@ -84,7 +86,7 @@ pub fn parse_i64_swar(bytes: &[u8]) -> Option<i64> {
         if unsigned == (i64::MAX as u64) + 1 {
             Some(i64::MIN)
         } else if unsigned <= i64::MAX as u64 {
-            Some(-1 *(unsigned as i64))
+            Some(-1 * (unsigned as i64))
         } else {
             None
         }
@@ -104,7 +106,6 @@ pub fn parse_i64_swar(bytes: &[u8]) -> Option<i64> {
         }
     }
 }
-
 
 #[inline(always)]
 pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {

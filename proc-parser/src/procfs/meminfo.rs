@@ -1,6 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::UNSIGNED_LONG;
-use crate::common::parser_utils::{line_tracker, parse_u64_swar};
+use crate::common::parser_utils::{CharacterType, line_tracker, parse_u64_swar};
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::procfs_meminfo_config::ProcMemInfoConfig;
 use std::collections::HashMap;
@@ -399,20 +399,16 @@ impl ProcFSMemInfoReader {
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
-
         let mut seen_colon = false;
         let mut digit_start: Option<usize> = None;
         let mut digit_end: usize = 0;
-
         for (i, &byte) in bytes.iter().enumerate() {
             if !seen_colon {
-                if byte == b':' {
+                if byte == CharacterType::Colon as u8 {
                     seen_colon = true;
                 }
-
                 continue;
             }
-
             match byte {
                 b'0'..=b'9' => {
                     if digit_start.is_none() {
@@ -428,11 +424,9 @@ impl ProcFSMemInfoReader {
                 }
             }
         }
-
         let Some(digit_start) = digit_start else {
             return;
         };
-
         let value_bytes = &bytes[digit_start..digit_end];
         let value = parse_u64_swar(value_bytes).unwrap_or_default();
 
@@ -532,7 +526,7 @@ impl ProcFSMemInfoReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b'\n' || byte == b'\0' {
+            if byte == CharacterType::NewLine as u8 || byte == CharacterType::EndOfFile as u8 {
                 if let Some(s) = start.take() {
                     parser_line_number += 1;
                     // now get the field number from the line number
@@ -552,7 +546,6 @@ impl ProcFSMemInfoReader {
                 start = Some(i);
             }
         }
-
         if let Some(s) = start {
             parser_line_number += 1;
             let field_number = self
