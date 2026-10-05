@@ -10,6 +10,7 @@ pub mod configs {
     pub mod procfs_loadavg_config;
     pub mod procfs_meminfo_config;
     pub mod procfs_pidfs_stat_config;
+    pub mod procfs_pidfs_status_config;
     pub mod sysfs_diskstats_config;
 }
 pub mod cgroupfs {}
@@ -19,6 +20,7 @@ pub mod procfs {
         pub mod schedstat;
         pub mod stat;
         pub mod statm;
+        pub mod status;
     }
     pub mod pressure {
         pub mod cpu;

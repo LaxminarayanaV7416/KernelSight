@@ -1,2 +1,2 @@
-pub type UNSIGNED_LONG = u64;
-pub type UNSIGNED_INT = u32;
+pub type UnsignedLong = u64;
+pub type UnsignedInt = u32;

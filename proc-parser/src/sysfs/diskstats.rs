@@ -1,5 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::kernel_types::{UNSIGNED_INT, UNSIGNED_LONG};
+use crate::common::kernel_types::{UnsignedInt, UnsignedLong};
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
 use crate::configs::sysfs_diskstats_config::DiskStatsConfig;
@@ -84,23 +84,23 @@ pub struct DiskStatsReader {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DiskStatsValues {
-    pub reads_completed: UNSIGNED_LONG,
-    pub reads_merged: UNSIGNED_LONG,
-    pub sectors_read: UNSIGNED_LONG,
-    pub time_spent_reading: UNSIGNED_INT,
-    pub writes_completed: UNSIGNED_LONG,
-    pub writes_merged: UNSIGNED_LONG,
-    pub sectors_written: UNSIGNED_LONG,
-    pub time_spent_writing: UNSIGNED_INT,
-    pub ios_in_progress: UNSIGNED_INT,
-    pub time_spent_doing_io: UNSIGNED_INT,
-    pub weighted_time_spent_doing_io: UNSIGNED_INT,
-    pub discards_completed: UNSIGNED_LONG,
-    pub discards_merged: UNSIGNED_LONG,
-    pub sectors_discarded: UNSIGNED_LONG,
-    pub time_spent_discarding: UNSIGNED_INT,
-    pub flushes_completed: UNSIGNED_LONG,
-    pub time_spent_flushing: UNSIGNED_INT,
+    pub reads_completed: UnsignedLong,
+    pub reads_merged: UnsignedLong,
+    pub sectors_read: UnsignedLong,
+    pub time_spent_reading: UnsignedInt,
+    pub writes_completed: UnsignedLong,
+    pub writes_merged: UnsignedLong,
+    pub sectors_written: UnsignedLong,
+    pub time_spent_writing: UnsignedInt,
+    pub ios_in_progress: UnsignedInt,
+    pub time_spent_doing_io: UnsignedInt,
+    pub weighted_time_spent_doing_io: UnsignedInt,
+    pub discards_completed: UnsignedLong,
+    pub discards_merged: UnsignedLong,
+    pub sectors_discarded: UnsignedLong,
+    pub time_spent_discarding: UnsignedInt,
+    pub flushes_completed: UnsignedLong,
+    pub time_spent_flushing: UnsignedInt,
 }
 
 impl DiskStatsReader {
@@ -158,20 +158,20 @@ impl DiskStatsReader {
             1 => self.values.reads_completed = value,
             2 => self.values.reads_merged = value,
             3 => self.values.sectors_read = value,
-            4 => self.values.time_spent_reading = value as UNSIGNED_INT,
+            4 => self.values.time_spent_reading = value as UnsignedInt,
             5 => self.values.writes_completed = value,
             6 => self.values.writes_merged = value,
             7 => self.values.sectors_written = value,
-            8 => self.values.time_spent_writing = value as UNSIGNED_INT,
-            9 => self.values.ios_in_progress = value as UNSIGNED_INT,
-            10 => self.values.time_spent_doing_io = value as UNSIGNED_INT,
-            11 => self.values.weighted_time_spent_doing_io = value as UNSIGNED_INT,
+            8 => self.values.time_spent_writing = value as UnsignedInt,
+            9 => self.values.ios_in_progress = value as UnsignedInt,
+            10 => self.values.time_spent_doing_io = value as UnsignedInt,
+            11 => self.values.weighted_time_spent_doing_io = value as UnsignedInt,
             12 => self.values.discards_completed = value,
             13 => self.values.discards_merged = value,
             14 => self.values.sectors_discarded = value,
-            15 => self.values.time_spent_discarding = value as UNSIGNED_INT,
+            15 => self.values.time_spent_discarding = value as UnsignedInt,
             16 => self.values.flushes_completed = value,
-            17 => self.values.time_spent_flushing = value as UNSIGNED_INT,
+            17 => self.values.time_spent_flushing = value as UnsignedInt,
             _ => {}
         }
     }

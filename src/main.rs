@@ -7,7 +7,8 @@ use libc::{self};
 // use proc_parser::sysfs::diskstats::parse_diskstats;
 // use proc_parser::common::file_reader::ProcFileReader;
 // use proc_parser::procfs::pidfs::stat::parse_procfs_pid_stat;
-use proc_parser::procfs::pidfs::statm::parse_procfs_pid_statm;
+// use proc_parser::procfs::pidfs::statm::parse_procfs_pid_statm;
+use proc_parser::procfs::pidfs::status::parse_procfs_pid_status;
 // use proc_parser::procfs::pressure::cpu::parse_procfs_pressure_cpu;
 // use proc_parser::procfs::pressure::io::parse_procfs_pressure_io;
 // use proc_parser::procfs::pressure::irq::parse_procfs_pressure_irq;
@@ -27,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let target_path = "/proc/1267200/stat";
     // let mut file_reader = ProcFileReader::<256, ()>::new(target_path, false, is_root)?;
     let signal_hook = signal_handler();
-    let thread_handle = parse_procfs_pid_statm(signal_hook.clone(), 1000, false, is_root, 1122847);
+    let thread_handle = parse_procfs_pid_status(signal_hook.clone(), 1000, false, is_root, 1122847);
     // let pressure_cpu_thread = parse_procfs_pressure_cpu(signal_hook.clone(), 1000, false, is_root);
     // let pressure_io_thread = parse_procfs_pressure_io(signal_hook.clone(), 1000, false, is_root);
     // let pressure_irq_thread = parse_procfs_pressure_irq(signal_hook.clone(), 1000, false, is_root);
