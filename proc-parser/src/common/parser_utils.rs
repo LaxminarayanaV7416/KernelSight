@@ -145,10 +145,18 @@ pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
 
 pub fn parse_string(buffer: &[u8]) -> Option<String> {
     let mut result = String::new();
-    match str::from_utf8(buffer) {
-        Ok(s) => result.push_str(s),
-        Err(_) => return None,
+    if buffer[0]==b'\t' {
+        match str::from_utf8(&buffer[1..]) {
+            Ok(s) => result.push_str(s),
+            Err(_) => return None,
+        }
+    } else {
+        match str::from_utf8(buffer) {
+            Ok(s) => result.push_str(s),
+            Err(_) => return None,
+        }
     }
+    // result = result.trim_matches('\t').to_string();
     Some(result)
 }
 

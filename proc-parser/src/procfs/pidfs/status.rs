@@ -264,7 +264,7 @@ use std::thread::JoinHandle;
 */
 
 pub struct ProcFSPIDStatusReader {
-    reader: ProcFileReader<512, ()>,
+    reader: ProcFileReader<4096, ()>,
     values: ProcPIDStatusFields,
     lines_map: Option<HashMap<usize, usize>>,
     string_field_ids: [usize; 22],
@@ -365,6 +365,7 @@ impl ProcFSPIDStatusReader {
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
+        let bytes_length = bytes.len();
         let mut seen_colon = false;
         let mut digit_start: Option<usize> = None;
         let mut digit_end: usize = 0;
@@ -378,8 +379,9 @@ impl ProcFSPIDStatusReader {
                 }
                 if digit_start.is_none() {
                     digit_start = Some(i);
+                    digit_end = bytes_length;
+                    break;
                 }
-                digit_end = i + 1;
             }
         } else {
             for (i, &byte) in bytes.iter().enumerate() {
@@ -390,6 +392,7 @@ impl ProcFSPIDStatusReader {
                     continue;
                 }
                 match byte {
+                    // TODO because of this the string parsing is not working
                     b'0'..=b'9' => {
                         if digit_start.is_none() {
                             digit_start = Some(i);
