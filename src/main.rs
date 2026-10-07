@@ -16,7 +16,11 @@ use libc::{self};
 // use proc_parser::common::procfs_constants::PROC_FS_ROOT_PATH;
 // use proc_parser::cgroupfs::v2::cgroup_events::parse_cgroup_v2_cgroup_events;
 // use proc_parser::cgroupfs::v2::cgroup_procs::parse_cgroup_v2_cgroup_procs;
-use proc_parser::cgroupfs::v2::cpu_stat::parse_cgroup_v2_cgroup_cpu_stat;
+// use proc_parser::cgroupfs::v2::cpu_stat::parse_cgroup_v2_cgroup_cpu_stat;
+// use proc_parser::cgroupfs::v2::cpu_pressure::parse_cgroup_v2_cpu_pressure;
+// use proc_parser::cgroupfs::v2::memory_current::parse_cgroup_v2_memory_current;
+// use proc_parser::cgroupfs::v2::memory_peak::parse_cgroup_v2_memory_peak;
+use proc_parser::cgroupfs::v2::memory_events::parse_cgroup_v2_memory_events;
 use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use std::error::Error;
@@ -36,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let target_path = "/proc/1267200/stat";
     // let mut file_reader = ProcFileReader::<256, ()>::new(target_path, false, is_root)?;
     let signal_hook = signal_handler();
-    let thread_handle = parse_cgroup_v2_cgroup_cpu_stat(
+    let thread_handle = parse_cgroup_v2_memory_events(
         signal_hook.clone(),
         1000,
         false,
