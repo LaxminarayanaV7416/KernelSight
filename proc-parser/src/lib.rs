@@ -19,9 +19,14 @@ pub mod cgroupfs {
         pub mod cgroup_procs;
         pub mod cpu_pressure;
         pub mod cpu_stat;
+        pub mod io_pressure;
         pub mod memory_current;
-        pub mod memory_peak;
         pub mod memory_events;
+        pub mod memory_peak;
+        pub mod memory_stat;
+        pub mod pids_current;
+        pub mod pids_events;
+        pub mod pids_peak;
     }
     pub mod v1 {}
 }

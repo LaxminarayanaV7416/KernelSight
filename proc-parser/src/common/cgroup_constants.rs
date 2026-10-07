@@ -13,10 +13,10 @@ pub const RequiredForParserCgroupFiles: &[&str; 14] = &[
     "cpu.pressure",
     "memory.current",
     "memory.peak",
-    "memory.stat",
+    "memory.stat", // work later
     "memory.events",
     "memory.pressure",
-    "io.stat",
+    "io.stat", // work later
     "io.pressure",
     "pids.current",
     "pids.peak",
