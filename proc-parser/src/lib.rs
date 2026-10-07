@@ -13,7 +13,14 @@ pub mod configs {
     pub mod procfs_pidfs_status_config;
     pub mod sysfs_diskstats_config;
 }
-pub mod cgroupfs {}
+pub mod cgroupfs {
+    pub mod v2 {
+        pub mod cgroup_events;
+        pub mod cgroup_procs;
+        pub mod cpu_stat;
+    }
+    pub mod v1 {}
+}
 pub mod procfs {
     pub mod pidfs {
         pub mod cachable_reads;

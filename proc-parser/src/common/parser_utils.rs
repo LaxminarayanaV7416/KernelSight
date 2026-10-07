@@ -1,4 +1,6 @@
+use super::cgroup_constants::CGROUP_V2_MOUNT_PATH;
 use std::collections::HashMap;
+use std::process::Command;
 
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -76,6 +78,16 @@ pub fn parse_u64_swar(bytes: &[u8]) -> Option<u64> {
 }
 
 #[inline(always)]
+pub fn parse_bool(bytes: &u8) -> Option<bool> {
+    if *bytes == b'0' {
+        return Some(false);
+    } else if *bytes == b'1' {
+        return Some(true);
+    }
+    None
+}
+
+#[inline(always)]
 pub fn parse_i64_swar(bytes: &[u8]) -> Option<i64> {
     if bytes.is_empty() {
         return None;
@@ -145,7 +157,7 @@ pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
 
 pub fn parse_string(buffer: &[u8]) -> Option<String> {
     let mut result = String::new();
-    if buffer[0]==b'\t' {
+    if buffer[0] == b'\t' {
         match str::from_utf8(&buffer[1..]) {
             Ok(s) => result.push_str(s),
             Err(_) => return None,
@@ -165,7 +177,11 @@ pub fn parse_char(buffer: &u8) -> Option<char> {
     Some(result)
 }
 
-pub fn line_tracker(buffer: &[u8], config: &HashMap<&str, (usize, bool)>) -> HashMap<usize, usize> {
+pub fn line_tracker(
+    buffer: &[u8],
+    config: &HashMap<&str, (usize, bool)>,
+    seperator: u8,
+) -> HashMap<usize, usize> {
     // this will give me the line number I need to look for
     // Logic of finding the line number, to keyword matching
     // we get buffers, hashmaps which contains the keyword as key,
@@ -184,7 +200,7 @@ pub fn line_tracker(buffer: &[u8], config: &HashMap<&str, (usize, bool)>) -> Has
     let mut buffer_counter = 0;
     while buffer_counter < buffer.len() {
         let byte = buffer[buffer_counter];
-        if byte == b':' && colon_index.is_none() {
+        if byte == seperator && colon_index.is_none() {
             colon_index = Some(buffer_counter);
         }
         if byte == b'\n' {
@@ -218,4 +234,25 @@ pub fn line_tracker(buffer: &[u8], config: &HashMap<&str, (usize, bool)>) -> Has
         }
     }
     result
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CgroupType {
+    V1,
+    V2,
+}
+
+pub fn cgroup_classifier() -> CgroupType {
+    let output = Command::new("stat")
+        .arg("-fc")
+        .arg("%T")
+        .arg(CGROUP_V2_MOUNT_PATH)
+        .output()
+        .expect("failed to execute cgroup command");
+    let result = String::from_utf8_lossy(&output.stdout).to_string();
+    if result == "cgroup2fs\n" {
+        CgroupType::V2
+    } else {
+        CgroupType::V1
+    }
 }

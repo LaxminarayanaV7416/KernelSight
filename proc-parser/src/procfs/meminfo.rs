@@ -518,7 +518,7 @@ impl ProcFSMemInfoReader {
         if self.lines_map.is_none() {
             self.lines_map = Some(line_tracker(
                 &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
+                field_filter, b':'
             ));
         }
         let mut parser_line_number = 0usize;

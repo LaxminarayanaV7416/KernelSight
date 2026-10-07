@@ -8,12 +8,17 @@ use libc::{self};
 // use proc_parser::common::file_reader::ProcFileReader;
 // use proc_parser::procfs::pidfs::stat::parse_procfs_pid_stat;
 // use proc_parser::procfs::pidfs::statm::parse_procfs_pid_statm;
-use proc_parser::procfs::pidfs::status::parse_procfs_pid_status;
+// use proc_parser::procfs::pidfs::status::parse_procfs_pid_status;
 // use proc_parser::procfs::pressure::cpu::parse_procfs_pressure_cpu;
 // use proc_parser::procfs::pressure::io::parse_procfs_pressure_io;
 // use proc_parser::procfs::pressure::irq::parse_procfs_pressure_irq;
 // use proc_parser::procfs::pressure::memory::parse_procfs_pressure_memory;
 // use proc_parser::common::procfs_constants::PROC_FS_ROOT_PATH;
+// use proc_parser::cgroupfs::v2::cgroup_events::parse_cgroup_v2_cgroup_events;
+// use proc_parser::cgroupfs::v2::cgroup_procs::parse_cgroup_v2_cgroup_procs;
+use proc_parser::cgroupfs::v2::cpu_stat::parse_cgroup_v2_cgroup_cpu_stat;
+use proc_parser::common::parser_utils::CgroupType;
+use proc_parser::common::parser_utils::cgroup_classifier;
 use std::error::Error;
 // use std::fs;
 // use std::path::Path;
@@ -25,10 +30,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let is_root = unsafe { libc::getuid() == 0 };
     println!("is_root: {}", is_root);
 
+    let cgroup_type: CgroupType = cgroup_classifier();
+    println!("cgroup_type: {:?}", cgroup_type);
+
     // let target_path = "/proc/1267200/stat";
     // let mut file_reader = ProcFileReader::<256, ()>::new(target_path, false, is_root)?;
     let signal_hook = signal_handler();
-    let thread_handle = parse_procfs_pid_status(signal_hook.clone(), 1000, false, is_root, 1122847);
+    let thread_handle = parse_cgroup_v2_cgroup_cpu_stat(
+        signal_hook.clone(),
+        1000,
+        false,
+        is_root,
+        "docker-a7c6777640a24c37f2f2fe1a894556fbb2c876379122ec2eca6f6f9fc4c4a8a1.scope",
+    );
     // let pressure_cpu_thread = parse_procfs_pressure_cpu(signal_hook.clone(), 1000, false, is_root);
     // let pressure_io_thread = parse_procfs_pressure_io(signal_hook.clone(), 1000, false, is_root);
     // let pressure_irq_thread = parse_procfs_pressure_irq(signal_hook.clone(), 1000, false, is_root);
