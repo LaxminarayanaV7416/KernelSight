@@ -242,6 +242,9 @@ pub enum CgroupType {
     V2,
 }
 
+// TODO: Work around here, you can figure out from the mount path
+// that is /proc/mounts search for cgroup2 line it will help
+// you determine if the cgroup version is V1 or V2
 pub fn cgroup_classifier() -> CgroupType {
     let output = Command::new("stat")
         .arg("-fc")
@@ -254,5 +257,70 @@ pub fn cgroup_classifier() -> CgroupType {
         CgroupType::V2
     } else {
         CgroupType::V1
+    }
+}
+
+pub fn stat_line_tracker(buffer: &[u8]) -> HashMap<usize, usize> {
+    let mut result = HashMap::new();
+
+    let mut line_number = 1usize;
+    let mut line_start = 0usize;
+
+    for index in 0..buffer.len() {
+        if buffer[index] == b'\n' || buffer[index] == b'\0' {
+            if line_start < index {
+                let line = &buffer[line_start..index];
+
+                if let Some(field_id) = stat_line_field_id(line) {
+                    result.insert(line_number, field_id);
+                }
+            }
+
+            line_number += 1;
+            line_start = index + 1;
+        }
+    }
+
+    // Handle a final line when the buffer does not end in '\n' or '\0'.
+    if line_start < buffer.len() {
+        let line = &buffer[line_start..];
+
+        if let Some(field_id) = stat_line_field_id(line) {
+            result.insert(line_number, field_id);
+        }
+    }
+
+    result
+}
+
+#[inline]
+fn stat_line_field_id(line: &[u8]) -> Option<usize> {
+    // Extract only the first token from the line.
+    let key_end = line
+        .iter()
+        .position(|byte| byte.is_ascii_whitespace())
+        .unwrap_or(line.len());
+
+    let key = &line[..key_end];
+
+    match key {
+        b"cpu" => Some(1),
+
+        // "cpu0", "cpu1", ..., but not unrelated words beginning with "cpu".
+        key if key.starts_with(b"cpu")
+            && key.len() > 3
+            && key[3..].iter().all(u8::is_ascii_digit) =>
+        {
+            Some(2)
+        }
+
+        b"intr" => Some(3),
+        b"ctxt" => Some(4),
+        b"btime" => Some(5),
+        b"processes" => Some(6),
+        b"procs_running" => Some(7),
+        b"procs_blocked" => Some(8),
+        b"softirq" => Some(9),
+        _ => None,
     }
 }

@@ -5,6 +5,7 @@ pub mod common {
     pub mod kernel_types;
     pub mod parser_utils;
     pub mod procfs_constants;
+    mod system_call_utils;
 }
 pub mod configs {
     pub mod procfs_loadavg_config;
@@ -47,6 +48,7 @@ pub mod procfs {
     }
     pub mod loadavg;
     pub mod meminfo;
+    pub mod stat;
 }
 pub mod sysfs {
     pub mod diskstats;

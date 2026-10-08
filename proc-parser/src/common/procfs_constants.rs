@@ -1,3 +1,15 @@
+use super::parser_utils::CgroupType;
+use super::parser_utils::cgroup_classifier;
+use super::system_call_utils::available_logical_cpus;
+use std::sync::LazyLock;
+
+// run once and determine during runtime
+// you have access these using dereferncing as of C style
+// eg., *AVAILABLE_LOGICAL_CPUS gives you the number of available logical CPUs
+pub static AVAILABLE_LOGICAL_CPUS: LazyLock<usize> =
+    LazyLock::new(|| available_logical_cpus().unwrap_or(1));
+pub static CGROUP_TYPE: LazyLock<CgroupType> = LazyLock::new(|| cgroup_classifier());
+
 pub const PROC_FS_ROOT_PATH: &str = "/proc";
 pub const SYS_FS_ROOT_PATH: &str = "/sys";
 
@@ -23,15 +35,15 @@ pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 // =================================================
 
 pub const RequiredForParserProcFiles: &[&str; 9] = &[
-    "diskstats", // done, Got this from /sys/block/<device>/stat (no sudo required)
+    "diskstats",  // done, Got this from /sys/block/<device>/stat (no sudo required)
     "interrupts", // not too much important, lets see later on
-    "loadavg", // done, working on this from /proc/loadavg (no sudo required)
-    "meminfo", // done, working on this from /proc/meminfo (no sudo required)
-    "schedstat", // currently working on this from /proc/schedstat (no sudo required)
-    "softirqs", // currently working on this from /proc/softirqs (no sudo required)
-    "stat", // currently working on this from /proc/stat (no sudo required)
-    "uptime", // currently working on this from /proc/uptime (no sudo required)
-    "vmstat", // currently working on this from /proc/vmstat (no sudo required)
+    "loadavg",    // done, working on this from /proc/loadavg (no sudo required)
+    "meminfo",    // done, working on this from /proc/meminfo (no sudo required)
+    "schedstat",  // currently working on this from /proc/schedstat (no sudo required)
+    "softirqs",   // currently working on this from /proc/softirqs (no sudo required)
+    "stat",       // currently working on this from /proc/stat (no sudo required)
+    "uptime",     // currently working on this from /proc/uptime (no sudo required)
+    "vmstat",     // currently working on this from /proc/vmstat (no sudo required)
 ];
 
 pub const NotRequiredForParserProcFiles: &[&str; 36] = &[
@@ -136,15 +148,15 @@ pub const PROC_VMSTAT_FILE_SLUG: &str = "vmstat";
 // =================================================
 
 pub const RequiredForParserPIDFiles: &[&str; 9] = &[
-    "cmdline", // no sudo required
-    "comm", // no sudo required
-    "cgroup", // no sudo required
-    "io", // sudo required
-    "schedstat", // no sudo required
+    "cmdline",      // no sudo required
+    "comm",         // no sudo required
+    "cgroup",       // no sudo required
+    "io",           // sudo required
+    "schedstat",    // no sudo required
     "smaps_rollup", // sudo required
-    "stat", // no sudo required
-    "statm", // no sudo required
-    "status", // no sudo required
+    "stat",         // no sudo required
+    "statm",        // no sudo required
+    "status",       // no sudo required
 ];
 
 pub const NotRequiredForParserPIDFiles: &[&str; 35] = &[

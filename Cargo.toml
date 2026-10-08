@@ -10,6 +10,7 @@ edition = "2024"
 [workspace.dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 basic-toml = { version = "0.1.10", features = [] }
+libc = { version = "0.2.189", features = [] }
 
 [build]
 rustflags = ["-C", "target-cpu=native"]
@@ -26,5 +27,5 @@ opt-level = 3
 proc-parser = { path = "./proc-parser" }
 serde = { workspace = true }
 basic-toml = { workspace = true }
-libc = "0.2.189"
+libc = { workspace = true }
 signal-hook = "0.4.4"

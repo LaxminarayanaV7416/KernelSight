@@ -7,3 +7,4 @@ edition = "2024"
 memchr = "2.8.3"
 serde = { workspace = true }
 basic-toml = { workspace = true }
+libc = { workspace = true }
