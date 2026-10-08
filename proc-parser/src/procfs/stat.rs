@@ -1,7 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_u64_swar;
-use crate::common::parser_utils::stat_line_tracker;
-use crate::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use std::collections::HashMap;
 use std::path::Path;
@@ -155,10 +153,26 @@ pub struct ProcFSStatCPUFields {
     pub guest_nice: u64,
 }
 
+impl ProcFSStatCPUFields {
+    fn from_values(values: [u64; 10]) -> Self {
+        Self {
+            user: values[0],
+            nice: values[1],
+            system: values[2],
+            idle: values[3],
+            iowait: values[4],
+            irq: values[5],
+            softirq: values[6],
+            steal: values[7],
+            guest: values[8],
+            guest_nice: values[9],
+        }
+    }
+}
+
 pub struct ProcFSStatReader {
     reader: ProcFileReader<6144, ()>,
     values: ProcStatFields,
-    lines_map: Option<HashMap<usize, usize>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -183,7 +197,6 @@ impl ProcFSStatReader {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
             values: ProcStatFields::default(),
-            lines_map: None,
         })
     }
 
@@ -199,99 +212,109 @@ impl ProcFSStatReader {
         &self.values
     }
 
-    fn parse_cpus_line(buffer: &[u8]) -> ProcFSStatCPUFields {
-        let mut values = [0u64; 10];
-        let mut value_index = 0usize;
+    fn parse_stat_line(&mut self, start: usize, end: usize, field_filter: &HashMap<usize, bool>) {
+        if start >= end {
+            return;
+        }
 
         let mut token_start: Option<usize> = None;
         let mut token_number = 0usize;
 
-        for index in 0..=buffer.len() {
-            let is_delimiter = index == buffer.len()
-                || buffer[index] == b' '
-                || buffer[index] == b'\t'
-                || buffer[index] == b'\n'
-                || buffer[index] == b'\0';
+        let mut field = 0usize;
+        let mut is_cpu_line = false;
+        let mut cpu_values = [0u64; 10];
+        let mut cpu_value_index = 0usize;
+
+        // Used by intr, ctxt, btime, etc. Only their first numeric
+        // value is required.
+        let mut first_value: Option<u64> = None;
+
+        for index in start..=end {
+            let is_delimiter = index == end
+                || self.reader.buffer[index] == b' '
+                || self.reader.buffer[index] == b'\t'
+                || self.reader.buffer[index] == b'\n'
+                || self.reader.buffer[index] == b'\0';
 
             if is_delimiter {
-                if let Some(start) = token_start.take() {
-                    token_number += 1;
+                let Some(current_token_start) = token_start.take() else {
+                    continue;
+                };
 
-                    // Token 1 is "cpu", "cpu0", "cpu1", etc.
-                    if token_number > 1 && value_index < values.len() {
-                        values[value_index] =
-                            parse_u64_swar(&buffer[start..index]).unwrap_or_default();
+                token_number += 1;
+                let token = &self.reader.buffer[current_token_start..index];
 
-                        value_index += 1;
+                if token_number == 1 {
+                    field = match token {
+                        b"cpu" => {
+                            is_cpu_line = true;
+                            1
+                        }
+                        token
+                            if token.starts_with(b"cpu")
+                                && token.len() > 3
+                                && token[3..].iter().all(u8::is_ascii_digit) =>
+                        {
+                            is_cpu_line = true;
+                            2
+                        }
+                        b"intr" => 3,
+                        b"ctxt" => 4,
+                        b"btime" => 5,
+                        b"processes" => 6,
+                        b"procs_running" => 7,
+                        b"procs_blocked" => 8,
+                        b"softirq" => 9,
+                        _ => return,
+                    };
+
+                    // Skip parsing the rest of a disabled field.
+                    if !field_filter.get(&field).copied().unwrap_or(false) {
+                        return;
                     }
+
+                    continue;
+                }
+
+                if is_cpu_line {
+                    if cpu_value_index < cpu_values.len() {
+                        cpu_values[cpu_value_index] = parse_u64_swar(token).unwrap_or_default();
+
+                        cpu_value_index += 1;
+                    }
+
+                    // CPU lines contain at most ten values that we use.
+                    if cpu_value_index == cpu_values.len() {
+                        break;
+                    }
+                } else {
+                    // For intr, ctxt, btime, processes, procs_running,
+                    // procs_blocked, and softirq, only the first value
+                    // after the key is needed.
+                    first_value = Some(parse_u64_swar(token).unwrap_or_default());
+                    break;
                 }
             } else if token_start.is_none() {
                 token_start = Some(index);
             }
         }
-
-        ProcFSStatCPUFields {
-            user: values[0],
-            nice: values[1],
-            system: values[2],
-            idle: values[3],
-            iowait: values[4],
-            irq: values[5],
-            softirq: values[6],
-            steal: values[7],
-            guest: values[8],
-            guest_nice: values[9],
-        }
-    }
-
-    fn parse_remaining_fields(buffer: &[u8]) -> u64 {
-        let mut token_start: Option<usize> = None;
-        let mut token_number = 0usize;
-
-        for index in 0..=buffer.len() {
-            let is_delimiter = index == buffer.len()
-                || buffer[index] == b' '
-                || buffer[index] == b'\t'
-                || buffer[index] == b'\n'
-                || buffer[index] == b'\0';
-            if is_delimiter {
-                if let Some(start) = token_start.take() {
-                    token_number += 1;
-
-                    // Token 1 is the key, token 2 is the value we need.
-                    if token_number == 2 {
-                        return parse_u64_swar(&buffer[start..index]).unwrap_or_default();
-                    }
-                }
-            } else if token_start.is_none() {
-                token_start = Some(index);
-            }
-        }
-        0
-    }
-
-    fn set_field(&mut self, field: usize, line_number: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
 
         match field {
             1 => {
-                self.values.cpu = Self::parse_cpus_line(bytes);
+                self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
             }
             2 => {
-                // /proc/stat line 2 is cpu0, line 3 is cpu1, etc.
-                // let core_index = line_number.saturating_sub(2);
-
-                // if core_index < self.values.cpu_cores.len() {
-                self.values.cpu_cores.push(Self::parse_cpus_line(bytes));
-                // }
+                self.values
+                    .cpu_cores
+                    .push(ProcFSStatCPUFields::from_values(cpu_values));
             }
-            3 => self.values.intr = Self::parse_remaining_fields(bytes),
-            4 => self.values.ctxt = Self::parse_remaining_fields(bytes),
-            5 => self.values.btime = Self::parse_remaining_fields(bytes),
-            6 => self.values.processes = Self::parse_remaining_fields(bytes),
-            7 => self.values.processes_running = Self::parse_remaining_fields(bytes),
-            8 => self.values.processes_blocked = Self::parse_remaining_fields(bytes),
-            9 => self.values.softirq = Self::parse_remaining_fields(bytes),
+            3 => self.values.intr = first_value.unwrap_or_default(),
+            4 => self.values.ctxt = first_value.unwrap_or_default(),
+            5 => self.values.btime = first_value.unwrap_or_default(),
+            6 => self.values.processes = first_value.unwrap_or_default(),
+            7 => self.values.processes_running = first_value.unwrap_or_default(),
+            8 => self.values.processes_blocked = first_value.unwrap_or_default(),
+            9 => self.values.softirq = first_value.unwrap_or_default(),
             _ => {}
         }
     }
@@ -300,48 +323,28 @@ impl ProcFSStatReader {
         if field_filter.is_empty() {
             return;
         }
-        if self.lines_map.is_none() {
-            self.lines_map = Some(stat_line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-            ));
-        }
-        let mut line_number = 0usize;
+
+        // This Vec is reused between samples. Clear its length so CPU
+        // entries don't accumulate every time /proc/stat is read.
+        self.values.cpu_cores.clear();
+
         let mut line_start = 0usize;
+
         for index in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[index];
 
             if byte == b'\n' || byte == b'\0' {
-                line_number += 1;
-
                 if line_start < index {
-                    if let Some(field) = self
-                        .lines_map
-                        .as_ref()
-                        .and_then(|lines| lines.get(&line_number))
-                        .copied()
-                    {
-                        if field_filter.get(&field).copied().unwrap_or(false) {
-                            self.set_field(field, line_number, line_start, index);
-                        }
-                    }
+                    self.parse_stat_line(line_start, index, field_filter);
                 }
+
                 line_start = index + 1;
             }
         }
-        // Handle a final line when the buffer does not end with '\n'.
-        if line_start < self.reader.buffer_len {
-            line_number += 1;
 
-            if let Some(field) = self
-                .lines_map
-                .as_ref()
-                .and_then(|lines| lines.get(&line_number))
-                .copied()
-            {
-                if field_filter.get(&field).copied().unwrap_or(false) {
-                    self.set_field(field, line_number, line_start, self.reader.buffer_len);
-                }
-            }
+        // Handle a final line when the input does not end with '\n'.
+        if line_start < self.reader.buffer_len {
+            self.parse_stat_line(line_start, self.reader.buffer_len, field_filter);
         }
     }
 }
