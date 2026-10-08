@@ -50,6 +50,7 @@ pub mod procfs {
     pub mod meminfo;
     pub mod stat;
     pub mod uptime;
+    pub mod vmstat;
 }
 pub mod sysfs {
     pub mod diskstats;
