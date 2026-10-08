@@ -1,21 +1,467 @@
-[diskstats]
-read = true
+thread_pool_count = 10
 
-[[diskstats_fields]]
-reads_completed = true
-reads_merged = true
-sectors_read = true
-time_spent_reading = true
-writes_completed = true
-writes_merged = true
-sectors_written = true
-time_spent_writing = true
-io_in_progress = true
-time_spent_doing_io = true
-weighted_number_of_seconds_spent_doing_io = true
+# ------- /proc/vmstat -------------
+[procfs.vmstat]
+allow = true
+heart_beat = 100
+
+[procfs.vmstat.fields]
+nr_free_pages = true
+nr_free_pages_blocks = true
+nr_zone_inactive_anon = true
+nr_zone_active_anon = true
+nr_zone_inactive_file = true
+nr_zone_active_file = true
+nr_zone_unevictable = true
+nr_zone_write_pending = true
+nr_mlock = true
+nr_zspages = true
+nr_free_cma = true
+nr_unaccepted = true
+numa_hit = true
+numa_miss = true
+numa_foreign = true
+numa_interleave = true
+numa_local = true
+numa_other = true
+nr_inactive_anon = true
+nr_active_anon = true
+nr_inactive_file = true
+nr_active_file = true
+nr_unevictable = true
+nr_slab_reclaimable = true
+nr_slab_unreclaimable = true
+nr_isolated_anon = true
+nr_isolated_file = true
+workingset_nodes = true
+workingset_refault_anon = true
+workingset_refault_file = true
+workingset_activate_anon = true
+workingset_activate_file = true
+workingset_restore_anon = true
+workingset_restore_file = true
+workingset_nodereclaim = true
+nr_anon_pages = true
+nr_mapped = true
+nr_file_pages = true
+nr_dirty = true
+nr_writeback = true
+nr_shmem = true
+nr_shmem_hugepages = true
+nr_shmem_pmdmapped = true
+nr_file_hugepages = true
+nr_file_pmdmapped = true
+nr_anon_transparent_hugepages = true
+nr_vmscan_write = true
+nr_vmscan_immediate_reclaim = true
+nr_dirtied = true
+nr_written = true
+nr_throttled_written = true
+nr_kernel_misc_reclaimable = true
+nr_foll_pin_acquired = true
+nr_foll_pin_released = true
+nr_vmalloc = true
+nr_kernel_stack = true
+nr_page_table_pages = true
+nr_sec_page_table_pages = true
+nr_iommu_pages = true
+nr_swapcached = true
+pgpromote_success = true
+pgpromote_candidate = true
+pgpromote_candidate_nrl = true
+pgdemote_kswapd = true
+pgdemote_direct = true
+pgdemote_khugepaged = true
+pgdemote_proactive = true
+pgsteal_kswapd = true
+pgsteal_direct = true
+pgsteal_khugepaged = true
+pgsteal_proactive = true
+pgsteal_anon = true
+pgsteal_file = true
+pgscan_kswapd = true
+pgscan_direct = true
+pgscan_khugepaged = true
+pgscan_proactive = true
+pgscan_anon = true
+pgscan_file = true
+pgrefill = true
+nr_hugetlb = true
+nr_balloon_pages = true
+nr_kernel_file_pages = true
+nr_gpu_active = true
+nr_gpu_reclaim = true
+nr_dirty_threshold = true
+nr_dirty_background_threshold = true
+nr_memmap_pages = true
+nr_memmap_boot_pages = true
+pgpgin = true
+pgpgout = true
+pswpin = true
+pswpout = true
+pgalloc_dma = true
+pgalloc_dma32 = true
+pgalloc_normal = true
+pgalloc_movable = true
+pgalloc_device = true
+allocstall_dma = true
+allocstall_dma32 = true
+allocstall_normal = true
+allocstall_movable = true
+allocstall_device = true
+pgskip_dma = true
+pgskip_dma32 = true
+pgskip_normal = true
+pgskip_movable = true
+pgskip_device = true
+pgfree = true
+pgactivate = true
+pgdeactivate = true
+pglazyfree = true
+pgfault = true
+pgmajfault = true
+pglazyfreed = true
+pgreuse = true
+pgscan_direct_throttle = true
+zone_reclaim_success = true
+zone_reclaim_failed = true
+pginodesteal = true
+slabs_scanned = true
+kswapd_inodesteal = true
+kswapd_low_wmark_hit_quickly = true
+kswapd_high_wmark_hit_quickly = true
+pageoutrun = true
+pgrotated = true
+drop_pagecache = true
+drop_slab = true
+oom_kill = true
+numa_pte_updates = true
+numa_huge_pte_updates = true
+numa_hint_faults = true
+numa_hint_faults_local = true
+numa_pages_migrated = true
+pgmigrate_success = true
+pgmigrate_fail = true
+thp_migration_success = true
+thp_migration_fail = true
+thp_migration_split = true
+compact_migrate_scanned = true
+compact_free_scanned = true
+compact_isolated = true
+compact_stall = true
+compact_fail = true
+compact_success = true
+compact_daemon_wake = true
+compact_daemon_migrate_scanned = true
+compact_daemon_free_scanned = true
+htlb_buddy_alloc_success = true
+htlb_buddy_alloc_fail = true
+cma_alloc_success = true
+cma_alloc_fail = true
+unevictable_pgs_culled = true
+unevictable_pgs_scanned = true
+unevictable_pgs_rescued = true
+unevictable_pgs_mlocked = true
+unevictable_pgs_munlocked = true
+unevictable_pgs_cleared = true
+unevictable_pgs_stranded = true
+thp_fault_alloc = true
+thp_fault_fallback = true
+thp_fault_fallback_charge = true
+thp_collapse_alloc = true
+thp_collapse_alloc_failed = true
+thp_file_alloc = true
+thp_file_fallback = true
+thp_file_fallback_charge = true
+thp_file_mapped = true
+thp_split_page = true
+thp_split_page_failed = true
+thp_deferred_split_page = true
+thp_underused_split_page = true
+thp_split_pmd = true
+thp_scan_exceed_none_pte = true
+thp_scan_exceed_swap_pte = true
+thp_scan_exceed_share_pte = true
+thp_split_pud = true
+thp_zero_page_alloc = true
+thp_zero_page_alloc_failed = true
+thp_swpout = true
+thp_swpout_fallback = true
+balloon_inflate = true
+balloon_deflate = true
+balloon_migrate = true
+swap_ra = true
+swap_ra_hit = true
+swpin_zero = true
+swpout_zero = true
+ksm_swpin_copy = true
+cow_ksm = true
+zswpin = true
+zswpout = true
+zswpwb = true
+direct_map_level2_splits = true
+direct_map_level3_splits = true
+direct_map_level2_collapses = true
+direct_map_level3_collapses = true
+nr_unstable = true
+
+# ------- /proc/uptime -------------
+[procfs.uptime]
+allow = true
+heart_beat = 100
+
+[procfs.uptime.fields]
+suspended_time = true
+idle_time = true
+
+# ------- /proc/stat -------------
+[procfs.stat]
+allow = true
+heart_beat = 100
+
+[procfs.stat.fields]
+cpu = true
+cpu_cores = true
+intr = true
+ctxt = true
+btime = true
+processes = true
+processes_running = true
+processes_blocked = true
+softirq = true
+
+# ------- /proc/loadavg -------------
+[procfs.loadavg]
+allow = true
+heart_beat = 100
+
+[procfs.loadavg.fields]
+load_avg_1m = true
+load_avg_5m = true
+load_avg_15m = true
+num_runnable = true
+num_total = true
+last_pid = true
+
+# ------- /proc/meminfo -------------
+[procfs.meminfo]
+allow = true
+heart_beat = 100
+
+[procfs.meminfo.fields]
+MemTotal = true
+MemFree = true
+MemAvailable = true
+Buffers = true
+Cached = true
+SwapCached = true
+Active = true
+Inactive = true
+Active(anon) = true
+Inactive(anon) = true
+Active(file) = true
+Inactive(file) = true
+Unevictable = true
+Mlocked = true
+SwapTotal = true
+SwapFree = true
+Zswap = true
+Zswapped = true
+Dirty = true
+Writeback = true
+AnonPages = true
+Mapped = true
+Shmem = true
+KReclaimable = true
+Slab = true
+SReclaimable = true
+SUnreclaim = true
+KernelStack = true
+PageTables = true
+SecPageTables = true
+NFS_Unstable = true
+Bounce = true
+WritebackTmp = true
+CommitLimit = true
+Committed_AS = true
+VmallocTotal = true
+VmallocUsed = true
+VmallocChunk = true
+Percpu = true
+HardwareCorrupted = true
+AnonHugePages = true
+ShmemHugePages = true
+ShmemPmdMapped = true
+FileHugePages = true
+FilePmdMapped = true
+CmaTotal = true
+CmaFree = true
+Unaccepted = true
+Balloon = true
+GPUActive = true
+GPUReclaim = true
+HugePages_Total = true
+HugePages_Free = true
+HugePages_Rsvd = true
+HugePages_Surp = true
+Hugepagesize = true
+Hugetlb = true
+DirectMap4k = true
+DirectMap2M = true
+DirectMap1G = true
+
+# ------- /proc/diskstats -------------
+# But the below is taken by scrapping
+# ------- /sys/block/<device>/stat ---
+# still represents the same
+[procfs.diskstats]
+allow = true
+heart_beat = 100
+
+[procfs.diskstats.fields]
 discards_completed = true
 discards_merged = true
-sectors_discarded = true
-time_spent_discarding = true
 flushes_completed = true
+io_in_progress = true
+reads_completed = true
+reads_merged = true
+sectors_discarded = true
+sectors_read = true
+sectors_written = true
+time_spent_discarding = true
+time_spent_doing_io = true
 time_spent_flushing = true
+time_spent_reading = true
+time_spent_writing = true
+weighted_number_of_seconds_spent_doing_io = true
+writes_completed = true
+writes_merged = true
+
+# ------- /proc/pressure/io -------------
+[procfs.pressure.io]
+allow = true
+heart_beat = 100
+
+[procfs.pressure.io.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_30 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_30 = true
+full_total  = true
+
+# ------- /proc/pressure/cpu -------------
+[procfs.pressure.cpu]
+allow = true
+heart_beat = 100
+
+[procfs.pressure.cpu.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_30 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_30 = true
+full_total  = true
+
+# ------- /proc/pressure/memory -------------
+[procfs.pressure.memory]
+allow = true
+heart_beat = 100
+
+[procfs.pressure.memory.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_30 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_30 = true
+full_total  = true
+
+# ------- /proc/pressure/irq -------------
+[procfs.pressure.irq]
+allow = true
+heart_beat = 100
+
+[procfs.pressure.irq.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_30 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_30 = true
+full_total  = true
+
+# ------- /proc/<PID>/schedstat ---------
+[procfs.pid.schedstat]
+allow = true
+heart_beat = 100
+
+[procfs.pid.schedstat.fields]
+time_on_cpu = true
+time_waiting = true
+timeslices_run_count = true
+
+# -------- /proc/<PID>/stat ----------
+[procfs.pid.stat]
+allow = true
+heart_beat = 100
+
+[procfs.pid.stat.fields]
+pid = true
+comm = true
+state = true
+ppid = true
+pgrp = true
+session = true
+tty_nr = true
+tpgid = true
+flags = true
+minflt = true
+cminflt = true
+majflt = true
+cmajflt = true
+utime = true
+stime = true
+cutime = true
+cstime = true
+priority = true
+nice = true
+num_threads = true
+itrealvalue = true
+starttime = true
+vsize = true
+rss = true
+rsslim = true
+startcode = true
+endcode = true
+startstack = true
+kstkesp = true
+kstkeip = true
+signal = true
+blocked = true
+sigignore = true
+sigcatch = true
+wchan = true
+nswap = true
+cnswap = true
+exit_signal = true
+processor = true
+rt_priority = true
+policy = true
+delayacct_blkio_ticks = true
+guest_time = true
+cguest_time = true
+start_data = true
+end_data = true
+start_brk = true
+arg_start = true
+arg_end = true
+env_start = true
+env_end = true
+exit_code = true
