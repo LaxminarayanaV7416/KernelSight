@@ -32,22 +32,18 @@ Field 5 - int32
     The Process ID (PID) of the most recently allocated process or thread on the system.
  */
 
-pub struct ProcFSLoadAvgReader {
-    reader: ProcFileReader<512, ()>,
-    values: ProcLoadAvgFields,
+pub struct ProcFSUptimeReader {
+    reader: ProcFileReader<128, ()>,
+    values: ProcUptimeFields,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ProcLoadAvgFields {
-    pub load_avg_1m: f64,
-    pub load_avg_5m: f64,
-    pub load_avg_15m: f64,
-    pub num_runnable: u64,
-    pub num_total: u64,
-    pub last_pid: u64,
+pub struct ProcUptimeFields {
+    pub suspended_time: f64,
+    pub idle_time: f64,
 }
 
-impl ProcFSLoadAvgReader {
+impl ProcFSUptimeReader {
     pub fn new(
         path: &str,
         is_cachable: bool,
@@ -55,7 +51,7 @@ impl ProcFSLoadAvgReader {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
-            values: ProcLoadAvgFields::default(),
+            values: ProcUptimeFields::default(),
         })
     }
 
@@ -67,28 +63,17 @@ impl ProcFSLoadAvgReader {
         read_status
     }
 
-    pub fn values(&self) -> &ProcLoadAvgFields {
+    pub fn values(&self) -> &ProcUptimeFields {
         &self.values
     }
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
-        if field >= 4 {
-            let value = parse_u64_swar(bytes).unwrap_or(0);
-            match field {
-                4 => self.values.num_runnable = value,
-                5 => self.values.num_total = value,
-                6 => self.values.last_pid = value,
-                _ => {}
-            }
-        } else {
-            let value = parse_decimal_f64(bytes).unwrap_or(0.0);
-            match field {
-                1 => self.values.load_avg_1m = value,
-                2 => self.values.load_avg_5m = value,
-                3 => self.values.load_avg_15m = value,
-                _ => {}
-            }
+        let value = parse_decimal_f64(bytes).unwrap_or(0.0);
+        match field {
+            1 => self.values.suspended_time = value,
+            2 => self.values.idle_time = value,
+            _ => {}
         }
     }
 
@@ -99,7 +84,7 @@ impl ProcFSLoadAvgReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b' ' || byte == b'\n' || byte == b'\0' || byte == b'/' {
+            if byte == b' ' || byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {
@@ -120,27 +105,20 @@ impl ProcFSLoadAvgReader {
     }
 }
 
-pub fn parse_procfs_loadavg(
+pub fn parse_procfs_uptime(
     signal_hook: Arc<AtomicBool>,
     monitoring_heartbeat: u64,
     is_cachable: bool,
     is_root: bool,
 ) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("loadavg");
+    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("uptime");
     let load_avg_temp_reader =
-        ProcFSLoadAvgReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
+        ProcFSUptimeReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
     let mut load_avg_reader = match load_avg_temp_reader {
         Ok(reader) => Box::new(reader),
         Err(e) => panic!("Failed to create loadavg reader: {}", e),
     };
-    let filter_map = HashMap::from([
-        (1, true),
-        (2, true),
-        (3, true),
-        (4, true),
-        (5, true),
-        (6, true),
-    ]);
+    let filter_map = HashMap::from([(1, true), (2, true)]);
     let thread_handle = thread::spawn(move || {
         while !signal_hook.load(Ordering::Relaxed) {
             let read_status = load_avg_reader.read_and_parse(&filter_map);

@@ -6,7 +6,8 @@ use libc::{self};
 // use proc_parser::procfs::meminfo::parse_procfs_meminfo;
 // use proc_parser::sysfs::diskstats::parse_diskstats;
 use proc_parser::common::file_reader::ProcFileReader;
-use proc_parser::procfs::stat::parse_procfs_stat;
+// use proc_parser::procfs::stat::parse_procfs_stat;
+use proc_parser::procfs::uptime::parse_procfs_uptime;
 // use proc_parser::procfs::pidfs::stat::parse_procfs_pid_stat;
 // use proc_parser::procfs::pidfs::statm::parse_procfs_pid_statm;
 // use proc_parser::procfs::pidfs::status::parse_procfs_pid_status;
@@ -68,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     is_root,
     //     "docker-a7c6777640a24c37f2f2fe1a894556fbb2c876379122ec2eca6f6f9fc4c4a8a1.scope",
     // );
-    let thread_handle = parse_procfs_stat(signal_hook.clone(), 1000, false, is_root);
+    let thread_handle = parse_procfs_uptime(signal_hook.clone(), 1000, false, is_root);
     // let pressure_io_thread = parse_procfs_pressure_io(signal_hook.clone(), 1000, false, is_root);
     // let pressure_irq_thread = parse_procfs_pressure_irq(signal_hook.clone(), 1000, false, is_root);
     // let pressure_memory_thread =
