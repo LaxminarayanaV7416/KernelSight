@@ -483,7 +483,7 @@ impl ProcFSLoadAvgReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b'\n' || byte == b'\0' || byte == b'/' {
+            if byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {

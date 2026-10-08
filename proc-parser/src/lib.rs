@@ -55,3 +55,8 @@ pub mod procfs {
 pub mod sysfs {
     pub mod diskstats;
 }
+pub mod gpu {
+    pub mod nvidia {
+        pub mod metrics;
+    }
+}
