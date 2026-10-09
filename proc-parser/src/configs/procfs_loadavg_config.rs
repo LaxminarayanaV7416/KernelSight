@@ -1,3 +1,5 @@
+use super::master_config::ProcFSConfig;
+use super::master_config::ProcFSConfigTrait;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -5,7 +7,7 @@ use std::collections::HashMap;
 // its from the /proc/loadavg
 
 #[derive(Debug, Default, Deserialize)]
-pub struct ProcLoadAvgConfig {
+pub struct ProcLoadAvgConfigFields {
     pub load_avg_1m: bool,
     pub load_avg_5m: bool,
     pub load_avg_15m: bool,
@@ -14,15 +16,21 @@ pub struct ProcLoadAvgConfig {
     pub last_pid: bool,
 }
 
-impl ProcLoadAvgConfig {
-    pub fn get_hashmap(&self) -> HashMap<usize, bool> {
+pub type ProcLoadAvgConfig = ProcFSConfig<ProcLoadAvgConfigFields>;
+
+impl ProcFSConfigTrait for ProcLoadAvgConfig {
+    fn get_hashmap(&self) -> HashMap<usize, bool> {
         HashMap::from([
-            (1, self.load_avg_1m),
-            (2, self.load_avg_5m),
-            (3, self.load_avg_15m),
-            (4, self.num_runnable),
-            (5, self.num_total),
-            (6, self.last_pid),
+            (1, self.fields.load_avg_1m),
+            (2, self.fields.load_avg_5m),
+            (3, self.fields.load_avg_15m),
+            (4, self.fields.num_runnable),
+            (5, self.fields.num_total),
+            (6, self.fields.last_pid),
         ])
+    }
+
+    fn get_field_string_to_struct_ids(&self) -> HashMap<&str, (usize, bool)> {
+        HashMap::new()
     }
 }

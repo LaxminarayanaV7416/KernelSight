@@ -257,10 +257,10 @@ Cached = true
 SwapCached = true
 Active = true
 Inactive = true
-Active(anon) = true
-Inactive(anon) = true
-Active(file) = true
-Inactive(file) = true
+Active_anon = true
+Inactive_anon = true
+Active_file = true
+Inactive_file = true
 Unevictable = true
 Mlocked = true
 SwapTotal = true
@@ -319,23 +319,23 @@ allow = true
 heart_beat = 100
 
 [procfs.diskstats.fields]
-discards_completed = true
-discards_merged = true
-flushes_completed = true
-io_in_progress = true
 reads_completed = true
 reads_merged = true
-sectors_discarded = true
 sectors_read = true
-sectors_written = true
-time_spent_discarding = true
-time_spent_doing_io = true
-time_spent_flushing = true
 time_spent_reading = true
-time_spent_writing = true
-weighted_number_of_seconds_spent_doing_io = true
 writes_completed = true
 writes_merged = true
+sectors_written = true
+time_spent_writing = true
+ios_in_progress = true
+time_spent_doing_io = true
+weighted_time_spent_doing_io = true
+discards_completed = true
+discards_merged = true
+sectors_discarded = true
+time_spent_discarding = true
+flushes_completed = true
+time_spent_flushing = true
 
 # ------- /proc/pressure/io -------------
 [procfs.pressure.io]
@@ -345,11 +345,11 @@ heart_beat = 100
 [procfs.pressure.io.fields]
 some_avg_10 =true
 some_avg_60 = true
-some_avg_30 = true
+some_avg_300 = true
 some_total  = true
 full_avg_10 = true
 full_avg_60 = true
-full_avg_30 = true
+full_avg_300 = true
 full_total  = true
 
 # ------- /proc/pressure/cpu -------------
@@ -360,11 +360,11 @@ heart_beat = 100
 [procfs.pressure.cpu.fields]
 some_avg_10 =true
 some_avg_60 = true
-some_avg_30 = true
+some_avg_300 = true
 some_total  = true
 full_avg_10 = true
 full_avg_60 = true
-full_avg_30 = true
+full_avg_300 = true
 full_total  = true
 
 # ------- /proc/pressure/memory -------------
@@ -375,11 +375,11 @@ heart_beat = 100
 [procfs.pressure.memory.fields]
 some_avg_10 =true
 some_avg_60 = true
-some_avg_30 = true
+some_avg_300 = true
 some_total  = true
 full_avg_10 = true
 full_avg_60 = true
-full_avg_30 = true
+full_avg_300 = true
 full_total  = true
 
 # ------- /proc/pressure/irq -------------
@@ -390,78 +390,9 @@ heart_beat = 100
 [procfs.pressure.irq.fields]
 some_avg_10 =true
 some_avg_60 = true
-some_avg_30 = true
+some_avg_300 = true
 some_total  = true
 full_avg_10 = true
 full_avg_60 = true
-full_avg_30 = true
+full_avg_300 = true
 full_total  = true
-
-# ------- /proc/<PID>/schedstat ---------
-[procfs.pid.schedstat]
-allow = true
-heart_beat = 100
-
-[procfs.pid.schedstat.fields]
-time_on_cpu = true
-time_waiting = true
-timeslices_run_count = true
-
-# -------- /proc/<PID>/stat ----------
-[procfs.pid.stat]
-allow = true
-heart_beat = 100
-
-[procfs.pid.stat.fields]
-pid = true
-comm = true
-state = true
-ppid = true
-pgrp = true
-session = true
-tty_nr = true
-tpgid = true
-flags = true
-minflt = true
-cminflt = true
-majflt = true
-cmajflt = true
-utime = true
-stime = true
-cutime = true
-cstime = true
-priority = true
-nice = true
-num_threads = true
-itrealvalue = true
-starttime = true
-vsize = true
-rss = true
-rsslim = true
-startcode = true
-endcode = true
-startstack = true
-kstkesp = true
-kstkeip = true
-signal = true
-blocked = true
-sigignore = true
-sigcatch = true
-wchan = true
-nswap = true
-cnswap = true
-exit_signal = true
-processor = true
-rt_priority = true
-policy = true
-delayacct_blkio_ticks = true
-guest_time = true
-cguest_time = true
-start_data = true
-end_data = true
-start_brk = true
-arg_start = true
-arg_end = true
-env_start = true
-env_end = true
-exit_code = true

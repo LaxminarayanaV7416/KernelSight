@@ -8,11 +8,16 @@ pub mod common {
     mod system_call_utils;
 }
 pub mod configs {
+    pub mod master_config;
+    pub mod procfs_diskstats_config;
     pub mod procfs_loadavg_config;
     pub mod procfs_meminfo_config;
     pub mod procfs_pidfs_stat_config;
     pub mod procfs_pidfs_status_config;
-    pub mod sysfs_diskstats_config;
+    pub mod procfs_pressure_config;
+    pub mod procfs_stat_config;
+    pub mod procfs_uptime_config;
+    pub mod procfs_vmstat_config;
 }
 pub mod cgroupfs {
     pub mod v2 {

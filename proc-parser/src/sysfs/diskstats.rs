@@ -2,7 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::{UnsignedInt, UnsignedLong};
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
-use crate::configs::sysfs_diskstats_config::DiskStatsConfig;
+use crate::configs::procfs_diskstats_config::ProcDiskStatsConfig;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
