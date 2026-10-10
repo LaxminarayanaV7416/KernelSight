@@ -33,4 +33,14 @@ impl ProcFSConfigTrait for ProcLoadAvgConfig {
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
         HashMap::new()
     }
+
+    fn is_enabled(&self) -> bool {
+        self.allow
+            & self.fields.load_avg_1m
+            & self.fields.load_avg_5m
+            & self.fields.load_avg_15m
+            & self.fields.num_runnable
+            & self.fields.num_total
+            & self.fields.last_pid
+    }
 }

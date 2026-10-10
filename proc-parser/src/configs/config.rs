@@ -11,6 +11,7 @@ use std::collections::HashMap;
 pub trait ProcFSConfigTrait {
     fn get_hashmap(&self) -> HashMap<usize, bool>;
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)>;
+    fn is_enabled(&self) -> bool;
 }
 
 #[derive(Debug, Default, Deserialize)]

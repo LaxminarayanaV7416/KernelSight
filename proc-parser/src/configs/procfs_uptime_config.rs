@@ -22,6 +22,10 @@ impl ProcFSConfigTrait for ProcUptimeConfig {
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
         HashMap::new()
     }
+
+    fn is_enabled(&self) -> bool {
+        self.allow & self.fields.suspended_time & self.fields.idle_time
+    }
 }
 
 // #[derive(Debug, Default, Deserialize)]

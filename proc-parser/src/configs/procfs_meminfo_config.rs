@@ -262,4 +262,68 @@ impl ProcFSConfigTrait for ProcMemInfoConfig {
             ("DirectMap1G", (60, self.fields.mem_direct_map_1g)),
         ])
     }
+
+    fn is_enabled(&self) -> bool {
+        self.allow
+            & self.fields.mem_total
+            & self.fields.mem_free
+            & self.fields.mem_available
+            & self.fields.mem_buffers
+            & self.fields.mem_cached
+            & self.fields.mem_swap_cached
+            & self.fields.mem_active
+            & self.fields.mem_inactive
+            & self.fields.mem_active_anon
+            & self.fields.mem_inactive_anon
+            & self.fields.mem_active_file
+            & self.fields.mem_inactive_file
+            & self.fields.mem_unevictable
+            & self.fields.mem_mlocked
+            & self.fields.mem_swap_total
+            & self.fields.mem_swap_free
+            & self.fields.mem_zswap
+            & self.fields.mem_zswapped
+            & self.fields.mem_dirty
+            & self.fields.mem_write_back
+            & self.fields.mem_anon_pages
+            & self.fields.mem_mapped
+            & self.fields.mem_shmem
+            & self.fields.mem_k_reclaimable
+            & self.fields.mem_slab
+            & self.fields.mem_s_reclaimable
+            & self.fields.mem_s_unreclaim
+            & self.fields.mem_kernel_stack
+            & self.fields.mem_page_tables
+            & self.fields.mem_sec_page_tables
+            & self.fields.mem_nfs_unstable
+            & self.fields.mem_bounce
+            & self.fields.mem_write_back_tmp
+            & self.fields.mem_commit_limit
+            & self.fields.mem_committed_as
+            & self.fields.mem_vmalloc_total
+            & self.fields.mem_vmalloc_used
+            & self.fields.mem_vmalloc_chunk
+            & self.fields.mem_percpu
+            & self.fields.mem_hardware_corrupted
+            & self.fields.mem_anon_huge_pages
+            & self.fields.mem_shmem_huge_pages
+            & self.fields.mem_shmem_pmd_mapped
+            & self.fields.mem_file_huge_pages
+            & self.fields.mem_file_pmd_mapped
+            & self.fields.mem_cma_total
+            & self.fields.mem_cma_free
+            & self.fields.mem_unaccepted
+            & self.fields.mem_balloon
+            & self.fields.mem_gpu_active
+            & self.fields.mem_gpu_reclaim
+            & self.fields.mem_huge_pages_total
+            & self.fields.mem_huge_pages_free
+            & self.fields.mem_huge_pages_reserved
+            & self.fields.mem_huge_pages_surp
+            & self.fields.mem_huge_page_size
+            & self.fields.mem_hugetlb
+            & self.fields.mem_direct_map_4k
+            & self.fields.mem_direct_map_2m
+            & self.fields.mem_direct_map_1g
+    }
 }

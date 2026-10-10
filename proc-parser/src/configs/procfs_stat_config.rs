@@ -39,4 +39,17 @@ impl ProcFSConfigTrait for ProcStatConfig {
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
         HashMap::new()
     }
+
+    fn is_enabled(&self) -> bool {
+        self.allow
+            & self.fields.cpu
+            & self.fields.cpu_cores
+            & self.fields.intr
+            & self.fields.ctxt
+            & self.fields.btime
+            & self.fields.processes
+            & self.fields.processes_running
+            & self.fields.processes_blocked
+            & self.fields.softirq
+    }
 }
