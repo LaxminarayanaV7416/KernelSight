@@ -34,7 +34,7 @@ impl ProcFSConfigTrait for ProcPressureConfig {
         ])
     }
 
-    fn get_field_string_to_struct_ids(&self) -> HashMap<&str, (usize, bool)> {
+    fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
         HashMap::new()
     }
 }

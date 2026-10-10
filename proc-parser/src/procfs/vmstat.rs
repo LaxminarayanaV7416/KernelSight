@@ -31,7 +31,7 @@ Field 5 - int32
  */
 
 pub struct ProcFSVmStatReader {
-    reader: ProcFileReader<4092>,
+    reader: ProcFileReader<16384>,
     values: ProcVmStatFields,
 }
 
@@ -262,17 +262,30 @@ impl ProcFSVmStatReader {
     }
 
     fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-        let mut temp_start = 0usize;
-        while temp_start < end {
-            let byte = bytes[temp_start];
-            if byte == b' ' {
-                break;
-            }
-            temp_start = temp_start + 1;
+        let Some(bytes) = self.reader.buffer.get(start..end) else {
+            return;
+        };
+        // Find the whitespace separating the field name from its value.
+        let Some(mut value_start) = bytes.iter().position(|byte| byte.is_ascii_whitespace()) else {
+            // This can happen if the buffer ends in the middle of a line.
+            return;
+        };
+        // Skip all whitespace between the field name and value.
+        while value_start < bytes.len() && bytes[value_start].is_ascii_whitespace() {
+            value_start += 1;
         }
-        let parsable_bytes = &self.reader.buffer[(start + temp_start + 1)..end];
-        let value = parse_u64_swar(&parsable_bytes).unwrap_or(0);
+        if value_start == bytes.len() {
+            return;
+        }
+        // Only include the contiguous decimal value.
+        let mut value_end = value_start;
+        while value_end < bytes.len() && bytes[value_end].is_ascii_digit() {
+            value_end += 1;
+        }
+        if value_start == value_end {
+            return;
+        }
+        let value = parse_u64_swar(&bytes[value_start..value_end]).unwrap_or_default();
         match field {
             1 => self.values.nr_free_pages = value,
             2 => self.values.nr_free_pages_blocks = value,

@@ -7,9 +7,10 @@ use crate::procfs::vmstat::ProcFSVmStatReader;
 use crate::sysfs::diskstats::DiskStatsReader;
 // ---- config import -----
 use crate::common::procfs_constants::{
-    PROC_FS_ROOT_PATH, PROC_LOADAVG_FILE_SLUG, PROC_PRESSURE_CPU_FILE_SLUG,
+    PROC_FS_ROOT_PATH, PROC_LOADAVG_FILE_SLUG, PROC_MEMINFO_FILE_SLUG, PROC_PRESSURE_CPU_FILE_SLUG,
     PROC_PRESSURE_FOLDER_SLUG, PROC_PRESSURE_IO_FILE_SLUG, PROC_PRESSURE_IRQ_FILE_SLUG,
-    PROC_PRESSURE_MEMORY_FILE_SLUG, PROC_STAT_FILE_SLUG, SYS_FS_BLOCK_SLUG, SYS_FS_ROOT_PATH,
+    PROC_PRESSURE_MEMORY_FILE_SLUG, PROC_STAT_FILE_SLUG, PROC_UPTIME_FILE_SLUG,
+    PROC_VMSTAT_FILE_SLUG, SYS_FS_BLOCK_SLUG, SYS_FS_ROOT_PATH,
 };
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use std::error::Error;
@@ -53,8 +54,8 @@ pub fn record_procfs(
     let mut threads: Vec<JoinHandle<()>> = vec![];
     let (is_cachable, is_root) = (false, false);
     let global_heart_beat = Box::new(config.heart_beat.clone());
-    let debug = Box::new(config.debug.clone());
-
+    let debug = Box::new(config.debug.clone()); //Box::new(false);
+    let general_signaller = Arc::clone(&signaller);
     // /proc/loadavg
     let is_loadavg_allowed: Box<bool> = Box::new(config.procfs.loadavg.allow.clone());
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_LOADAVG_FILE_SLUG);
@@ -80,7 +81,7 @@ pub fn record_procfs(
         is_cachable,
         is_root,
     )?);
-    let pressure_cpu_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
+    let pressure_cpu_filter_map = Box::new(config.procfs.pressure.cpu.get_hashmap());
 
     // /proc/pressure/io
     let pressure_cpu_path = Path::new(PROC_FS_ROOT_PATH)
@@ -92,7 +93,7 @@ pub fn record_procfs(
         is_cachable,
         is_root,
     )?);
-    let pressure_io_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
+    let pressure_io_filter_map = Box::new(config.procfs.pressure.io.get_hashmap());
 
     // /proc/pressure/memory
     let pressure_cpu_path = Path::new(PROC_FS_ROOT_PATH)
@@ -104,7 +105,7 @@ pub fn record_procfs(
         is_cachable,
         is_root,
     )?);
-    let pressure_memory_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
+    let pressure_memory_filter_map = Box::new(config.procfs.pressure.memory.get_hashmap());
 
     // /proc/pressure/irq
     let pressure_cpu_path = Path::new(PROC_FS_ROOT_PATH)
@@ -116,10 +117,20 @@ pub fn record_procfs(
         is_cachable,
         is_root,
     )?);
-    let pressure_irq_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
+    let pressure_irq_filter_map = Box::new(config.procfs.pressure.irq.get_hashmap());
 
-    let thread_handle = thread::spawn(move || {
-        while !signaller.load(Ordering::Relaxed) {
+    // /proc/uptime
+    let proc_uptime_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_UPTIME_FILE_SLUG);
+    let is_proc_uptime_allowed: Box<bool> = Box::new(config.procfs.pressure.cpu.allow.clone());
+    let mut proc_uptime_reader = Box::new(ProcFSUptimeReader::new(
+        &proc_uptime_path.to_str().unwrap(),
+        is_cachable,
+        is_root,
+    )?);
+    let proc_uptime_filter_map = Box::new(config.procfs.uptime.get_hashmap());
+
+    let group_thread_handle = thread::spawn(move || {
+        while !general_signaller.load(Ordering::Relaxed) {
             if *is_loadavg_allowed {
                 let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
                 //TODO make sure we include the error handling properly
@@ -189,11 +200,112 @@ pub fn record_procfs(
                 }
             }
 
+            if *is_proc_uptime_allowed {
+                let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/uptime..");
+                }
+                if *debug {
+                    println!("/proc/uptime : {:?}", proc_uptime_reader.values());
+                }
+            }
+
             thread::sleep(Duration::from_millis(*global_heart_beat));
         }
     });
+    threads.push(group_thread_handle);
 
-    threads.push(thread_handle);
+    // the Below requires new thread of there own
+    // /proc/vmstat
+    let global_heart_beat = Box::new(config.heart_beat.clone());
+    let debug = Box::new(config.debug.clone());
+    let vmstat_signaller = Arc::clone(&signaller);
+    let proc_vmstat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_VMSTAT_FILE_SLUG);
+    let is_proc_vmstat_allowed: Box<bool> = Box::new(config.procfs.vmstat.allow.clone());
+    let mut proc_vmstat_reader = Box::new(ProcFSVmStatReader::new(
+        &proc_vmstat_path.to_str().unwrap(),
+        is_cachable,
+        is_root,
+    )?);
+    let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
+
+    let vmstat_thread_handle = thread::spawn(move || {
+        while !vmstat_signaller.load(Ordering::Relaxed) {
+            if *is_proc_vmstat_allowed {
+                let read_status = proc_vmstat_reader.read_and_parse(&proc_vmstat_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/vmstat..");
+                }
+                if *debug {
+                    println!("/proc/vmstat : {:?}", proc_vmstat_reader.values());
+                }
+            }
+            thread::sleep(Duration::from_millis(*global_heart_beat));
+        }
+    });
+    threads.push(vmstat_thread_handle);
+
+    // /proc/stat
+    let global_heart_beat = Box::new(config.heart_beat.clone());
+    let debug = Box::new(config.debug.clone());
+    let stat_signaller = Arc::clone(&signaller);
+    let proc_stat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_STAT_FILE_SLUG);
+    let is_proc_stat_allowed: Box<bool> = Box::new(config.procfs.stat.allow.clone());
+    let mut proc_stat_reader = Box::new(ProcFSStatReader::new(
+        &proc_stat_path.to_str().unwrap(),
+        is_cachable,
+        is_root,
+    )?);
+    let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
+
+    let stat_thread_handle = thread::spawn(move || {
+        while !stat_signaller.load(Ordering::Relaxed) {
+            if *is_proc_stat_allowed {
+                let read_status = proc_stat_reader.read_and_parse(&proc_stat_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/stat..");
+                }
+                if *debug {
+                    println!("/proc/stat : {:?}", proc_stat_reader.values());
+                }
+            }
+            thread::sleep(Duration::from_millis(*global_heart_beat));
+        }
+    });
+    threads.push(stat_thread_handle);
+
+    // /proc/meminfo
+    let global_heart_beat = Box::new(config.heart_beat.clone());
+    let debug = Box::new(config.debug.clone());
+    let meminfo_signaller = Arc::clone(&signaller);
+    let proc_meminfo_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_MEMINFO_FILE_SLUG);
+    let is_proc_meminfo_allowed: Box<bool> = Box::new(config.procfs.meminfo.allow.clone());
+    let mut proc_meminfo_reader = Box::new(ProcFSMemInfoReader::new(
+        &proc_meminfo_path.to_str().unwrap(),
+        is_cachable,
+        is_root,
+    )?);
+    let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
+
+    let meminfo_thread_handle = thread::spawn(move || {
+        while !meminfo_signaller.load(Ordering::Relaxed) {
+            if *is_proc_meminfo_allowed {
+                let read_meminfo = proc_meminfo_reader.read_and_parse(&proc_meminfo_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_meminfo {
+                    panic!("Failed to read the /proc/meminfo..");
+                }
+                if *debug {
+                    println!("/proc/meminfo : {:?}", proc_meminfo_reader.values());
+                }
+            }
+            thread::sleep(Duration::from_millis(*global_heart_beat));
+        }
+    });
+    threads.push(meminfo_thread_handle);
 
     Ok(threads)
 }

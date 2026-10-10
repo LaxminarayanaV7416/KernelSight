@@ -19,7 +19,7 @@ impl ProcFSConfigTrait for ProcUptimeConfig {
         HashMap::from([(1, self.fields.suspended_time), (2, self.fields.idle_time)])
     }
 
-    fn get_field_string_to_struct_ids(&self) -> HashMap<&str, (usize, bool)> {
+    fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
         HashMap::new()
     }
 }
