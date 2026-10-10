@@ -23,6 +23,8 @@ pub struct ProcFSConfig<T> {
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub thread_pool_count: u64,
+    pub heart_beat: u64,
+    pub debug: bool,
     pub procfs: ProcFS,
 }
 

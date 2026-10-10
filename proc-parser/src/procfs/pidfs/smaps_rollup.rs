@@ -33,7 +33,7 @@ Field 5 - int32
  */
 
 pub struct ProcFSLoadAvgReader {
-    reader: ProcFileReader<512, ()>,
+    reader: ProcFileReader<512>,
     values: ProcLoadAvgFields,
 }
 

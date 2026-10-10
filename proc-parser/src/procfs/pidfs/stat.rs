@@ -12,7 +12,7 @@ use std::thread;
 use std::thread::JoinHandle;
 
 pub struct ProcFSPIDStatReader {
-    reader: ProcFileReader<4096, ()>,
+    reader: ProcFileReader<4096>,
     values: ProcPIDStatFields,
 }
 

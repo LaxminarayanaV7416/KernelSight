@@ -4,7 +4,7 @@ use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
 pub struct ProcProcessGeneralReader {
-    reader: ProcFileReader<512, ()>,
+    reader: ProcFileReader<512>,
     values: ProcProcessGeneralFields,
 }
 

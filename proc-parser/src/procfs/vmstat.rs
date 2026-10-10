@@ -30,13 +30,13 @@ Field 5 - int32
     The Process ID (PID) of the most recently allocated process or thread on the system.
  */
 
-pub struct ProcFSLoadAvgReader {
-    reader: ProcFileReader<4092, ()>,
-    values: ProcLoadAvgFields,
+pub struct ProcFSVmStatReader {
+    reader: ProcFileReader<4092>,
+    values: ProcVmStatFields,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ProcLoadAvgFields {
+pub struct ProcVmStatFields {
     pub nr_free_pages: u64,
     pub nr_free_pages_blocks: u64,
     pub nr_zone_inactive_anon: u64,
@@ -237,7 +237,7 @@ pub struct ProcLoadAvgFields {
     pub nr_unstable: u64,
 }
 
-impl ProcFSLoadAvgReader {
+impl ProcFSVmStatReader {
     pub fn new(
         path: &str,
         is_cachable: bool,
@@ -245,7 +245,7 @@ impl ProcFSLoadAvgReader {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
-            values: ProcLoadAvgFields::default(),
+            values: ProcVmStatFields::default(),
         })
     }
 
@@ -257,7 +257,7 @@ impl ProcFSLoadAvgReader {
         read_status
     }
 
-    pub fn values(&self) -> &ProcLoadAvgFields {
+    pub fn values(&self) -> &ProcVmStatFields {
         &self.values
     }
 
@@ -512,7 +512,7 @@ pub fn parse_procfs_vmstat(
 ) -> JoinHandle<()> {
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("vmstat");
     let load_avg_temp_reader =
-        ProcFSLoadAvgReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
+        ProcFSVmStatReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
     let mut load_avg_reader = match load_avg_temp_reader {
         Ok(reader) => Box::new(reader),
         Err(e) => panic!("Failed to create loadavg reader: {}", e),

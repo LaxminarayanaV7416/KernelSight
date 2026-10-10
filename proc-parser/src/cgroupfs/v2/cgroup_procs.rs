@@ -12,7 +12,7 @@ Contains the pids as single line in the cgroup.procs file
  */
 
 pub struct CgroupFSV2CgroupProcsReader {
-    reader: ProcFileReader<256, ()>,
+    reader: ProcFileReader<256>,
     values: CgroupFSV2CgroupProcsFields,
 }
 

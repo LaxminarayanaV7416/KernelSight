@@ -1,5 +1,5 @@
-use super::master_config::ProcFSConfig;
-use super::master_config::ProcFSConfigTrait;
+use super::config::ProcFSConfig;
+use super::config::ProcFSConfigTrait;
 use serde::Deserialize;
 use std::collections::HashMap;
 

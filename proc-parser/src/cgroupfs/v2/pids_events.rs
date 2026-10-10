@@ -17,7 +17,7 @@ frozen
  */
 
 pub struct CgroupFSV2PidsEventReader {
-    reader: ProcFileReader<256, ()>,
+    reader: ProcFileReader<256>,
     values: CgroupFSV2PidsEventFields,
     lines_map: Option<HashMap<usize, usize>>,
 }

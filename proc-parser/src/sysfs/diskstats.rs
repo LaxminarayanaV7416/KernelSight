@@ -78,7 +78,7 @@ LAX Calculations for the memory
 */
 
 pub struct DiskStatsReader {
-    reader: ProcFileReader<512, ()>,
+    reader: ProcFileReader<512>,
     values: DiskStatsValues,
 }
 

@@ -17,7 +17,7 @@ frozen
  */
 
 pub struct CgroupFSV2CgroupEventReader {
-    reader: ProcFileReader<256, ()>,
+    reader: ProcFileReader<256>,
     values: CgroupFSV2CgroupEventFields,
 }
 

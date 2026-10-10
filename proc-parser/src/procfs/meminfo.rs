@@ -1,6 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::kernel_types::UnsignedLong;
-use crate::common::parser_utils::{line_tracker, parse_u64_swar};
+use crate::common::parser_utils::line_tracker;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::procfs_meminfo_config::ProcMemInfoConfig;
 use std::collections::HashMap;
@@ -289,7 +289,7 @@ Newline -> 10
  */
 
 pub struct ProcFSMemInfoReader {
-    reader: ProcFileReader<4096, ()>,
+    reader: ProcFileReader<4096>,
     values: ProcMemInfoFields,
     lines_map: Option<HashMap<usize, usize>>,
 }
@@ -397,39 +397,7 @@ impl ProcFSMemInfoReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-        let mut seen_colon = false;
-        let mut digit_start: Option<usize> = None;
-        let mut digit_end: usize = 0;
-        for (i, &byte) in bytes.iter().enumerate() {
-            if !seen_colon {
-                if byte == b':' {
-                    seen_colon = true;
-                }
-                continue;
-            }
-            match byte {
-                b'0'..=b'9' => {
-                    if digit_start.is_none() {
-                        digit_start = Some(i);
-                    }
-
-                    digit_end = i + 1;
-                }
-                _ => {
-                    if digit_start.is_some() {
-                        break;
-                    }
-                }
-            }
-        }
-        let Some(digit_start) = digit_start else {
-            return;
-        };
-        let value_bytes = &bytes[digit_start..digit_end];
-        let value = parse_u64_swar(value_bytes).unwrap_or_default();
-
+    fn set_field(&mut self, field: usize, value: u64) {
         match field {
             1 => self.values.mem_total = value,
             2 => self.values.mem_free = value,
@@ -511,54 +479,92 @@ impl ProcFSMemInfoReader {
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
-        // first step is to track line numbers for the fields we care about
-        // this is used to map field numbers to line numbers in the buffer
-        // once this is done we only parse the fields we care about
-        // the complicated logic is explained in the parser_utils line_tracker function
+        // Build the line-to-field mapping once. Subsequent reads reuse it.
         if self.lines_map.is_none() {
             self.lines_map = Some(line_tracker(
                 &self.reader.buffer[..self.reader.buffer_len],
-                field_filter, b':'
+                field_filter,
+                b':',
             ));
         }
+
         let mut parser_line_number = 0usize;
-        let mut start: Option<usize> = None;
+        let mut line_started = false;
+        let mut field_number = 0usize;
+        let mut seen_colon = false;
+        let mut digit_count = 0usize;
+        let mut digits_finished = false;
+        let mut value = Some(0u64);
+
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
             if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
-                    parser_line_number += 1;
-                    // now get the field number from the line number
-                    let field_number = self
-                        .lines_map
-                        .as_ref()
-                        .unwrap()
-                        .get(&parser_line_number)
-                        .copied()
-                        .unwrap_or(0);
+                if line_started && field_number > 0 && digit_count > 0 {
+                    self.set_field(field_number, value.unwrap_or_default());
+                }
 
-                    if field_number > 0 {
-                        self.set_field(field_number, s, i);
+                line_started = false;
+                field_number = 0;
+                seen_colon = false;
+                digit_count = 0;
+                digits_finished = false;
+                value = Some(0);
+                continue;
+            }
+
+            if !line_started {
+                line_started = true;
+                parser_line_number += 1;
+
+                field_number = self
+                    .lines_map
+                    .as_ref()
+                    .and_then(|lines_map| lines_map.get(&parser_line_number))
+                    .copied()
+                    .unwrap_or(0);
+            }
+
+            // Do not spend time parsing values for fields that are not selected.
+            if field_number == 0 || digits_finished {
+                continue;
+            }
+
+            if !seen_colon {
+                if byte == b':' {
+                    seen_colon = true;
+                }
+                continue;
+            }
+
+            match byte {
+                b'0'..=b'9' => {
+                    digit_count += 1;
+
+                    // Preserve parse_u64_swar's previous limit of 20 digits.
+                    if digit_count > 20 {
+                        value = None;
+                    } else {
+                        let digit = u64::from(byte - b'0');
+
+                        value = value
+                            .and_then(|current| current.checked_mul(10))
+                            .and_then(|current| current.checked_add(digit));
                     }
                 }
-            } else if start.is_none() {
-                start = Some(i);
+                _ if digit_count > 0 => {
+                    // Stop at the first non-digit after the number.
+                    digits_finished = true;
+                }
+                _ => {
+                    // Skip whitespace or other characters before the value.
+                }
             }
         }
-        if let Some(s) = start {
-            parser_line_number += 1;
-            let field_number = self
-                .lines_map
-                .as_ref()
-                .unwrap()
-                .get(&parser_line_number)
-                .copied()
-                .unwrap_or(0);
 
-            if field_number > 0 {
-                self.set_field(field_number, s, self.reader.buffer_len);
-            }
+        // The final line may not have a trailing newline.
+        if line_started && field_number > 0 && digit_count > 0 {
+            self.set_field(field_number, value.unwrap_or_default());
         }
     }
 }

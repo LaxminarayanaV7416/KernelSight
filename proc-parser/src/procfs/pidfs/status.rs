@@ -264,7 +264,7 @@ use std::thread::JoinHandle;
 */
 
 pub struct ProcFSPIDStatusReader {
-    reader: ProcFileReader<4096, ()>,
+    reader: ProcFileReader<4096>,
     values: ProcPIDStatusFields,
     lines_map: Option<HashMap<usize, usize>>,
     string_field_ids: [usize; 22],

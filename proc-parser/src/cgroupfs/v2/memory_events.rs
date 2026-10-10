@@ -17,7 +17,7 @@ frozen
  */
 
 pub struct CgroupFSV2MemoryEventReader {
-    reader: ProcFileReader<256, ()>,
+    reader: ProcFileReader<256>,
     values: CgroupFSV2MemoryEventFields,
     lines_map: Option<HashMap<usize, usize>>,
 }

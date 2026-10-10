@@ -8,7 +8,7 @@ pub mod common {
     mod system_call_utils;
 }
 pub mod configs {
-    pub mod master_config;
+    pub mod config;
     pub mod procfs_diskstats_config;
     pub mod procfs_loadavg_config;
     pub mod procfs_meminfo_config;
@@ -64,4 +64,7 @@ pub mod gpu {
     pub mod nvidia {
         pub mod metrics;
     }
+}
+pub mod parser {
+    pub mod procfs_parser;
 }

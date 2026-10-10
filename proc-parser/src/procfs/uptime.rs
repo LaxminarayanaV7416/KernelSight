@@ -33,7 +33,7 @@ Field 5 - int32
  */
 
 pub struct ProcFSUptimeReader {
-    reader: ProcFileReader<128, ()>,
+    reader: ProcFileReader<128>,
     values: ProcUptimeFields,
 }
 

@@ -17,7 +17,7 @@ frozen
  */
 
 pub struct CgroupFSV2CPUStatReader {
-    reader: ProcFileReader<256, ()>,
+    reader: ProcFileReader<256>,
     values: CgroupFSV2CPUStatFields,
     lines_map: Option<HashMap<usize, usize>>,
 }

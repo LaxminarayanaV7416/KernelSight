@@ -23,6 +23,7 @@ pub const PROC_SYS_FOLDER_SLUG: &str = "sys";
 pub const PROC_PRESSURE_CPU_FILE_SLUG: &str = "cpu";
 pub const PROC_PRESSURE_MEMORY_FILE_SLUG: &str = "memory";
 pub const PROC_PRESSURE_IO_FILE_SLUG: &str = "io";
+pub const PROC_PRESSURE_IRQ_FILE_SLUG: &str = "irq";
 
 // PROC FOLDER sys files
 pub const PROC_SYS_KERNEL_FOLDER_SLUG: &str = "kernel";
@@ -257,3 +258,7 @@ pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 
 // NOTE: We are not going to monitor any subfolders under /proc/<pid>
 // This is because it becomes very inappropriate to do so, daemon gets very beefier
+
+
+// ---------------------- miscellenous slugs ---------
+pub const SYS_FS_BLOCK_SLUG: &str = "block";

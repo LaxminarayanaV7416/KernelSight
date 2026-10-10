@@ -34,7 +34,7 @@ detailed information.
  */
 
 pub struct ProcFSPIDStatmReader {
-    reader: ProcFileReader<512, ()>,
+    reader: ProcFileReader<512>,
     values: ProcPIDStatmFields,
 }
 

@@ -171,7 +171,7 @@ impl ProcFSStatCPUFields {
 }
 
 pub struct ProcFSStatReader {
-    reader: ProcFileReader<6144, ()>,
+    reader: ProcFileReader<6144>,
     values: ProcStatFields,
 }
 

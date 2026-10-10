@@ -18,7 +18,7 @@ There are three fields in this file correlating for that process to:
  */
 
 pub struct ProcFSPIDSchedStatReader {
-    reader: ProcFileReader<64, ()>,
+    reader: ProcFileReader<64>,
     values: ProcPIDSchedStatFields,
 }
 
