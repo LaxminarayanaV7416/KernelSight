@@ -29,6 +29,7 @@ pub struct ProcFSConfig<T> {
 pub struct Config {
     pub thread_pool_count: u64,
     pub heart_beat: u64,
+    pub pids_scan_heart_beat: u64,
     pub debug: bool,
     pub procfs: ProcFS,
 }

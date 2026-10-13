@@ -112,7 +112,7 @@ impl ProcFSPIDData {
                 },
                 None => {
                     eprintln!(
-                        "The stat path for PID {pid} is not valid UTF-8: {}",
+                        "The schedstat path for PID {pid} is not valid UTF-8: {}",
                         stat_path.display()
                     );
                     None

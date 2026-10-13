@@ -10,40 +10,6 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-// #[derive(Debug)]
-// struct PIDSRoundRobin {
-//     threads: Vec<HashSet<ProcFSPID>>,
-// }
-//
-// impl PIDSRoundRobin {
-//     fn new(thread_pool_count: usize) -> Self {
-//         let mut threads = Vec::with_capacity(thread_pool_count);
-//         threads.resize_with(thread_pool_count, HashSet::new);
-//         Self { threads }
-//     }
-//
-//     fn add(&mut self, pid: ProcFSPID) -> bool {
-//         // Ensure that a PID belongs to at most one worker.
-//         if self.threads.iter().any(|thread| thread.contains(&pid)) {
-//             return false;
-//         }
-//         let Some(thread) = self.threads.iter_mut().min_by_key(|thread| thread.len()) else {
-//             return false;
-//         };
-//
-//         thread.insert(pid)
-//     }
-//
-//     fn remove(&mut self, pid: u64) -> Option<ProcFSPID> {
-//         for thread in &mut self.threads {
-//             if let Some(removed_pid) = thread.take(&pid) {
-//                 return Some(removed_pid);
-//             }
-//         }
-//         None
-//     }
-// }
-
 #[derive(Debug)]
 struct PIDSRoundRobin {
     threads: HashSet<ProcFSPID>,
@@ -120,11 +86,6 @@ fn start_tracking_pids(
             }
         };
 
-        // round_robin
-        //     .threads
-        //     .iter()
-        //     .flat_map(|thread| thread.iter().map(|pid| pid.pid))
-        //     .collect()
         round_robin.threads.iter().map(|pid| pid.pid).collect()
     };
 
