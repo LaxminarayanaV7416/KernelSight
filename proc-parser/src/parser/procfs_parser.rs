@@ -130,101 +130,92 @@ pub fn record_procfs(
     )?);
     let proc_uptime_filter_map = Box::new(config.procfs.uptime.get_hashmap());
 
-    if *is_loadavg_allowed
-        & *is_diskstat_allowed
-        & *is_pressure_cpu_allowed
-        & *is_pressure_io_allowed
-        & *is_pressure_memory_allowed
-        & *is_pressure_irq_allowed
-        & *is_proc_uptime_allowed
-    {
-        let group_thread_handle = thread::spawn(move || {
-            while !general_signaller.load(Ordering::Relaxed) {
-                if *is_loadavg_allowed {
-                    let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/loadavg..");
-                    }
-                    if *debug {
-                        println!("/proc/loadavg : {:?}", load_avg_temp_reader.values());
-                    }
+    let group_thread_handle = thread::spawn(move || {
+        while !general_signaller.load(Ordering::Relaxed) {
+            if *is_loadavg_allowed {
+                let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/loadavg..");
                 }
-                if *is_diskstat_allowed {
-                    for (path, disk_reader) in diskstats_readers.iter_mut() {
-                        let read_status = disk_reader.read_and_parse(&diskstats_filter_map);
-                        if !read_status {
-                            panic!("Failed to read diskstats, ProcFS File closed!");
-                        }
-                        if *debug {
-                            println!("{} : {:?}", path, disk_reader.values());
-                        }
-                    }
+                if *debug {
+                    println!("/proc/loadavg : {:?}", load_avg_temp_reader.values());
                 }
-                if *is_pressure_cpu_allowed {
-                    let read_status = pressure_cpu_reader.read_and_parse(&pressure_cpu_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/pressure/cpu..");
-                    }
-                    if *debug {
-                        println!("/proc/pressure/cpu : {:?}", pressure_cpu_reader.values());
-                    }
-                }
-
-                if *is_pressure_io_allowed {
-                    let read_status = pressure_io_reader.read_and_parse(&pressure_io_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/pressure/io..");
-                    }
-                    if *debug {
-                        println!("/proc/pressure/io : {:?}", pressure_io_reader.values());
-                    }
-                }
-
-                if *is_pressure_memory_allowed {
-                    let read_status =
-                        pressure_memory_reader.read_and_parse(&pressure_memory_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/pressure/memory..");
-                    }
-                    if *debug {
-                        println!(
-                            "/proc/pressure/memory : {:?}",
-                            pressure_memory_reader.values()
-                        );
-                    }
-                }
-
-                if *is_pressure_irq_allowed {
-                    let read_status = pressure_irq_reader.read_and_parse(&pressure_irq_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/pressure/irq..");
-                    }
-                    if *debug {
-                        println!("/proc/pressure/irq : {:?}", pressure_irq_reader.values());
-                    }
-                }
-
-                if *is_proc_uptime_allowed {
-                    let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
-                    //TODO make sure we include the error handling properly
-                    if !read_status {
-                        panic!("Failed to read the /proc/uptime..");
-                    }
-                    if *debug {
-                        println!("/proc/uptime : {:?}", proc_uptime_reader.values());
-                    }
-                }
-
-                thread::sleep(Duration::from_millis(*global_heart_beat));
             }
-        });
-        threads.push(group_thread_handle);
-    }
+            if *is_diskstat_allowed {
+                for (path, disk_reader) in diskstats_readers.iter_mut() {
+                    let read_status = disk_reader.read_and_parse(&diskstats_filter_map);
+                    if !read_status {
+                        panic!("Failed to read diskstats, ProcFS File closed!");
+                    }
+                    if *debug {
+                        println!("{} : {:?}", path, disk_reader.values());
+                    }
+                }
+            }
+            if *is_pressure_cpu_allowed {
+                let read_status = pressure_cpu_reader.read_and_parse(&pressure_cpu_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/pressure/cpu..");
+                }
+                if *debug {
+                    println!("/proc/pressure/cpu : {:?}", pressure_cpu_reader.values());
+                }
+            }
+
+            if *is_pressure_io_allowed {
+                let read_status = pressure_io_reader.read_and_parse(&pressure_io_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/pressure/io..");
+                }
+                if *debug {
+                    println!("/proc/pressure/io : {:?}", pressure_io_reader.values());
+                }
+            }
+
+            if *is_pressure_memory_allowed {
+                let read_status =
+                    pressure_memory_reader.read_and_parse(&pressure_memory_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/pressure/memory..");
+                }
+                if *debug {
+                    println!(
+                        "/proc/pressure/memory : {:?}",
+                        pressure_memory_reader.values()
+                    );
+                }
+            }
+
+            if *is_pressure_irq_allowed {
+                let read_status = pressure_irq_reader.read_and_parse(&pressure_irq_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/pressure/irq..");
+                }
+                if *debug {
+                    println!("/proc/pressure/irq : {:?}", pressure_irq_reader.values());
+                }
+            }
+
+            if *is_proc_uptime_allowed {
+                let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
+                //TODO make sure we include the error handling properly
+                if !read_status {
+                    panic!("Failed to read the /proc/uptime..");
+                }
+                if *debug {
+                    println!("/proc/uptime : {:?}", proc_uptime_reader.values());
+                }
+            }
+
+            thread::sleep(Duration::from_millis(*global_heart_beat));
+        }
+    });
+    threads.push(group_thread_handle);
 
     // the Below requires new thread of there own
     // /proc/vmstat
