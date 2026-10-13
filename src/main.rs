@@ -6,12 +6,11 @@ use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
 use proc_parser::configs::config::Config;
 use proc_parser::parser::procfs_parser::record_procfs;
+use proc_parser::parser::procfs_pid_parser::orchestrate_pids;
 use std::error::Error;
 use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::time::Duration;
 use utils::signal_handler;
 
 const PATH: &str = "/home/lax/Documents/perf_insight_lite/proc-parser/src/config.toml";
@@ -29,9 +28,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config: Config = basic_toml::from_str(&content)?;
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);
-    let threads = record_procfs(&config, Arc::clone(&signaller))?;
-
-    
+    let mut threads = record_procfs(&config, Arc::clone(&signaller))?;
+    let (mut pids_threads, pids_transmitter) = orchestrate_pids(&config, Arc::clone(&signaller))?;
+    threads.append(&mut pids_threads);
     for thread in threads {
         thread.join().unwrap();
     }

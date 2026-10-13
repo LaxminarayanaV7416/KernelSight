@@ -71,4 +71,6 @@ pub mod gpu {
 pub mod parser {
     pub mod procfs_parser;
     pub mod procfs_pid_parser;
+    pub mod procfs_sensors;
+    pub mod utils;
 }
