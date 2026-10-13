@@ -288,6 +288,7 @@ Space -> 32
 Newline -> 10
  */
 
+#[derive(Debug)]
 pub struct ProcFSMemInfoReader {
     reader: ProcFileReader<4096>,
     values: ProcMemInfoFields,

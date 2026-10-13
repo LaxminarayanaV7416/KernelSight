@@ -33,6 +33,7 @@ instead, which are much slower but provide accurate,
 detailed information.
  */
 
+#[derive(Debug)]
 pub struct ProcFSPIDStatmReader {
     reader: ProcFileReader<512>,
     values: ProcPIDStatmFields,

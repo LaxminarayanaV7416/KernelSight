@@ -3,6 +3,7 @@ use crate::common::parser_utils::parse_decimal_f64;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct ProcProcessGeneralReader {
     reader: ProcFileReader<512>,
     values: ProcProcessGeneralFields,

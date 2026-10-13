@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
 
+#[derive(Debug)]
 pub struct ProcFSPIDStatReader {
     reader: ProcFileReader<4096>,
     values: ProcPIDStatFields,

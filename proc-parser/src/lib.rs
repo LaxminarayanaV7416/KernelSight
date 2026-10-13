@@ -72,5 +72,5 @@ pub mod parser {
     pub mod procfs_parser;
     pub mod procfs_pid_parser;
     pub mod procfs_sensors;
-    pub mod utils;
+    pub mod pidsfs_utils;
 }

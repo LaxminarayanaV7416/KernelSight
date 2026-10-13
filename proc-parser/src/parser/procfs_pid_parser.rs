@@ -1,19 +1,11 @@
+use super::pidsfs_utils::{PIDActions, ProcFSPID};
 use super::procfs_sensors::start_pids_observer;
-use super::utils::{PIDActions, ProcFSPID};
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
+
 use crate::configs::config::Config;
-use crate::procfs::pidfs::cachable_reads::{
-    parse_procfs_pid_cgroup, parse_procfs_pid_cmdline, parse_procfs_pid_comm,
-};
-use crate::procfs::pidfs::schedstat::ProcFSPIDSchedStatReader;
-use crate::procfs::pidfs::stat::ProcFSPIDStatReader;
-use crate::procfs::pidfs::statm::ProcFSPIDStatmReader;
-use crate::procfs::pidfs::status::ProcFSPIDStatusReader;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::io;
-use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, RwLock};
@@ -47,18 +39,18 @@ impl PIDSRoundRobin {
         thread.insert(pid)
     }
 
-    fn remove(&mut self, pid: ProcFSPID) -> bool {
+    fn remove(&mut self, pid: u64) -> Option<ProcFSPID> {
         for thread in &mut self.threads {
-            if thread.remove(&pid) {
-                return true;
+            if let Some(removed_pid) = thread.take(&pid) {
+                return Some(removed_pid);
             }
         }
-        false
+        None
     }
 }
 
 pub fn orchestrate_pids(
-    config: &Config,
+    config: &'static Config,
     signaller: Arc<AtomicBool>,
 ) -> Result<(Vec<JoinHandle<()>>, Sender<PIDActions>), Box<dyn Error>> {
     let (transmitter, receiver): (Sender<PIDActions>, Receiver<PIDActions>) =
@@ -84,9 +76,15 @@ pub fn orchestrate_pids(
                         round_robin.add(pid);
                     }
                     PIDActions::Remove(pid) => {
-                        println!("Removing PID {:?}", pid);
                         let mut round_robin = data.write().unwrap();
-                        round_robin.remove(pid);
+                        match round_robin.remove(pid) {
+                            Some(removed_pid) => {
+                                println!("Removing PID {:?}", removed_pid);
+                            }
+                            None => {
+                                eprintln!("PID {pid} was not assigned to any worker");
+                            }
+                        }
                     }
                 },
                 Err(_) => (),
@@ -95,11 +93,4 @@ pub fn orchestrate_pids(
     });
     observers.push(reciever_worker);
     Ok((observers, transmitter))
-}
-
-pub fn record_procfs_pid(pid: usize) {
-    let pid_comm = parse_procfs_pid_comm(pid);
-    let pid_cmdline = parse_procfs_pid_cmdline(pid);
-    let pid_cgroup = parse_procfs_pid_cgroup(pid);
-    // TODO here after implementation we will dispatch the cgroup watcher
 }

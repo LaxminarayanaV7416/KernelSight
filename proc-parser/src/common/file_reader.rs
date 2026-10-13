@@ -8,6 +8,7 @@ use std::io::{Read, Seek, SeekFrom};
 // called `Result::unwrap()` on an `Err` value: Os { code: 3, kind: Uncategorized, message: "No such process" }
 // note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
+#[derive(Debug)]
 pub struct ProcFileReader<const BUFFER_ARRAY_SIZE: usize> {
     proc_file: File,                     // file read once and read many times
     pub buffer: [u8; BUFFER_ARRAY_SIZE], // stack allocated buffer, to read contents of the file

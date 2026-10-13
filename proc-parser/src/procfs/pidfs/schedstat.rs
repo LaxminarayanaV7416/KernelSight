@@ -17,6 +17,7 @@ There are three fields in this file correlating for that process to:
 - # of timeslices run on this cpu
  */
 
+#[derive(Debug)]
 pub struct ProcFSPIDSchedStatReader {
     reader: ProcFileReader<64>,
     values: ProcPIDSchedStatFields,
@@ -71,10 +72,7 @@ impl ProcFSPIDSchedStatReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b' '
-                || byte == b'\n'
-                || byte == b'\0'
-            {
+            if byte == b' ' || byte == b'\n' || byte == b'\0' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {

@@ -1,4 +1,4 @@
-use super::utils::{PIDActions, ProcFSPID};
+use super::pidsfs_utils::{PIDActions, ProcFSPID};
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::config::Config;
 use std::collections::HashSet;
@@ -22,7 +22,7 @@ use std::time::Duration;
 
 fn procfs_scrapper_sensor(
     transmitter: Sender<PIDActions>,
-    config: &Config,
+    config: &'static Config,
     signaller: Arc<AtomicBool>, // dont clone this we should clone and send this
 ) -> Result<JoinHandle<()>, Box<dyn Error>> {
     let mut prev_scrapper_state: HashSet<u64> = HashSet::new();
@@ -52,13 +52,12 @@ fn procfs_scrapper_sensor(
                     current_scrapper_state.insert(pid_val);
                 }
             }
-
             for added_items in current_scrapper_state.difference(&prev_scrapper_state) {
-                let add_msg = PIDActions::Add(ProcFSPID { pid: *added_items });
+                let add_msg = PIDActions::Add(ProcFSPID::new(*added_items, &config));
                 transmitter.send(add_msg).unwrap();
             }
             for removed_item in prev_scrapper_state.difference(&current_scrapper_state) {
-                let remove_msg = PIDActions::Remove(ProcFSPID { pid: *removed_item });
+                let remove_msg = PIDActions::Remove(*removed_item);
                 transmitter.send(remove_msg).unwrap();
             }
             std::mem::swap(&mut prev_scrapper_state, &mut current_scrapper_state);
@@ -71,7 +70,7 @@ fn procfs_scrapper_sensor(
 
 pub fn start_pids_observer(
     transmitter: Sender<PIDActions>,
-    config: &Config,
+    config: &'static Config,
     signaller: Arc<AtomicBool>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let mut threads: Vec<JoinHandle<()>> = Vec::new();

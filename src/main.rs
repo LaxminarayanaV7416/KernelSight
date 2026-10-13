@@ -25,11 +25,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cgroup_type: {:?}", cgroup_type);
 
     let content = fs::read_to_string(PATH)?;
-    let config: Config = basic_toml::from_str(&content)?;
+    let config: &'static Config = Box::leak(Box::new(basic_toml::from_str(&content)?));
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);
     let mut threads = record_procfs(&config, Arc::clone(&signaller))?;
-    let (mut pids_threads, pids_transmitter) = orchestrate_pids(&config, Arc::clone(&signaller))?;
+    let (mut pids_threads, pids_transmitter) = orchestrate_pids(&*config, Arc::clone(&signaller))?;
     threads.append(&mut pids_threads);
     for thread in threads {
         thread.join().unwrap();

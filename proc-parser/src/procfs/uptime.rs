@@ -32,6 +32,7 @@ Field 5 - int32
     The Process ID (PID) of the most recently allocated process or thread on the system.
  */
 
+#[derive(Debug)]
 pub struct ProcFSUptimeReader {
     reader: ProcFileReader<128>,
     values: ProcUptimeFields,

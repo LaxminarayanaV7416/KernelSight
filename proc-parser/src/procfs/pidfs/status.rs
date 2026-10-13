@@ -263,6 +263,7 @@ use std::thread::JoinHandle;
               (since Linux 2.6.23).
 */
 
+#[derive(Debug)]
 pub struct ProcFSPIDStatusReader {
     reader: ProcFileReader<4096>,
     values: ProcPIDStatusFields,
@@ -487,7 +488,8 @@ impl ProcFSPIDStatusReader {
         if self.lines_map.is_none() {
             self.lines_map = Some(line_tracker(
                 &self.reader.buffer[..self.reader.buffer_len],
-                field_filter, b':'
+                field_filter,
+                b':',
             ));
         }
         let mut parser_line_number = 0usize;
