@@ -10,35 +10,62 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+// #[derive(Debug)]
+// struct PIDSRoundRobin {
+//     threads: Vec<HashSet<ProcFSPID>>,
+// }
+//
+// impl PIDSRoundRobin {
+//     fn new(thread_pool_count: usize) -> Self {
+//         let mut threads = Vec::with_capacity(thread_pool_count);
+//         threads.resize_with(thread_pool_count, HashSet::new);
+//         Self { threads }
+//     }
+//
+//     fn add(&mut self, pid: ProcFSPID) -> bool {
+//         // Ensure that a PID belongs to at most one worker.
+//         if self.threads.iter().any(|thread| thread.contains(&pid)) {
+//             return false;
+//         }
+//         let Some(thread) = self.threads.iter_mut().min_by_key(|thread| thread.len()) else {
+//             return false;
+//         };
+//
+//         thread.insert(pid)
+//     }
+//
+//     fn remove(&mut self, pid: u64) -> Option<ProcFSPID> {
+//         for thread in &mut self.threads {
+//             if let Some(removed_pid) = thread.take(&pid) {
+//                 return Some(removed_pid);
+//             }
+//         }
+//         None
+//     }
+// }
+
 #[derive(Debug)]
 struct PIDSRoundRobin {
-    threads: Vec<HashSet<ProcFSPID>>,
+    threads: HashSet<ProcFSPID>,
 }
 
 impl PIDSRoundRobin {
-    fn new(thread_pool_count: usize) -> Self {
-        let mut threads = Vec::with_capacity(thread_pool_count);
-        threads.resize_with(thread_pool_count, HashSet::new);
+    fn new() -> Self {
+        let threads = HashSet::new();
         Self { threads }
     }
 
     fn add(&mut self, pid: ProcFSPID) -> bool {
         // Ensure that a PID belongs to at most one worker.
-        if self.threads.iter().any(|thread| thread.contains(&pid)) {
+        if self.threads.contains(&pid) {
             return false;
         }
-        let Some(thread) = self.threads.iter_mut().min_by_key(|thread| thread.len()) else {
-            return false;
-        };
-
-        thread.insert(pid)
+        self.threads.insert(pid)
     }
 
     fn remove(&mut self, pid: u64) -> Option<ProcFSPID> {
-        for thread in &mut self.threads {
-            if let Some(removed_pid) = thread.take(&pid) {
-                return Some(removed_pid);
-            }
+        if let Some(removed_pid) = self.threads.take(&pid) {
+            return Some(removed_pid);
         }
         None
     }
@@ -93,11 +120,12 @@ fn start_tracking_pids(
             }
         };
 
-        round_robin
-            .threads
-            .iter()
-            .flat_map(|thread| thread.iter().map(|pid| pid.pid))
-            .collect()
+        // round_robin
+        //     .threads
+        //     .iter()
+        //     .flat_map(|thread| thread.iter().map(|pid| pid.pid))
+        //     .collect()
+        round_robin.threads.iter().map(|pid| pid.pid).collect()
     };
 
     // Remove reader state for PIDs that are no longer assigned to any worker.
@@ -149,10 +177,10 @@ pub fn orchestrate_pids(
         Ok(observer) => observer,
         Err(err) => panic!("Error occured {}", err),
     };
-    let thread_pool = usize::try_from(config.thread_pool_count)?;
+    // let thread_pool = usize::try_from(config.thread_pool_count)?;
+    // let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new(thread_pool)));
 
-    let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new(thread_pool)));
-
+    let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
     let receiver_round_robin = Arc::clone(&round_robin_pids);
     let receiver_signaller = Arc::clone(&signaller);
 
@@ -200,7 +228,6 @@ pub fn orchestrate_pids(
                 }
 
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     break;
                 }
