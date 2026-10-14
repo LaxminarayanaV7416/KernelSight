@@ -138,9 +138,6 @@ pub fn orchestrate_pids(
         Ok(observer) => observer,
         Err(err) => panic!("Error occured {}", err),
     };
-    // let thread_pool = usize::try_from(config.thread_pool_count)?;
-    // let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new(thread_pool)));
-
     let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
     let receiver_round_robin = Arc::clone(&round_robin_pids);
     let receiver_signaller = Arc::clone(&signaller);

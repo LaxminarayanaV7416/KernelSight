@@ -12,50 +12,13 @@ use crate::procfs::pidfs::statm::ProcFSPIDStatmReader;
 use crate::procfs::pidfs::status::ProcFSPIDStatusReader;
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ProcFSPID {
     pub pid: u64,
 }
-
-// // 1. Manually implement PartialEq using only the `pid` field
-// impl PartialEq for ProcFSPID {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.pid == other.pid
-//     }
-// }
-//
-// // 2. Derive Eq (since our PartialEq implementation satisfies the total equivalence relation)
-// impl Eq for ProcFSPID {}
-//
-// // 3. Manually implement Hash using only the `pid` field
-// impl Hash for ProcFSPID {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.pid.hash(state);
-//     }
-// }
-//
-// // 4. for borrowing usign the PID number, this
-// // will enable the take method to get what struct value
-// impl Borrow<u64> for ProcFSPID {
-//     fn borrow(&self) -> &u64 {
-//         &self.pid
-//     }
-// }
-//
-// // 5. reimplemetning the debug trait
-// impl fmt::Debug for ProcFSPID {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("ProcFSPID")
-//             .field("PID", &self.pid)
-//             .field("comm", &self.comm)
-//             .field("cmdline", &self.cmdline)
-//             .finish()
-//     }
-// }
 
 impl ProcFSPID {
     pub fn new(pid: u64) -> Self {

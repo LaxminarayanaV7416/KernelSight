@@ -69,8 +69,12 @@ pub mod gpu {
     }
 }
 pub mod parser {
+    pub mod pidsfs_utils;
     pub mod procfs_parser;
     pub mod procfs_pid_parser;
     pub mod procfs_sensors;
-    pub mod pidsfs_utils;
+}
+pub mod writer {
+    pub mod writer;
+    pub mod writer_utils;
 }

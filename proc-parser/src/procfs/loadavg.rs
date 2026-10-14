@@ -2,7 +2,6 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_decimal_f64;
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -36,6 +35,7 @@ Field 5 - int32
 pub struct ProcFSLoadAvgReader {
     reader: ProcFileReader<512>,
     values: ProcLoadAvgFields,
+    
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -100,11 +100,7 @@ impl ProcFSLoadAvgReader {
         for i in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[i];
 
-            if byte == b' '
-                || byte == b'\n'
-                || byte == b'\0'
-                || byte == b'/'
-            {
+            if byte == b' ' || byte == b'\n' || byte == b'\0' || byte == b'/' {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {
