@@ -3,9 +3,10 @@ pub mod common {
     pub mod config;
     pub mod file_reader;
     pub mod kernel_types;
+    pub mod message_passing_utils;
     pub mod parser_utils;
     pub mod procfs_constants;
-    mod system_call_utils;
+    pub mod system_call_utils;
 }
 pub mod configs {
     pub mod config;
@@ -70,6 +71,7 @@ pub mod gpu {
 }
 pub mod parser {
     pub mod pidsfs_utils;
+    pub mod procfs_parse_initiater;
     pub mod procfs_parser;
     pub mod procfs_pid_parser;
     pub mod procfs_sensors;

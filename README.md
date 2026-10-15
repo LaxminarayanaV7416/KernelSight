@@ -18,3 +18,17 @@ Light weight Server Performance observability tool for Linux kernel, its light w
   * We will open any procfs file once either during when we recieve an event, or during scanning. and keep the file open and use the seek to read bytes on the buffer (this buffers are preallocated during the daemon startup so new new memory creations or destroyed)
   * We will maintain the chunks of buffer pools (for each scanned buffer to fit), we start scrapping once the buffer is full, and flush it accordingly to the traget IO file, again these target IO files will be buffers not the string files with any extension to keep the IO work minimal.
   * `NOTE`: These IO buffer files can take help of the Circular Queues to flush the data to the target IO files.
+
+
+we are recieveing the EMFILE error from OS that is Os Error 24:
+attempt to open readers
+→ hit EMFILE
+→ create incomplete record
+→ parsing returns false
+→ remove record and close successful descriptors
+→ retry next iteration
+→ hit EMFILE again
+```
+ulimit -n 8192
+cargo run
+```

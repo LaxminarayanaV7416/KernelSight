@@ -5,8 +5,7 @@ use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
 use proc_parser::configs::config::Config;
-use proc_parser::parser::procfs_parser::record_procfs;
-use proc_parser::parser::procfs_pid_parser::orchestrate_pids;
+use proc_parser::parser::procfs_parse_initiater::initiate_procfs_parsing;
 use std::error::Error;
 use std::fs;
 use std::sync::Arc;
@@ -28,9 +27,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config: &'static Config = Box::leak(Box::new(basic_toml::from_str(&content)?));
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);
-    let mut threads = record_procfs(&config, Arc::clone(&signaller))?;
-    let (mut pids_threads, pids_transmitter) = orchestrate_pids(&*config, Arc::clone(&signaller))?;
-    threads.append(&mut pids_threads);
+
+    let threads = initiate_procfs_parsing(&config, signaller)?;
+
     for thread in threads {
         thread.join().unwrap();
     }

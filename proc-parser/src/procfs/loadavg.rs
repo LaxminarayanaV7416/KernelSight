@@ -1,3 +1,4 @@
+// use crate::common::file_reader::FileReaderTrait;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_decimal_f64;
 use crate::common::parser_utils::parse_u64_swar;
@@ -35,7 +36,6 @@ Field 5 - int32
 pub struct ProcFSLoadAvgReader {
     reader: ProcFileReader<512>,
     values: ProcLoadAvgFields,
-    
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -120,6 +120,24 @@ impl ProcFSLoadAvgReader {
         }
     }
 }
+
+// impl FileReaderTrait for ProcFSLoadAvgReader {
+//     fn read_and_parse(
+//         &mut self,
+//         field_filter: Option<&HashMap<usize, bool>>,
+//         string_field_filter: Option<&HashMap<&str, (usize, bool)>>,
+//     ) -> bool {
+//         let read_status = self.reader.read();
+//         let mut
+//         if read_status {
+//             match field_filter {
+//                 Some(field_filter) => self.parse_buffer(&field_filter),
+//                 None => (),
+//             }
+//         }
+//         read_status
+//     }
+// }
 
 pub fn parse_procfs_loadavg(
     signal_hook: Arc<AtomicBool>,

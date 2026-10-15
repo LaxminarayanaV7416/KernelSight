@@ -4,7 +4,7 @@ use crate::configs::config::{Config, ProcFSConfigTrait};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
@@ -63,6 +63,7 @@ fn start_tracking_pids(
     round_robin: &Arc<RwLock<PIDSRoundRobin>>,
     data: &mut ProcFSRoundRobinData,
     config: &'static Config,
+    start_time: &'static i64,
     debug: &bool,
     schedstat_map: &HashMap<usize, bool>,
     stat_map: &HashMap<usize, bool>,
@@ -108,6 +109,7 @@ fn start_tracking_pids(
 
             record.read_and_parse(
                 debug,
+                start_time,
                 schedstat_map,
                 stat_map,
                 statm_map,
@@ -128,13 +130,12 @@ fn start_tracking_pids(
 pub fn orchestrate_pids(
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-) -> Result<(Vec<JoinHandle<()>>, Sender<PIDActions>), Box<dyn Error>> {
-    let (transmitter, receiver): (Sender<PIDActions>, Receiver<PIDActions>) =
-        channel::<PIDActions>();
-    let transmitter_clone = transmitter.clone();
+    start_time: &'static i64,
+    transmitter: Sender<PIDActions>,
+    receiver: Receiver<PIDActions>,
+) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let signaller_clone = Arc::clone(&signaller);
-    let observers = start_pids_observer(transmitter_clone, &config, signaller_clone);
-    let mut observers = match observers {
+    let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
         Ok(observer) => observer,
         Err(err) => panic!("Error occured {}", err),
     };
@@ -212,6 +213,7 @@ pub fn orchestrate_pids(
                 &parser_round_robin,
                 &mut round_robin_data,
                 config,
+                start_time,
                 &debug,
                 &schedstat_filter_map,
                 &stat_filter_map,
@@ -234,5 +236,5 @@ pub fn orchestrate_pids(
     // across the threads.
     observers.push(receiver_worker);
     observers.push(parser_worker);
-    Ok((observers, transmitter))
+    Ok(observers)
 }

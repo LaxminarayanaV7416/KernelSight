@@ -1,4 +1,17 @@
 
+* there are some decisions I have made to actually attain the previous value calculation and its using the std::mem::swap and maintain the previous and current values in the reader struct and track the time using the 
+```rust
+fn monotonic() -> (i64, i64) {
+    let mut time = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+
+    let ret = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC_COARSE, &mut time) };
+    assert_eq!(ret, 0);
+    (time.tv_sec, time.tv_nsec)
+    }
+```
 
 ```rust
 // pub const PROC_ACPI_FOLDER_SLUG: &str = "acpi";

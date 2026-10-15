@@ -1,10 +1,13 @@
-use crate::procfs::loadavg::ProcFSLoadAvgReader;
+use crate::common::system_call_utils::monotonic;
+use crate::procfs::loadavg::{ProcFSLoadAvgReader, ProcLoadAvgFields};
 use crate::procfs::meminfo::ProcFSMemInfoReader;
 use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
 use crate::procfs::stat::ProcFSStatReader;
 use crate::procfs::uptime::ProcFSUptimeReader;
 use crate::procfs::vmstat::ProcFSVmStatReader;
 use crate::sysfs::diskstats::DiskStatsReader;
+use crate::writer::writer_utils::{WriteData, WriteDataMsg};
+use std::sync::mpsc::Sender;
 // ---- config import -----
 use crate::common::procfs_constants::{
     PROC_FS_ROOT_PATH, PROC_LOADAVG_FILE_SLUG, PROC_MEMINFO_FILE_SLUG, PROC_PRESSURE_CPU_FILE_SLUG,
@@ -50,6 +53,7 @@ fn initialize_diskstats(
 pub fn record_procfs(
     config: &Config,
     signaller: Arc<AtomicBool>,
+    transmit_writer: Sender<WriteDataMsg>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let mut threads: Vec<JoinHandle<()>> = vec![];
     let (is_cachable, is_root) = (false, false);
@@ -130,85 +134,122 @@ pub fn record_procfs(
     )?);
     let proc_uptime_filter_map = Box::new(config.procfs.uptime.get_hashmap());
 
+    let transmit_writer_clone = transmit_writer.clone();
+
     let group_thread_handle = thread::spawn(move || {
         while !general_signaller.load(Ordering::Relaxed) {
+            // globally calculate  the time monotonically
+            let time = monotonic();
+
             if *is_loadavg_allowed {
                 let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::LoadAvg(WriteData::new(
+                        time,
+                        *load_avg_temp_reader.values(),
+                        None,
+                        None,
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/loadavg..");
                 }
-                if *debug {
-                    println!("/proc/loadavg : {:?}", load_avg_temp_reader.values());
-                }
             }
             if *is_diskstat_allowed {
-                for (path, disk_reader) in diskstats_readers.iter_mut() {
+                for (_, disk_reader) in diskstats_readers.iter_mut() {
                     let read_status = disk_reader.read_and_parse(&diskstats_filter_map);
+                    transmit_writer_clone
+                        .send(WriteDataMsg::DiskStats(WriteData::new(
+                            time,
+                            *disk_reader.values(),
+                            None,
+                            None,
+                        )))
+                        .unwrap();
                     if !read_status {
                         panic!("Failed to read diskstats, ProcFS File closed!");
-                    }
-                    if *debug {
-                        println!("{} : {:?}", path, disk_reader.values());
                     }
                 }
             }
             if *is_pressure_cpu_allowed {
                 let read_status = pressure_cpu_reader.read_and_parse(&pressure_cpu_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Pressure(WriteData::new(
+                        time,
+                        *pressure_cpu_reader.values(),
+                        None,
+                        Some(PROC_PRESSURE_CPU_FILE_SLUG),
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/pressure/cpu..");
-                }
-                if *debug {
-                    println!("/proc/pressure/cpu : {:?}", pressure_cpu_reader.values());
                 }
             }
 
             if *is_pressure_io_allowed {
                 let read_status = pressure_io_reader.read_and_parse(&pressure_io_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Pressure(WriteData::new(
+                        time,
+                        *pressure_io_reader.values(),
+                        None,
+                        Some(PROC_PRESSURE_IO_FILE_SLUG),
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/pressure/io..");
-                }
-                if *debug {
-                    println!("/proc/pressure/io : {:?}", pressure_io_reader.values());
                 }
             }
 
             if *is_pressure_memory_allowed {
                 let read_status =
                     pressure_memory_reader.read_and_parse(&pressure_memory_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Pressure(WriteData::new(
+                        time,
+                        *pressure_memory_reader.values(),
+                        None,
+                        Some(PROC_PRESSURE_MEMORY_FILE_SLUG),
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/pressure/memory..");
-                }
-                if *debug {
-                    println!(
-                        "/proc/pressure/memory : {:?}",
-                        pressure_memory_reader.values()
-                    );
                 }
             }
 
             if *is_pressure_irq_allowed {
                 let read_status = pressure_irq_reader.read_and_parse(&pressure_irq_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Pressure(WriteData::new(
+                        time,
+                        *pressure_irq_reader.values(),
+                        None,
+                        Some(PROC_PRESSURE_IRQ_FILE_SLUG),
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/pressure/irq..");
-                }
-                if *debug {
-                    println!("/proc/pressure/irq : {:?}", pressure_irq_reader.values());
                 }
             }
 
             if *is_proc_uptime_allowed {
                 let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Uptime(WriteData::new(
+                        time,
+                        *proc_uptime_reader.values(),
+                        None,
+                        None,
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/uptime..");
-                }
-                if *debug {
-                    println!("/proc/uptime : {:?}", proc_uptime_reader.values());
                 }
             }
 

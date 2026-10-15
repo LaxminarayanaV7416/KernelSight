@@ -1,4 +1,7 @@
-use libc::{CPU_COUNT, CPU_ZERO, cpu_set_t, sched_getaffinity};
+use libc::{
+    CLOCK_MONOTONIC_COARSE, CPU_COUNT, CPU_ZERO, clock_gettime, cpu_set_t, sched_getaffinity,
+    timespec,
+};
 use std::mem;
 
 pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
@@ -17,4 +20,13 @@ pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
         }
         Ok(CPU_COUNT(&set) as usize)
     }
+}
+
+pub fn monotonic() -> i64 {
+    let mut time = timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    unsafe { clock_gettime(CLOCK_MONOTONIC_COARSE, &mut time) };
+    time.tv_nsec
 }

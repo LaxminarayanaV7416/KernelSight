@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -47,4 +48,12 @@ impl<const BUFFER_ARRAY_SIZE: usize> ProcFileReader<BUFFER_ARRAY_SIZE> {
         let result = String::from_utf8(self.buffer.to_vec()).unwrap_or_default();
         result
     }
+}
+
+pub trait FileReaderTrait {
+    fn read_and_parse(
+        &mut self,
+        field_filter: Option<&HashMap<usize, bool>>,
+        string_field_filter: Option<&HashMap<&str, (usize, bool)>>,
+    ) -> bool;
 }
