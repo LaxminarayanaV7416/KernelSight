@@ -1,3 +1,15 @@
+use super::cgroupfs::cgroup_v2_cgroup_events::CgroupV2CgroupEventsConfig;
+use super::cgroupfs::cgroup_v2_cpu_pressure::CgroupV2CpuPressureConfig;
+use super::cgroupfs::cgroup_v2_cpu_stat::CgroupV2CpuStatConfig;
+use super::cgroupfs::cgroup_v2_io_pressure::CgroupV2IoPressureConfig;
+use super::cgroupfs::cgroup_v2_memory_current::CgroupV2MemoryCurrentConfig;
+use super::cgroupfs::cgroup_v2_memory_events::CgroupV2MemoryEventConfig;
+use super::cgroupfs::cgroup_v2_memory_peak::CgroupV2MemoryPeakConfig;
+use super::cgroupfs::cgroup_v2_memory_pressure::CgroupV2MemoryPressureConfig;
+use super::cgroupfs::cgroup_v2_memory_stat::CgroupV2MemoryStatConfig;
+use super::cgroupfs::cgroup_v2_pids_current::CgroupV2PidsCurrentConfig;
+use super::cgroupfs::cgroup_v2_pids_events::CgroupV2PidsEventsConfig;
+use super::cgroupfs::cgroup_v2_pids_peak::CgroupV2PidsPeakConfig;
 use super::procfs_diskstats_config::ProcDiskStatsConfig;
 use super::procfs_loadavg_config::ProcLoadAvgConfig;
 use super::procfs_meminfo_config::ProcMemInfoConfig;
@@ -32,6 +44,7 @@ pub struct Config {
     pub pids_scan_heart_beat: u64,
     pub debug: bool,
     pub procfs: ProcFS,
+    pub cgroupfs: CgroupV2,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -60,4 +73,20 @@ pub struct ProcFSPID {
     pub stat: ProcPidfsStatConfig,
     pub statm: ProcPidfsStatmConfig,
     pub status: ProcPIDStatusConfig,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct CgroupV2 {
+    pub cgroup_events: CgroupV2CgroupEventsConfig,
+    pub cpu_pressure: CgroupV2CpuPressureConfig,
+    pub cpu_stat: CgroupV2CpuStatConfig,
+    pub io_pressure: CgroupV2IoPressureConfig,
+    pub memory_current: CgroupV2MemoryCurrentConfig,
+    pub memory_events: CgroupV2MemoryEventConfig,
+    pub memory_peak: CgroupV2MemoryPeakConfig,
+    pub memory_pressure: CgroupV2MemoryPressureConfig,
+    pub memory_stat: CgroupV2MemoryStatConfig,
+    pub pids_current: CgroupV2PidsCurrentConfig,
+    pub pids_events: CgroupV2PidsEventsConfig,
+    pub pids_peak: CgroupV2PidsPeakConfig,
 }

@@ -57,6 +57,33 @@ impl ProcFSPIDData {
         let pid_comm = parse_procfs_pid_comm(pid as usize);
         let pid_cmdline = parse_procfs_pid_cmdline(pid as usize);
         let pid_cgroup = parse_procfs_pid_cgroup(pid as usize);
+        // Sending the Cgroup, Comm and Cmdline to the writer
+        let time = monotonic();
+        transmitter_writer
+            .send(WriteDataMsg::PIDCgroup(WriteData::new(
+                time,
+                pid_cgroup.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
+        transmitter_writer
+            .send(WriteDataMsg::PIDComm(WriteData::new(
+                time,
+                pid_comm.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
+        transmitter_writer
+            .send(WriteDataMsg::PIDCmdline(WriteData::new(
+                time,
+                pid_cmdline.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
+        // load the paths and keep the files open
         let schedstat_path = Path::new(PROC_FS_ROOT_PATH)
             .join(pid.to_string())
             .join(PROC_PID_SCHEDSTAT_FILE_SLUG);
@@ -156,32 +183,6 @@ impl ProcFSPIDData {
         } else {
             None
         };
-        // Sending the Cgroup, Comm and Cmdline to the writer
-        let time = monotonic();
-        transmitter_writer
-            .send(WriteDataMsg::PIDCgroup(WriteData::new(
-                time,
-                pid_cgroup.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
-        transmitter_writer
-            .send(WriteDataMsg::PIDComm(WriteData::new(
-                time,
-                pid_comm.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
-        transmitter_writer
-            .send(WriteDataMsg::PIDCmdline(WriteData::new(
-                time,
-                pid_cmdline.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
         Self {
             pid: pid,
             comm: pid_comm,

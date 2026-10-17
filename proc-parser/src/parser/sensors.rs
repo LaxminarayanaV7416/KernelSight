@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::Sender;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -19,6 +19,10 @@ use std::time::Duration;
  * our case as well, so we recieve the pid from that and then
  * spawn if process is not present.
  */
+
+
+// Idealogy: We can write the sensor and make sure each sensor is its own state machine
+// So goal is to make sure that we add and remove the PIDS
 
 fn procfs_scrapper_sensor(
     transmitter: Sender<PIDActions>,

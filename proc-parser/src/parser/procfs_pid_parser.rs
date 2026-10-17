@@ -1,5 +1,5 @@
 use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDData};
-use super::procfs_sensors::start_pids_observer;
+use super::sensors::start_pids_observer;
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::writer::writer_utils::WriteDataMsg;
 use std::collections::{HashMap, HashSet};
@@ -10,6 +10,11 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+// TODO no need of roundrobin
+// The idea is not neccessary for now
+// we can omit that once we figure ut the cgroup
+// GPU metrics are sorted out
 
 #[derive(Debug)]
 struct PIDSRoundRobin {

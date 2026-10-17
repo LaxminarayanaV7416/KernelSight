@@ -1,5 +1,5 @@
 thread_pool_count = 10
-heart_beat = 100
+heart_beat = 10
 pids_scan_heart_beat = 1000
 debug = false
 
@@ -550,3 +550,203 @@ text = true
 lib = true
 data = true
 dirty = true
+
+
+# ------------/cgroups----------------
+#
+#
+#
+#
+#
+# ------------------------------------
+[cgroupfs.cgroup_events]
+allow = true
+heart_beat = 100
+
+[cgroupfs.cgroup_events.fields]
+populated = true
+frozen = true
+
+[cgroupfs.cpu_pressure]
+allow = true
+heart_beat = 100
+
+[cgroupfs.cpu_pressure.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_300 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_300 = true
+full_total  = true
+
+[cgroupfs.cpu_stat]
+allow = true
+heart_beat = 100
+
+[cgroupfs.cpu_stat.fields]
+usage_usec = true
+user_usec = true
+system_usec = true
+nice_usec = true
+core_sched_force_idle_usec = true
+nr_periods = true
+nr_throttled = true
+throttled_usec = true
+nr_bursts = true
+burst_usec = true
+
+[cgroupfs.io_pressure]
+allow = true
+heart_beat = 100
+
+[cgroupfs.io_pressure.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_300 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_300 = true
+full_total  = true
+
+[cgroupfs.memory_current]
+allow = true
+heart_beat = 100
+
+[cgroupfs.memory_current.fields]
+memory = true
+
+[cgroupfs.memory_events]
+allow = true
+heart_beat = 100
+
+[cgroupfs.memory_events.fields]
+low = true
+high = true
+max = true
+oom = true
+oom_kill = true
+oom_group_kill = true
+sock_throttled = true
+
+[cgroupfs.memory_peak]
+allow = true
+heart_beat = 100
+
+[cgroupfs.memory_peak.fields]
+memory = true
+
+[cgroupfs.memory_pressure]
+allow = true
+heart_beat = 100
+
+[cgroupfs.memory_pressure.fields]
+some_avg_10 =true
+some_avg_60 = true
+some_avg_300 = true
+some_total  = true
+full_avg_10 = true
+full_avg_60 = true
+full_avg_300 = true
+full_total  = true
+
+[cgroupfs.memory_stat]
+allow = true
+heart_beat = 100
+
+[cgroupfs.memory_stat.fields]
+anon = true
+file = true
+kernel = true
+kernel_stack = true
+pagetables = true
+sec_pagetables = true
+percpu = true
+sock = true
+vmalloc = true
+shmem = true
+zswap = true
+zswapped = true
+zswap_incomp = true
+file_mapped = true
+file_dirty = true
+file_writeback = true
+swapcached = true
+anon_thp = true
+file_thp = true
+shmem_thp = true
+inactive_anon = true
+active_anon = true
+inactive_file = true
+active_file = true
+unevictable = true
+slab_reclaimable = true
+slab_unreclaimable = true
+slab = true
+hugetlb = true
+workingset_refault_anon = true
+workingset_refault_file = true
+workingset_activate_anon = true
+workingset_activate_file = true
+workingset_restore_anon = true
+workingset_restore_file = true
+workingset_nodereclaim = true
+pgdemote_kswapd = true
+pgdemote_direct = true
+pgdemote_khugepaged = true
+pgdemote_proactive = true
+pgsteal_kswapd = true
+pgsteal_direct = true
+pgsteal_khugepaged = true
+pgsteal_proactive = true
+pgscan_kswapd = true
+pgscan_direct = true
+pgscan_khugepaged = true
+pgscan_proactive = true
+pgrefill = true
+pgpromote_success = true
+pgscan = true
+pgsteal = true
+pswpin = true
+pswpout = true
+pgfault = true
+pgmajfault = true
+pgactivate = true
+pgdeactivate = true
+pglazyfree = true
+pglazyfreed = true
+swpin_zero = true
+swpout_zero = true
+zswpin = true
+zswpout = true
+zswpwb = true
+thp_fault_alloc = true
+thp_collapse_alloc = true
+thp_swpout = true
+thp_swpout_fallback = true
+numa_pages_migrated = true
+numa_pte_updates = true
+numa_hint_faults = true
+
+[cgroupfs.pids_current]
+allow = true
+heart_beat = 100
+
+[cgroupfs.pids_current.fields]
+pids = true
+
+[cgroupfs.pids_events]
+allow = true
+heart_beat = 100
+
+[cgroupfs.pids_events.fields]
+max = true
+
+[cgroupfs.pids_peak]
+allow = true
+heart_beat = 100
+
+[cgroupfs.pids_peak.fields]
+pids = true

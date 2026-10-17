@@ -9,6 +9,20 @@ pub mod common {
     pub mod system_call_utils;
 }
 pub mod configs {
+    pub mod cgroupfs {
+        pub mod cgroup_v2_cgroup_events;
+        pub mod cgroup_v2_cpu_pressure;
+        pub mod cgroup_v2_cpu_stat;
+        pub mod cgroup_v2_io_pressure;
+        pub mod cgroup_v2_memory_current;
+        pub mod cgroup_v2_memory_events;
+        pub mod cgroup_v2_memory_peak;
+        pub mod cgroup_v2_memory_pressure;
+        pub mod cgroup_v2_memory_stat;
+        pub mod cgroup_v2_pids_current;
+        pub mod cgroup_v2_pids_events;
+        pub mod cgroup_v2_pids_peak;
+    }
     pub mod config;
     pub mod procfs_diskstats_config;
     pub mod procfs_loadavg_config;
@@ -74,7 +88,7 @@ pub mod parser {
     pub mod procfs_parse_initiater;
     pub mod procfs_parser;
     pub mod procfs_pid_parser;
-    pub mod procfs_sensors;
+    pub mod sensors;
 }
 pub mod writer {
     pub mod writer;
