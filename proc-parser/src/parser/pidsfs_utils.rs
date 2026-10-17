@@ -49,7 +49,11 @@ pub struct ProcFSPIDData {
 }
 
 impl ProcFSPIDData {
-    pub fn new(pid: u64, config: &'static Config) -> Self {
+    pub fn new(
+        pid: u64,
+        config: &'static Config,
+        transmitter_writer: &Sender<WriteDataMsg>,
+    ) -> Self {
         let pid_comm = parse_procfs_pid_comm(pid as usize);
         let pid_cmdline = parse_procfs_pid_cmdline(pid as usize);
         let pid_cgroup = parse_procfs_pid_cgroup(pid as usize);
@@ -152,6 +156,32 @@ impl ProcFSPIDData {
         } else {
             None
         };
+        // Sending the Cgroup, Comm and Cmdline to the writer
+        let time = monotonic();
+        transmitter_writer
+            .send(WriteDataMsg::PIDCgroup(WriteData::new(
+                time,
+                pid_cgroup.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
+        transmitter_writer
+            .send(WriteDataMsg::PIDComm(WriteData::new(
+                time,
+                pid_comm.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
+        transmitter_writer
+            .send(WriteDataMsg::PIDCmdline(WriteData::new(
+                time,
+                pid_cmdline.clone(),
+                Some(pid),
+                None,
+            )))
+            .unwrap();
         Self {
             pid: pid,
             comm: pid_comm,

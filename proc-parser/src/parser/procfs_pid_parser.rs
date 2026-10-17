@@ -49,10 +49,15 @@ impl ProcFSRoundRobinData {
         }
     }
 
-    pub fn add(&mut self, pid: u64, config: &'static Config) {
+    pub fn add(
+        &mut self,
+        pid: u64,
+        config: &'static Config,
+        transmitter_writer: &Sender<WriteDataMsg>,
+    ) {
         self.pids_data
             .entry(pid)
-            .or_insert_with(|| ProcFSPIDData::new(pid, config));
+            .or_insert_with(|| ProcFSPIDData::new(pid, config, &transmitter_writer));
     }
 
     pub fn remove(&mut self, pid: u64) -> Option<ProcFSPIDData> {
@@ -99,7 +104,7 @@ fn start_tracking_pids(
         // The receiver worker adds PID identities to the round-robin.
         // The parser worker owns and initializes the mutable file readers.
         if !data.pids_data.contains_key(&pid) {
-            data.add(pid, config);
+            data.add(pid, config, &transmitter_writer);
         }
 
         // Limit this mutable borrow to its own scope so the entry can be
