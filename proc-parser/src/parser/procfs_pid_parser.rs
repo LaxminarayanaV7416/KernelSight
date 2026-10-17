@@ -75,7 +75,7 @@ fn start_tracking_pids(
     data: &mut ProcFSRoundRobinData,
     config: &'static Config,
     transmitter_writer: &Sender<WriteDataMsg>,
-    start_time: &'static i64,
+    start_time: &'static f64,
     debug: &bool,
     schedstat_map: &HashMap<usize, bool>,
     stat_map: &HashMap<usize, bool>,
@@ -201,7 +201,7 @@ fn round_robin_thread(
 pub fn orchestrate_pids(
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-    start_time: &'static i64,
+    start_time: &'static f64,
     transmitter: Sender<PIDActions>,
     receiver: Receiver<PIDActions>,
     transmitter_writer: Sender<WriteDataMsg>,

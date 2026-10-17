@@ -17,7 +17,7 @@ pub fn initiate_procfs_parsing(
     signaller: Arc<AtomicBool>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     // record the starting time as constant
-    let start_time: &'static i64 = Box::leak(Box::new(monotonic()));
+    let start_time: &'static f64 = Box::leak(Box::new(monotonic()));
     let (transmitter_pids, receiver_pids): (Sender<PIDActions>, Receiver<PIDActions>) =
         initiate_mpsc_channel::<PIDActions>();
 

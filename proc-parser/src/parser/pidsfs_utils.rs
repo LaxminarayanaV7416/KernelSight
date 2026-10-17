@@ -198,7 +198,7 @@ impl ProcFSPIDData {
     pub fn read_and_parse(
         &mut self,
         debug: &bool,
-        start_time: &'static i64,
+        start_time: &'static f64,
         transmitter_writer: &Sender<WriteDataMsg>,
         schedstat_map: &HashMap<usize, bool>,
         stat_map: &HashMap<usize, bool>,

@@ -32,14 +32,14 @@ pub enum WriteDataMsg {
 
 #[derive(Debug)]
 pub struct WriteData<T> {
-    pub time: i64,
+    pub time: f64,
     pub data: T,
     pub pid: Option<u64>,
     pub variant: Option<&'static str>,
 }
 
 impl<T> WriteData<T> {
-    pub fn new(time: i64, data: T, pid: Option<u64>, variant: Option<&'static str>) -> Self {
+    pub fn new(time: f64, data: T, pid: Option<u64>, variant: Option<&'static str>) -> Self {
         Self {
             time: time,
             data: data,

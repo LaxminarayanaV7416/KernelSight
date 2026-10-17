@@ -22,11 +22,11 @@ pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
     }
 }
 
-pub fn monotonic() -> i64 {
+pub fn monotonic() -> f64 {
     let mut time = timespec {
         tv_sec: 0,
         tv_nsec: 0,
     };
     unsafe { clock_gettime(CLOCK_MONOTONIC_COARSE, &mut time) };
-    time.tv_nsec
+    (time.tv_sec as f64) + (time.tv_nsec as f64 / 1_000_000_000.0)
 }
