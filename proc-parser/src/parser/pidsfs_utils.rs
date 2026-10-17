@@ -2,6 +2,7 @@ use crate::common::procfs_constants::{
     PROC_FS_ROOT_PATH, PROC_PID_SCHEDSTAT_FILE_SLUG, PROC_PID_STAT_FILE_SLUG,
     PROC_PID_STATM_FILE_SLUG, PROC_PID_STATUS_FILE_SLUG,
 };
+use crate::common::system_call_utils::monotonic;
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::procfs::pidfs::cachable_reads::{
     parse_procfs_pid_cgroup, parse_procfs_pid_cmdline, parse_procfs_pid_comm,
@@ -10,10 +11,12 @@ use crate::procfs::pidfs::schedstat::ProcFSPIDSchedStatReader;
 use crate::procfs::pidfs::stat::ProcFSPIDStatReader;
 use crate::procfs::pidfs::statm::ProcFSPIDStatmReader;
 use crate::procfs::pidfs::status::ProcFSPIDStatusReader;
+use crate::writer::writer_utils::{WriteData, WriteDataMsg};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;
+use std::sync::mpsc::Sender;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ProcFSPID {
@@ -165,6 +168,7 @@ impl ProcFSPIDData {
         &mut self,
         debug: &bool,
         start_time: &'static i64,
+        transmitter_writer: &Sender<WriteDataMsg>,
         schedstat_map: &HashMap<usize, bool>,
         stat_map: &HashMap<usize, bool>,
         statm_map: &HashMap<usize, bool>,
@@ -174,6 +178,7 @@ impl ProcFSPIDData {
         statm_enabled: &bool,
         status_enabled: &bool,
     ) -> bool {
+        let time = monotonic();
         if *schedstat_enabled {
             let Some(reader) = self.schedstat.as_mut() else {
                 return false;
@@ -181,9 +186,17 @@ impl ProcFSPIDData {
             if !reader.read_and_parse(schedstat_map) {
                 return false;
             }
-            if *debug {
-                println!("/proc/{}/schedstat: {:?}", self.pid, reader.values());
-            }
+            transmitter_writer
+                .send(WriteDataMsg::PIDSchedStat(WriteData::new(
+                    time,
+                    *reader.values(),
+                    Some(self.pid),
+                    None,
+                )))
+                .unwrap();
+            // if *debug {
+            //     println!("/proc/{}/schedstat: {:?}", self.pid, reader.values());
+            // }
         }
 
         if *stat_enabled {
@@ -194,10 +207,17 @@ impl ProcFSPIDData {
             if !reader.read_and_parse(stat_map) {
                 return false;
             }
-
-            if *debug {
-                println!("/proc/{}/stat: {:?}", self.pid, reader.values());
-            }
+            transmitter_writer
+                .send(WriteDataMsg::PIDStat(WriteData::new(
+                    time,
+                    reader.values().clone(),
+                    Some(self.pid),
+                    None,
+                )))
+                .unwrap();
+            // if *debug {
+            //     println!("/proc/{}/stat: {:?}", self.pid, reader.values());
+            // }
         }
 
         if *statm_enabled {
@@ -208,10 +228,17 @@ impl ProcFSPIDData {
             if !reader.read_and_parse(statm_map) {
                 return false;
             }
-
-            if *debug {
-                println!("/proc/{}/statm: {:?}", self.pid, reader.values());
-            }
+            transmitter_writer
+                .send(WriteDataMsg::PIDStatm(WriteData::new(
+                    time,
+                    *reader.values(),
+                    Some(self.pid),
+                    None,
+                )))
+                .unwrap();
+            // if *debug {
+            //     println!("/proc/{}/statm: {:?}", self.pid, reader.values());
+            // }
         }
         if *status_enabled {
             let Some(reader) = self.status.as_mut() else {
@@ -221,10 +248,17 @@ impl ProcFSPIDData {
             if !reader.read_and_parse(status_map) {
                 return false;
             }
-
-            if *debug {
-                println!("/proc/{}/status: {:?}", self.pid, reader.values());
-            }
+            transmitter_writer
+                .send(WriteDataMsg::PIDStatus(WriteData::new(
+                    time,
+                    reader.values().clone(),
+                    Some(self.pid),
+                    None,
+                )))
+                .unwrap();
+            // if *debug {
+            //     println!("/proc/{}/status: {:?}", self.pid, reader.values());
+            // }
         }
         true
     }

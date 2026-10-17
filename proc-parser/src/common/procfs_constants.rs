@@ -259,6 +259,5 @@ pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 // NOTE: We are not going to monitor any subfolders under /proc/<pid>
 // This is because it becomes very inappropriate to do so, daemon gets very beefier
 
-
 // ---------------------- miscellenous slugs ---------
 pub const SYS_FS_BLOCK_SLUG: &str = "block";

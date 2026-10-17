@@ -30,7 +30,7 @@ pub fn initiate_procfs_parsing(
             Err(err) => panic!("Error occured starting the procfs {}", err),
         };
 
-    start_writer(&config, Arc::clone(&signaller), receiver_writer);
+    let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
 
     let mut pids_threads = match orchestrate_pids(
         &config,
@@ -38,10 +38,16 @@ pub fn initiate_procfs_parsing(
         start_time,
         transmitter_pids.clone(),
         receiver_pids,
+        transmitter_writer.clone(),
     ) {
         Ok(threads) => threads,
-        Err(err) => panic!("errpr occured while starting the procfs Pids {}", err),
+        Err(err) => {
+            panic!("Error occurred while starting procfs PIDs: {err}")
+        }
     };
+
     threads.append(&mut pids_threads);
+    threads.push(writer_thread);
+
     Ok(threads)
 }

@@ -1,6 +1,7 @@
 use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDData};
 use super::procfs_sensors::start_pids_observer;
 use crate::configs::config::{Config, ProcFSConfigTrait};
+use crate::writer::writer_utils::WriteDataMsg;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -63,6 +64,7 @@ fn start_tracking_pids(
     round_robin: &Arc<RwLock<PIDSRoundRobin>>,
     data: &mut ProcFSRoundRobinData,
     config: &'static Config,
+    transmitter_writer: &Sender<WriteDataMsg>,
     start_time: &'static i64,
     debug: &bool,
     schedstat_map: &HashMap<usize, bool>,
@@ -110,6 +112,7 @@ fn start_tracking_pids(
             record.read_and_parse(
                 debug,
                 start_time,
+                &transmitter_writer,
                 schedstat_map,
                 stat_map,
                 statm_map,
@@ -127,23 +130,13 @@ fn start_tracking_pids(
     }
 }
 
-pub fn orchestrate_pids(
-    config: &'static Config,
-    signaller: Arc<AtomicBool>,
-    start_time: &'static i64,
-    transmitter: Sender<PIDActions>,
+fn round_robin_thread(
+    receiver_round_robin: Arc<RwLock<PIDSRoundRobin>>,
+    receiver_signaller: Arc<AtomicBool>,
     receiver: Receiver<PIDActions>,
-) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
-    let signaller_clone = Arc::clone(&signaller);
-    let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
-        Ok(observer) => observer,
-        Err(err) => panic!("Error occured {}", err),
-    };
-    let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
-    let receiver_round_robin = Arc::clone(&round_robin_pids);
-    let receiver_signaller = Arc::clone(&signaller);
-
-    let receiver_worker = thread::spawn(move || {
+    config: &'static Config,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
         while !receiver_signaller.load(Ordering::Relaxed) {
             match receiver.recv_timeout(Duration::from_secs(1)) {
                 Ok(PIDActions::Add(pid)) => {
@@ -192,7 +185,31 @@ pub fn orchestrate_pids(
                 }
             }
         }
-    });
+    })
+}
+
+pub fn orchestrate_pids(
+    config: &'static Config,
+    signaller: Arc<AtomicBool>,
+    start_time: &'static i64,
+    transmitter: Sender<PIDActions>,
+    receiver: Receiver<PIDActions>,
+    transmitter_writer: Sender<WriteDataMsg>,
+) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
+    let signaller_clone = Arc::clone(&signaller);
+    let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
+        Ok(observer) => observer,
+        Err(err) => panic!("Error occured {}", err),
+    };
+    let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
+
+    let receiver_worker = round_robin_thread(
+        Arc::clone(&round_robin_pids),
+        Arc::clone(&signaller),
+        receiver,
+        &config,
+    );
+
     let parser_round_robin = Arc::clone(&round_robin_pids);
     let parser_signaller = Arc::clone(&signaller);
     let mut round_robin_data = ProcFSRoundRobinData::new();
@@ -213,6 +230,7 @@ pub fn orchestrate_pids(
                 &parser_round_robin,
                 &mut round_robin_data,
                 config,
+                &transmitter_writer,
                 start_time,
                 &debug,
                 &schedstat_filter_map,

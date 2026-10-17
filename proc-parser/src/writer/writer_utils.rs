@@ -1,5 +1,9 @@
 use crate::procfs::loadavg::ProcLoadAvgFields;
 use crate::procfs::meminfo::ProcMemInfoFields;
+use crate::procfs::pidfs::schedstat::ProcPIDSchedStatFields;
+use crate::procfs::pidfs::stat::ProcPIDStatFields;
+use crate::procfs::pidfs::statm::ProcPIDStatmFields;
+use crate::procfs::pidfs::status::ProcPIDStatusFields;
 use crate::procfs::pressure::pressure_util::ProcProcessGeneralFields;
 use crate::procfs::stat::ProcStatFields;
 use crate::procfs::uptime::ProcUptimeFields;
@@ -8,6 +12,7 @@ use crate::sysfs::diskstats::DiskStatsValues;
 
 #[derive(Debug)]
 pub enum WriteDataMsg {
+    // ProcFS main files
     LoadAvg(WriteData<ProcLoadAvgFields>),
     MemInfo(WriteData<ProcMemInfoFields>),
     Stat(WriteData<ProcStatFields>),
@@ -15,6 +20,14 @@ pub enum WriteDataMsg {
     VmStat(WriteData<ProcVmStatFields>),
     DiskStats(WriteData<DiskStatsValues>),
     Pressure(WriteData<ProcProcessGeneralFields>),
+    // ProcFS PID files
+    PIDCgroup(WriteData<String>),
+    PIDComm(WriteData<String>),
+    PIDCmdline(WriteData<String>),
+    PIDSchedStat(WriteData<ProcPIDSchedStatFields>),
+    PIDStat(WriteData<ProcPIDStatFields>),
+    PIDStatm(WriteData<ProcPIDStatmFields>),
+    PIDStatus(WriteData<ProcPIDStatusFields>),
 }
 
 #[derive(Debug)]
