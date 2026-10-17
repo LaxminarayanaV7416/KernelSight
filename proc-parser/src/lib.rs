@@ -79,9 +79,7 @@ pub mod sysfs {
     pub mod diskstats;
 }
 pub mod gpu {
-    pub mod nvidia {
-        pub mod metrics;
-    }
+    pub mod nvidia;
 }
 pub mod parser {
     pub mod pidsfs_utils;

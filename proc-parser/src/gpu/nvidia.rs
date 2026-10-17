@@ -1,6 +1,6 @@
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
-use crate::writer::writer_utils::{WriteData, WriteDataMsg};
+use crate::writer::writer_utils::{WriteGPUData, WriteGPUDataMsg};
 use nvml_wrapper::Nvml;
 use nvml_wrapper::enums::device::UsedGpuMemory;
 use nvml_wrapper::error::NvmlError;
@@ -14,10 +14,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-#[derive(Default, Debug, Copy, Clone)]
-pub struct GPUMetrics {}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct GpuDeviceInfo {
     pub gpu_index: u32,
     pub uuid: String,
@@ -29,15 +26,7 @@ pub struct GpuDeviceInfo {
     pub compute_capability_minor: i32,
 }
 
-#[derive(Debug, Default)]
-pub struct GpuProcessSample {
-    pub pid: u32,
-    pub gpu_memory_bytes: u64,
-    pub sm_utilization_pct: u32,
-    pub memory_utilization_pct: u32,
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct GpuDeviceMessage {
     pub timestamp: f64,
     pub gpu_index: u32,
@@ -50,12 +39,14 @@ pub struct GpuDeviceMessage {
     // Processes
     pub compute_process_count: usize,
     // detailed processes
-    pub processes: Vec<GpuProcessSample>,
+    pub pid: Option<u32>,
+    pub pid_memory_bytes: Option<u64>,
+    pub pid_sm_utilization_pct: Option<u32>,
+    pub pid_memory_utilization_pct: Option<u32>,
 }
 
 pub struct NvidiaGPUMetrics {
     pub nvml: Option<Nvml>,
-    pub values: GPUMetrics,
     pub gpu_count: u32,
     pub gpu_devices_info: Vec<GpuDeviceInfo>,
 }
@@ -103,7 +94,6 @@ impl NvidiaGPUMetrics {
 
         Self {
             nvml: Some(nvml),
-            values: GPUMetrics::default(),
             gpu_count,
             gpu_devices_info: gpu_device_info,
         }
@@ -112,16 +102,25 @@ impl NvidiaGPUMetrics {
     pub fn get_device_details(
         &mut self,
         config: &'static Config,
-        // transmitter_writer: &Sender<WriteDataMsg>,
+        transmitter_writer: &Sender<WriteGPUDataMsg>,
         signaller: Arc<AtomicBool>,
     ) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let global_heart_beat = Box::new(config.heart_beat);
+        let global_heart_beat = Box::new(config.gpu_scan_heart_beat);
         let nvml = match self.nvml.take() {
             Some(nvml) => nvml,
             None => panic!("somethign is wrong!"),
         };
         let gpu_count = self.gpu_count;
         let mut prev_timestamp = monotonic();
+        // intially push the device info
+        for item in &self.gpu_devices_info {
+            transmitter_writer
+                .send(WriteGPUDataMsg::NvidiaDeviceInfo(WriteGPUData::new(
+                    item.clone(),
+                )))
+                .unwrap();
+        }
+        let writer = transmitter_writer.clone();
         let thread_spawned = thread::spawn(move || {
             while !signaller.load(Ordering::Relaxed) {
                 let time = monotonic();
@@ -133,6 +132,7 @@ impl NvidiaGPUMetrics {
                     };
                     // Utilization may not be supported.
                     let utilization_rate = device.utilization_rates().ok();
+                    //TODO fix this calculation here!!!
                     let utilization = device
                         .process_utilization_stats(Some(prev_timestamp as u64 / 1000))
                         .ok();
@@ -159,37 +159,63 @@ impl NvidiaGPUMetrics {
                         }
                     }
                     let process_count = processes.len();
-                    let mut result = Vec::with_capacity(process_count);
-                    for process in processes {
-                        let util = util_by_pid.get(&process.pid);
-
-                        let memory_bytes = match process.used_gpu_memory {
-                            UsedGpuMemory::Used(bytes) => bytes,
-                            UsedGpuMemory::Unavailable => 0,
-                        };
-                        result.push(GpuProcessSample {
-                            pid: process.pid,
-                            gpu_memory_bytes: memory_bytes,
-                            sm_utilization_pct: util.map(|u| u.sm_util).unwrap_or(0),
-                            memory_utilization_pct: util.map(|u| u.mem_util).unwrap_or(0),
-                        });
+                    if process_count > 0 {
+                        for process in processes {
+                            let util = util_by_pid.get(&process.pid);
+                            writer
+                                .send(WriteGPUDataMsg::NvidiaProcs(WriteGPUData::new(
+                                    GpuDeviceMessage {
+                                        timestamp: time,
+                                        gpu_index: index,
+                                        gpu_utilization_pct: utilization_rate
+                                            .as_ref()
+                                            .map(|u| u.gpu)
+                                            .unwrap_or(0),
+                                        memory_utilization_pct: utilization_rate
+                                            .as_ref()
+                                            .map(|u| u.memory)
+                                            .unwrap_or(0),
+                                        memory_used_bytes: memory.used,
+                                        memory_free_bytes: memory.free,
+                                        compute_process_count: process_count,
+                                        pid: Some(process.pid),
+                                        pid_memory_bytes: match process.used_gpu_memory {
+                                            UsedGpuMemory::Used(bytes) => Some(bytes),
+                                            UsedGpuMemory::Unavailable => None,
+                                        },
+                                        pid_sm_utilization_pct: util.map(|u| u.sm_util),
+                                        pid_memory_utilization_pct: util.map(|u| u.mem_util),
+                                    },
+                                )))
+                                .unwrap();
+                        }
+                    } else {
+                        writer
+                            .send(WriteGPUDataMsg::NvidiaProcs(WriteGPUData::new(
+                                GpuDeviceMessage {
+                                    timestamp: time,
+                                    gpu_index: index,
+                                    gpu_utilization_pct: utilization_rate
+                                        .as_ref()
+                                        .map(|u| u.gpu)
+                                        .unwrap_or(0),
+                                    memory_utilization_pct: utilization_rate
+                                        .as_ref()
+                                        .map(|u| u.memory)
+                                        .unwrap_or(0),
+                                    memory_used_bytes: memory.used,
+                                    memory_free_bytes: memory.free,
+                                    compute_process_count: process_count,
+                                    pid: None,
+                                    pid_memory_bytes: None,
+                                    pid_sm_utilization_pct: None,
+                                    pid_memory_utilization_pct: None,
+                                },
+                            )))
+                            .unwrap();
                     }
-
-                    let msg = GpuDeviceMessage {
-                        timestamp: time,
-                        gpu_index: index,
-                        gpu_utilization_pct: utilization_rate.as_ref().map(|u| u.gpu).unwrap_or(0),
-                        memory_utilization_pct: utilization_rate
-                            .as_ref()
-                            .map(|u| u.memory)
-                            .unwrap_or(0),
-                        memory_used_bytes: memory.used,
-                        memory_free_bytes: memory.free,
-                        compute_process_count: process_count,
-                        processes: result,
-                    };
-                    println!("NVIDIA Msg: {:?}", msg);
                 }
+
                 prev_timestamp = time;
                 thread::sleep(Duration::from_millis(*global_heart_beat));
             }

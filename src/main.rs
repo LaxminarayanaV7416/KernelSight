@@ -5,7 +5,7 @@ use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
 use proc_parser::configs::config::Config;
-use proc_parser::gpu::nvidia::metrics::NvidiaGPUMetrics;
+use proc_parser::gpu::nvidia::NvidiaGPUMetrics;
 use proc_parser::parser::procfs_parse_initiater::initiate_procfs_parsing;
 use std::error::Error;
 use std::fs;
@@ -28,11 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config: &'static Config = Box::leak(Box::new(basic_toml::from_str(&content)?));
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);
-
-    let mut nvidia = NvidiaGPUMetrics::new();
-    let mut threads = initiate_procfs_parsing(&config, Arc::clone(&signaller))?;
-    let nvidia_thread = nvidia.get_device_details(&config, signaller)?;
-    threads.push(nvidia_thread);
+    let threads = initiate_procfs_parsing(&config, Arc::clone(&signaller))?;
     for thread in threads {
         thread.join().unwrap();
     }

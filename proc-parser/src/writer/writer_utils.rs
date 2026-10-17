@@ -1,3 +1,4 @@
+use crate::gpu::nvidia::{GpuDeviceInfo, GpuDeviceMessage};
 use crate::procfs::loadavg::ProcLoadAvgFields;
 use crate::procfs::meminfo::ProcMemInfoFields;
 use crate::procfs::pidfs::schedstat::ProcPIDSchedStatFields;
@@ -35,7 +36,9 @@ pub struct WriteData<T> {
     pub time: f64,
     pub data: T,
     pub pid: Option<u64>,
-    pub variant: Option<&'static str>,
+    pub variant: Option<&'static str>, // this is used in case of pressure to identify what type it is
+                                       // for pressure we are usign generic type so instead of duplicating everythign we are using same
+                                       // as per the SOLID principle and passing variant as identifier
 }
 
 impl<T> WriteData<T> {
@@ -47,4 +50,40 @@ impl<T> WriteData<T> {
             variant: variant,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct WriteCgroupsData<T> {
+    pub time: f64,
+    pub data: T,
+    pub pid: Option<u64>,
+    pub variant: Option<&'static str>,
+}
+
+impl<T> WriteCgroupsData<T> {
+    pub fn new(time: f64, data: T, pid: Option<u64>, variant: Option<&'static str>) -> Self {
+        Self {
+            time: time,
+            data: data,
+            pid: pid,
+            variant: variant,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct WriteGPUData<T> {
+    pub data: T,
+}
+
+impl<T> WriteGPUData<T> {
+    pub fn new(data: T) -> Self {
+        Self { data: data }
+    }
+}
+
+#[derive(Debug)]
+pub enum WriteGPUDataMsg {
+    NvidiaDeviceInfo(WriteGPUData<GpuDeviceInfo>),
+    NvidiaProcs(WriteGPUData<GpuDeviceMessage>),
 }

@@ -1,4 +1,5 @@
 use super::writer_utils::WriteDataMsg;
+use super::writer_utils::WriteGPUDataMsg;
 use crate::configs::config::Config;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -57,6 +58,39 @@ pub fn start_writer(
                     }
                     WriteDataMsg::PIDStatus(msg) => {
                         // println!("Status {:?}", msg);
+                    }
+                },
+
+                Err(RecvTimeoutError::Timeout) => {
+                    // Normal: no message arrived during this interval.
+                }
+
+                Err(RecvTimeoutError::Disconnected) => {
+                    break;
+                }
+            }
+        }
+
+        if config.debug {
+            println!("Writer thread stopped");
+        }
+    })
+}
+
+pub fn start_gpu_writer(
+    config: &'static Config,
+    signaller: Arc<AtomicBool>,
+    receiver: Receiver<WriteGPUDataMsg>,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        while !signaller.load(Ordering::Relaxed) {
+            match receiver.recv_timeout(Duration::from_secs(1)) {
+                Ok(data) => match data {
+                    WriteGPUDataMsg::NvidiaDeviceInfo(msg) => {
+                        println!("NVIDIA DeviceInfo {:?}", msg);
+                    }
+                    WriteGPUDataMsg::NvidiaProcs(msg) => {
+                        println!("NVIDIA GPU-DATA {:?}", msg);
                     }
                 },
 

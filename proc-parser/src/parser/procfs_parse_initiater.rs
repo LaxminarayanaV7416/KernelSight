@@ -3,9 +3,11 @@ use super::procfs_pid_parser::orchestrate_pids;
 use crate::common::message_passing_utils::initiate_mpsc_channel;
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
+use crate::gpu::nvidia::NvidiaGPUMetrics;
 use crate::parser::procfs_parser::record_procfs;
-use crate::writer::writer::start_writer;
+use crate::writer::writer::{start_gpu_writer, start_writer};
 use crate::writer::writer_utils::WriteDataMsg;
+use crate::writer::writer_utils::WriteGPUDataMsg;
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -24,6 +26,13 @@ pub fn initiate_procfs_parsing(
     let (transmitter_writer, receiver_writer): (Sender<WriteDataMsg>, Receiver<WriteDataMsg>) =
         initiate_mpsc_channel::<WriteDataMsg>();
 
+    let (transmitter_gpu_writer, receiver_gpu_writer): (
+        Sender<WriteGPUDataMsg>,
+        Receiver<WriteGPUDataMsg>,
+    ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
+
+    let mut nvidia = NvidiaGPUMetrics::new();
+
     let mut threads =
         match record_procfs(&config, Arc::clone(&signaller), transmitter_writer.clone()) {
             Ok(threads) => threads,
@@ -31,6 +40,7 @@ pub fn initiate_procfs_parsing(
         };
 
     let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
+    let writer_thread = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
 
     let mut pids_threads = match orchestrate_pids(
         &config,
@@ -45,9 +55,15 @@ pub fn initiate_procfs_parsing(
             panic!("Error occurred while starting procfs PIDs: {err}")
         }
     };
+    let gpu_thread =
+        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
+            Ok(thread) => thread,
+            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
+        };
 
     threads.append(&mut pids_threads);
     threads.push(writer_thread);
+    threads.push(gpu_thread);
 
     Ok(threads)
 }
