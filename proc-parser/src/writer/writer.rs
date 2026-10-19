@@ -87,10 +87,10 @@ pub fn start_gpu_writer(
             match receiver.recv_timeout(Duration::from_secs(1)) {
                 Ok(data) => match data {
                     WriteGPUDataMsg::NvidiaDeviceInfo(msg) => {
-                        println!("NVIDIA DeviceInfo {:?}", msg);
+                        // println!("NVIDIA DeviceInfo {:?}", msg);
                     }
                     WriteGPUDataMsg::NvidiaProcs(msg) => {
-                        println!("NVIDIA GPU-DATA {:?}", msg);
+                        // println!("NVIDIA GPU-DATA {:?}", msg);
                     }
                 },
 

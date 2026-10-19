@@ -5,7 +5,6 @@ use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
 use proc_parser::configs::config::Config;
-use proc_parser::gpu::nvidia::NvidiaGPUMetrics;
 use proc_parser::parser::procfs_parse_initiater::initiate_procfs_parsing;
 use std::error::Error;
 use std::fs;

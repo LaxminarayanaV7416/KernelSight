@@ -1,3 +1,4 @@
+use super::cgroups_v2_orchestrator::CgroupsV2Actions;
 use crate::common::procfs_constants::{
     PROC_FS_ROOT_PATH, PROC_PID_SCHEDSTAT_FILE_SLUG, PROC_PID_STAT_FILE_SLUG,
     PROC_PID_STATM_FILE_SLUG, PROC_PID_STATUS_FILE_SLUG,
@@ -14,7 +15,9 @@ use crate::procfs::pidfs::status::ProcFSPIDStatusReader;
 use crate::writer::writer_utils::{WriteData, WriteDataMsg};
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::error::Error;
 use std::hash::Hash;
+use std::io;
 use std::path::Path;
 use std::sync::mpsc::Sender;
 
@@ -28,7 +31,6 @@ impl ProcFSPID {
         Self { pid: pid }
     }
 }
-
 // 4. for borrowing usign the PID number, this
 // will enable the take method to get what struct value
 impl Borrow<u64> for ProcFSPID {
@@ -37,7 +39,7 @@ impl Borrow<u64> for ProcFSPID {
     }
 }
 
-pub struct ProcFSPIDData {
+pub struct ProcFSPIDReaders {
     pub pid: u64,
     pub comm: String,
     pub cmdline: String,
@@ -48,150 +50,250 @@ pub struct ProcFSPIDData {
     pub status: Option<ProcFSPIDStatusReader>,
 }
 
-impl ProcFSPIDData {
+impl ProcFSPIDReaders {
     pub fn new(
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-    ) -> Self {
-        let pid_comm = parse_procfs_pid_comm(pid as usize);
-        let pid_cmdline = parse_procfs_pid_cmdline(pid as usize);
-        let pid_cgroup = parse_procfs_pid_cgroup(pid as usize);
-        // Sending the Cgroup, Comm and Cmdline to the writer
+        transmit_cgroup: &Sender<CgroupsV2Actions>,
+    ) -> Result<Self, Box<dyn Error>> {
         let time = monotonic();
-        transmitter_writer
-            .send(WriteDataMsg::PIDCgroup(WriteData::new(
-                time,
-                pid_cgroup.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
-        transmitter_writer
-            .send(WriteDataMsg::PIDComm(WriteData::new(
-                time,
-                pid_comm.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
-        transmitter_writer
-            .send(WriteDataMsg::PIDCmdline(WriteData::new(
-                time,
-                pid_cmdline.clone(),
-                Some(pid),
-                None,
-            )))
-            .unwrap();
-        // load the paths and keep the files open
-        let schedstat_path = Path::new(PROC_FS_ROOT_PATH)
-            .join(pid.to_string())
-            .join(PROC_PID_SCHEDSTAT_FILE_SLUG);
-        let stat_path = Path::new(PROC_FS_ROOT_PATH)
-            .join(pid.to_string())
-            .join(PROC_PID_STAT_FILE_SLUG);
-        let statm_path = Path::new(PROC_FS_ROOT_PATH)
-            .join(pid.to_string())
-            .join(PROC_PID_STATM_FILE_SLUG);
-        let status_path = Path::new(PROC_FS_ROOT_PATH)
-            .join(pid.to_string())
-            .join(PROC_PID_STATUS_FILE_SLUG);
-        let is_pid_schedstat_allowed: Box<bool> =
-            Box::new(config.procfs.pid.schedstat.is_enabled());
-        let schedstat: Option<ProcFSPIDSchedStatReader> = if *is_pid_schedstat_allowed {
-            match schedstat_path.to_str() {
-                Some(path) => match ProcFSPIDSchedStatReader::new(path, false, false) {
-                    Ok(reader) => Some(reader),
-                    Err(error) => {
-                        eprintln!("Failed to initialize stat reader for PID {pid}: {error}");
-                        None
-                    }
-                },
-                None => {
-                    eprintln!(
-                        "The schedstat path for PID {pid} is not valid UTF-8: {}",
-                        stat_path.display()
-                    );
-                    None
-                }
+
+        // Without a cgroup value there is nothing meaningful to send to the
+        // cgroup orchestrator. Return the original error to the caller.
+        let pid_cgroup = match parse_procfs_pid_cgroup(pid as usize) {
+            Ok(cgroup) => cgroup,
+            Err(error) => {
+                eprintln!("Failed to read cgroup information for PID {pid}: {error}");
+                return Err(error);
             }
-        } else {
-            None
         };
 
-        let is_pid_stat_allowed: Box<bool> = Box::new(config.procfs.pid.stat.is_enabled());
-        let stat: Option<ProcFSPIDStatReader> = if *is_pid_stat_allowed {
-            match stat_path.to_str() {
-                Some(path) => match ProcFSPIDStatReader::new(path, false, false) {
-                    Ok(reader) => Some(reader),
-                    Err(error) => {
-                        eprintln!("Failed to initialize stat reader for PID {pid}: {error}");
-                        None
-                    }
-                },
-                None => {
-                    eprintln!(
-                        "The stat path for PID {pid} is not valid UTF-8: {}",
-                        stat_path.display()
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        // Keep pid_cgroup outside this closure so it remains available for
+        // cleanup if any later setup step fails.
+        let setup_result: Result<Self, Box<dyn Error>> = (|| {
+            let pid_comm = parse_procfs_pid_comm(pid as usize).map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("failed to read comm for PID {pid}: {error}"),
+                )
+            })?;
 
-        let is_pid_statm_allowed: Box<bool> = Box::new(config.procfs.pid.statm.is_enabled());
-        let statm: Option<ProcFSPIDStatmReader> = if *is_pid_statm_allowed {
-            match statm_path.to_str() {
-                Some(path) => match ProcFSPIDStatmReader::new(path, false, false) {
-                    Ok(reader) => Some(reader),
-                    Err(error) => {
-                        eprintln!("Failed to initialize statm reader for PID {pid}: {error}");
-                        None
-                    }
-                },
-                None => {
+            let pid_cmdline = parse_procfs_pid_cmdline(pid as usize).map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("failed to read cmdline for PID {pid}: {error}"),
+                )
+            })?;
+
+            let pid_root = Path::new(PROC_FS_ROOT_PATH).join(pid.to_string());
+
+            let schedstat_path = pid_root.join(PROC_PID_SCHEDSTAT_FILE_SLUG);
+
+            let stat_path = pid_root.join(PROC_PID_STAT_FILE_SLUG);
+
+            let statm_path = pid_root.join(PROC_PID_STATM_FILE_SLUG);
+
+            let status_path = pid_root.join(PROC_PID_STATUS_FILE_SLUG);
+
+            let schedstat = if config.procfs.pid.schedstat.is_enabled() {
+                let path = schedstat_path.to_str().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "schedstat path for PID {pid} is not valid UTF-8: {}",
+                            schedstat_path.display()
+                        ),
+                    )
+                })?;
+
+                Some(
+                    ProcFSPIDSchedStatReader::new(path, false, false).map_err(|error| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "failed to initialize schedstat reader \
+                                     for PID {pid}: {error}"
+                            ),
+                        )
+                    })?,
+                )
+            } else {
+                None
+            };
+
+            let stat = if config.procfs.pid.stat.is_enabled() {
+                let path = stat_path.to_str().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "stat path for PID {pid} is not valid UTF-8: {}",
+                            stat_path.display()
+                        ),
+                    )
+                })?;
+
+                Some(
+                    ProcFSPIDStatReader::new(path, false, false).map_err(|error| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "failed to initialize stat reader \
+                                     for PID {pid}: {error}"
+                            ),
+                        )
+                    })?,
+                )
+            } else {
+                None
+            };
+
+            let statm = if config.procfs.pid.statm.is_enabled() {
+                let path = statm_path.to_str().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "statm path for PID {pid} is not valid UTF-8: {}",
+                            statm_path.display()
+                        ),
+                    )
+                })?;
+
+                Some(
+                    ProcFSPIDStatmReader::new(path, false, false).map_err(|error| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "failed to initialize statm reader \
+                                     for PID {pid}: {error}"
+                            ),
+                        )
+                    })?,
+                )
+            } else {
+                None
+            };
+
+            let status = if config.procfs.pid.status.is_enabled() {
+                let path = status_path.to_str().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "status path for PID {pid} is not valid UTF-8: {}",
+                            status_path.display()
+                        ),
+                    )
+                })?;
+
+                Some(
+                    ProcFSPIDStatusReader::new(path, false, false).map_err(|error| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "failed to initialize status reader \
+                                     for PID {pid}: {error}"
+                            ),
+                        )
+                    })?,
+                )
+            } else {
+                None
+            };
+
+            // Reader setup succeeded. Only now publish metadata.
+            transmitter_writer
+                .send(WriteDataMsg::PIDCgroup(WriteData::new(
+                    time,
+                    pid_cgroup.clone(),
+                    Some(pid),
+                    None,
+                )))
+                .map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        format!(
+                            "failed to send cgroup metadata for PID {pid}: \
+                             {error}"
+                        ),
+                    )
+                })?;
+
+            transmitter_writer
+                .send(WriteDataMsg::PIDComm(WriteData::new(
+                    time,
+                    pid_comm.clone(),
+                    Some(pid),
+                    None,
+                )))
+                .map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        format!(
+                            "failed to send comm metadata for PID {pid}: \
+                             {error}"
+                        ),
+                    )
+                })?;
+
+            transmitter_writer
+                .send(WriteDataMsg::PIDCmdline(WriteData::new(
+                    time,
+                    pid_cmdline.clone(),
+                    Some(pid),
+                    None,
+                )))
+                .map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        format!(
+                            "failed to send cmdline metadata for PID {pid}: \
+                             {error}"
+                        ),
+                    )
+                })?;
+
+            transmit_cgroup
+                .send(CgroupsV2Actions::Add(pid_cgroup.clone()))
+                .map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        format!(
+                            "failed to send cgroup add action for PID {pid}: \
+                             {error}"
+                        ),
+                    )
+                })?;
+
+            Ok(Self {
+                pid,
+                comm: pid_comm,
+                cmdline: pid_cmdline,
+                cgroup: pid_cgroup.clone(),
+                schedstat,
+                stat,
+                statm,
+                status,
+            })
+        })();
+
+        match setup_result {
+            Ok(readers) => Ok(readers),
+
+            Err(error) => {
+                eprintln!("Failed to set up procfs readers for PID {pid}: {error}");
+
+                // Emit one cleanup message, rather than one message for every
+                // reader that failed.
+                if let Err(send_error) = transmit_cgroup.send(CgroupsV2Actions::Remove(pid_cgroup))
+                {
                     eprintln!(
-                        "The statm path for PID {pid} is not valid UTF-8: {}",
-                        stat_path.display()
+                        "Failed to send cgroup cleanup action for PID {pid}: \
+                         {send_error}"
                     );
-                    None
                 }
+
+                Err(error)
             }
-        } else {
-            None
-        };
-        let is_pid_status_allowed: Box<bool> = Box::new(config.procfs.pid.status.is_enabled());
-        let status: Option<ProcFSPIDStatusReader> = if *is_pid_status_allowed {
-            match status_path.to_str() {
-                Some(path) => match ProcFSPIDStatusReader::new(path, false, false) {
-                    Ok(reader) => Some(reader),
-                    Err(error) => {
-                        eprintln!("Failed to initialize status reader for PID {pid}: {error}");
-                        None
-                    }
-                },
-                None => {
-                    eprintln!(
-                        "The status path for PID {pid} is not valid UTF-8: {}",
-                        stat_path.display()
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
-        Self {
-            pid: pid,
-            comm: pid_comm,
-            cmdline: pid_cmdline,
-            cgroup: pid_cgroup,
-            schedstat: schedstat,
-            stat: stat,
-            statm: statm,
-            status: status,
         }
     }
 
@@ -200,6 +302,7 @@ impl ProcFSPIDData {
         debug: &bool,
         start_time: &'static f64,
         transmitter_writer: &Sender<WriteDataMsg>,
+        transmit_cgroup: &Sender<CgroupsV2Actions>,
         schedstat_map: &HashMap<usize, bool>,
         stat_map: &HashMap<usize, bool>,
         statm_map: &HashMap<usize, bool>,
@@ -212,9 +315,15 @@ impl ProcFSPIDData {
         let time = monotonic();
         if *schedstat_enabled {
             let Some(reader) = self.schedstat.as_mut() else {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             };
             if !reader.read_and_parse(schedstat_map) {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -232,10 +341,16 @@ impl ProcFSPIDData {
 
         if *stat_enabled {
             let Some(reader) = self.stat.as_mut() else {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             };
 
             if !reader.read_and_parse(stat_map) {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -253,10 +368,16 @@ impl ProcFSPIDData {
 
         if *statm_enabled {
             let Some(reader) = self.statm.as_mut() else {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             };
 
             if !reader.read_and_parse(statm_map) {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -273,10 +394,16 @@ impl ProcFSPIDData {
         }
         if *status_enabled {
             let Some(reader) = self.status.as_mut() else {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             };
 
             if !reader.read_and_parse(status_map) {
+                transmit_cgroup
+                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
+                    .unwrap();
                 return false;
             }
             transmitter_writer

@@ -82,6 +82,7 @@ pub mod gpu {
     pub mod nvidia;
 }
 pub mod parser {
+    pub mod cgroups_v2_orchestrator;
     pub mod pidsfs_utils;
     pub mod procfs_parse_initiater;
     pub mod procfs_parser;

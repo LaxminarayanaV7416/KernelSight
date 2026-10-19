@@ -1,4 +1,5 @@
-use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDData};
+use super::cgroups_v2_orchestrator::CgroupsV2Actions;
+use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDReaders};
 use super::sensors::start_pids_observer;
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::writer::writer_utils::WriteDataMsg;
@@ -44,7 +45,7 @@ impl PIDSRoundRobin {
 }
 
 pub struct ProcFSRoundRobinData {
-    pub pids_data: HashMap<u64, ProcFSPIDData>,
+    pub pids_data: HashMap<u64, ProcFSPIDReaders>,
 }
 
 impl ProcFSRoundRobinData {
@@ -59,13 +60,20 @@ impl ProcFSRoundRobinData {
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-    ) {
-        self.pids_data
-            .entry(pid)
-            .or_insert_with(|| ProcFSPIDData::new(pid, config, &transmitter_writer));
+        transmit_cgroup: &Sender<CgroupsV2Actions>,
+    ) -> Result<bool, Box<dyn Error>> {
+        if self.pids_data.contains_key(&pid) {
+            return Ok(false);
+        }
+
+        let readers = ProcFSPIDReaders::new(pid, config, transmitter_writer, transmit_cgroup)?;
+
+        self.pids_data.insert(pid, readers);
+
+        Ok(true)
     }
 
-    pub fn remove(&mut self, pid: u64) -> Option<ProcFSPIDData> {
+    pub fn remove(&mut self, pid: u64) -> Option<ProcFSPIDReaders> {
         self.pids_data.remove(&pid)
     }
 }
@@ -75,6 +83,7 @@ fn start_tracking_pids(
     data: &mut ProcFSRoundRobinData,
     config: &'static Config,
     transmitter_writer: &Sender<WriteDataMsg>,
+    transmit_cgroup: &Sender<CgroupsV2Actions>,
     start_time: &'static f64,
     debug: &bool,
     schedstat_map: &HashMap<usize, bool>,
@@ -109,7 +118,18 @@ fn start_tracking_pids(
         // The receiver worker adds PID identities to the round-robin.
         // The parser worker owns and initializes the mutable file readers.
         if !data.pids_data.contains_key(&pid) {
-            data.add(pid, config, &transmitter_writer);
+            match data.add(pid, config, transmitter_writer, transmit_cgroup) {
+                Ok(true) => {
+                    // Reader was initialized and inserted.
+                }
+                Ok(false) => {
+                    // PID was already present.
+                }
+                Err(error) => {
+                    eprintln!("Unable to begin tracking PID {pid}: {error}");
+                    continue;
+                }
+            }
         }
 
         // Limit this mutable borrow to its own scope so the entry can be
@@ -123,6 +143,7 @@ fn start_tracking_pids(
                 debug,
                 start_time,
                 &transmitter_writer,
+                &transmit_cgroup,
                 schedstat_map,
                 stat_map,
                 statm_map,
@@ -205,6 +226,7 @@ pub fn orchestrate_pids(
     transmitter: Sender<PIDActions>,
     receiver: Receiver<PIDActions>,
     transmitter_writer: Sender<WriteDataMsg>,
+    transmit_cgroup: Sender<CgroupsV2Actions>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let signaller_clone = Arc::clone(&signaller);
     let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
@@ -241,6 +263,7 @@ pub fn orchestrate_pids(
                 &mut round_robin_data,
                 config,
                 &transmitter_writer,
+                &transmit_cgroup,
                 start_time,
                 &debug,
                 &schedstat_filter_map,
