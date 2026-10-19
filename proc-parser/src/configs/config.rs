@@ -46,6 +46,7 @@ pub struct Config {
     pub debug: bool,
     pub procfs: ProcFS,
     pub cgroupfs: CgroupV2,
+    pub cgroup_patterns: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]

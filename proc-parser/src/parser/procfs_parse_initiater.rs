@@ -6,7 +6,8 @@ use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
 use crate::gpu::nvidia::NvidiaGPUMetrics;
 use crate::parser::procfs_parser::record_procfs;
-use crate::writer::writer::{start_gpu_writer, start_writer};
+use crate::writer::writer::{start_cgroup_writer, start_gpu_writer, start_writer};
+use crate::writer::writer_utils::WriteCgroupsDataMsg;
 use crate::writer::writer_utils::WriteDataMsg;
 use crate::writer::writer_utils::WriteGPUDataMsg;
 use std::error::Error;
@@ -32,10 +33,15 @@ pub fn initiate_procfs_parsing(
         Receiver<WriteGPUDataMsg>,
     ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
 
-    let (transmitter_cgroup_writer, receiver_cgroup_writer): (
+    let (transmitter_cgroup_invoker, receiver_cgroup_invoker): (
         Sender<CgroupsV2Actions>,
         Receiver<CgroupsV2Actions>,
     ) = initiate_mpsc_channel::<CgroupsV2Actions>();
+
+    let (transmitter_cgroup_writer, receiver_cgroup_writer): (
+        Sender<WriteCgroupsDataMsg>,
+        Receiver<WriteCgroupsDataMsg>,
+    ) = initiate_mpsc_channel::<WriteCgroupsDataMsg>();
 
     let mut nvidia = NvidiaGPUMetrics::new();
 
@@ -44,14 +50,20 @@ pub fn initiate_procfs_parsing(
             Ok(threads) => threads,
             Err(err) => panic!("Error occured starting the procfs {}", err),
         };
-    let cgroup_reciever_thread =
-        match cgroup_initiater(&config, Arc::clone(&signaller), receiver_cgroup_writer) {
-            Ok(thread) => thread,
-            Err(err) => panic!("Error occured starting Cgroup Reciever {}", err),
-        };
+    let (cgroup_reciever_thread, cgroup_reader_thread) = match cgroup_initiater(
+        &config,
+        Arc::clone(&signaller),
+        receiver_cgroup_invoker,
+        transmitter_cgroup_writer,
+    ) {
+        Ok(thread) => thread,
+        Err(err) => panic!("Error occured starting Cgroup Reciever {}", err),
+    };
 
     let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
     let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
+    let write_thread_cgroup =
+        start_cgroup_writer(&config, Arc::clone(&signaller), receiver_cgroup_writer);
 
     let mut pids_threads = match orchestrate_pids(
         &config,
@@ -60,7 +72,7 @@ pub fn initiate_procfs_parsing(
         transmitter_pids.clone(),
         receiver_pids,
         transmitter_writer.clone(),
-        transmitter_cgroup_writer.clone(),
+        transmitter_cgroup_invoker.clone(),
     ) {
         Ok(threads) => threads,
         Err(err) => {
@@ -75,6 +87,7 @@ pub fn initiate_procfs_parsing(
 
     threads.append(&mut pids_threads);
     threads.push(cgroup_reciever_thread);
+    threads.push(cgroup_reader_thread);
     threads.push(writer_thread);
     threads.push(writer_thread_gpu);
     threads.push(gpu_thread);

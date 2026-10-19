@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let content = fs::read_to_string(PATH)?;
     let config: &'static Config = Box::leak(Box::new(basic_toml::from_str(&content)?));
+    println!("Cgroup Patterns: {:?}", config.cgroup_patterns);
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);
     let threads = initiate_procfs_parsing(&config, Arc::clone(&signaller))?;

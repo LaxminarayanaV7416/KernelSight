@@ -79,11 +79,11 @@ LAX Calculations for the memory
 
 pub struct DiskStatsReader {
     reader: ProcFileReader<512>,
-    values: DiskStatsValues,
+    values: DiskStatsFields,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct DiskStatsValues {
+pub struct DiskStatsFields {
     pub reads_completed: UnsignedLong,
     pub reads_merged: UnsignedLong,
     pub sectors_read: UnsignedLong,
@@ -111,7 +111,7 @@ impl DiskStatsReader {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
-            values: DiskStatsValues::default(),
+            values: DiskStatsFields::default(),
         })
     }
 
@@ -176,7 +176,7 @@ impl DiskStatsReader {
         }
     }
 
-    pub fn values(&self) -> &DiskStatsValues {
+    pub fn values(&self) -> &DiskStatsFields {
         &self.values
     }
 }

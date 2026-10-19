@@ -65,11 +65,8 @@ impl ProcFSRoundRobinData {
         if self.pids_data.contains_key(&pid) {
             return Ok(false);
         }
-
         let readers = ProcFSPIDReaders::new(pid, config, transmitter_writer, transmit_cgroup)?;
-
         self.pids_data.insert(pid, readers);
-
         Ok(true)
     }
 

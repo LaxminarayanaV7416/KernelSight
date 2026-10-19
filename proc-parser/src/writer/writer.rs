@@ -1,3 +1,4 @@
+use super::writer_utils::WriteCgroupsDataMsg;
 use super::writer_utils::WriteDataMsg;
 use super::writer_utils::WriteGPUDataMsg;
 use crate::configs::config::Config;
@@ -91,6 +92,72 @@ pub fn start_gpu_writer(
                     }
                     WriteGPUDataMsg::NvidiaProcs(msg) => {
                         // println!("NVIDIA GPU-DATA {:?}", msg);
+                    }
+                },
+
+                Err(RecvTimeoutError::Timeout) => {
+                    // Normal: no message arrived during this interval.
+                }
+
+                Err(RecvTimeoutError::Disconnected) => {
+                    break;
+                }
+            }
+        }
+
+        if config.debug {
+            println!("Writer thread stopped");
+        }
+    })
+}
+
+pub fn start_cgroup_writer(
+    config: &'static Config,
+    signaller: Arc<AtomicBool>,
+    receiver: Receiver<WriteCgroupsDataMsg>,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        while !signaller.load(Ordering::Relaxed) {
+            match receiver.recv_timeout(Duration::from_secs(1)) {
+                Ok(data) => match data {
+                    WriteCgroupsDataMsg::CgroupEvent(msg) => {
+                        println!("Cgroup Event: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::CgroupProcs(msg) => {
+                        println!("Cgroup Procs: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::CpuPressure(msg) => {
+                        println!("CPU Pressure: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::CpuStat(msg) => {
+                        println!("CPU Stat: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::IoPressure(msg) => {
+                        println!("IO Pressure: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::MemoryCurrent(msg) => {
+                        println!("Memory Current: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::MemoryEvent(msg) => {
+                        println!("Memory Event: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::MemoryPeak(msg) => {
+                        println!("Memory Peak: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::MemoryPressure(msg) => {
+                        println!("Memory Pressure: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::MemoryStat(msg) => {
+                        println!("Memory Stat: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::PidsCurrent(msg) => {
+                        println!("PIDS Current: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::PidsEvent(msg) => {
+                        println!("PIDS Event: {:?}", msg);
+                    }
+                    WriteCgroupsDataMsg::PidsPeak(msg) => {
+                        println!("PIDS Peak: {:?}", msg);
                     }
                 },
 
