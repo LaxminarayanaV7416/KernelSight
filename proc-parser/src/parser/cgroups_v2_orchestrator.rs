@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -296,7 +296,7 @@ impl CgroupsV2Readers {
             transmit_cgroup_writer
                 .send(WriteCgroupsDataMsg::MemoryCurrent(WriteCgroupsData::new(
                     time,
-                    *reader.values(),
+                    reader.values().clone(),
                     self.cgroup_path.clone(),
                 )))
                 .unwrap();
@@ -317,7 +317,7 @@ impl CgroupsV2Readers {
                 .unwrap();
         }
         if *is_memory_pressure_allowed {
-            let reader = &mut self.io_pressure;
+            let reader = &mut self.memory_pressure;
             if !reader.read_and_parse(memory_pressure_filter_map) {
                 return false;
             }
@@ -339,7 +339,7 @@ impl CgroupsV2Readers {
             transmit_cgroup_writer
                 .send(WriteCgroupsDataMsg::MemoryPeak(WriteCgroupsData::new(
                     time,
-                    *reader.values(),
+                    reader.values().clone(),
                     self.cgroup_path.clone(),
                 )))
                 .unwrap();
@@ -369,7 +369,7 @@ impl CgroupsV2Readers {
             transmit_cgroup_writer
                 .send(WriteCgroupsDataMsg::PidsCurrent(WriteCgroupsData::new(
                     time,
-                    *reader.values(),
+                    reader.values().clone(),
                     self.cgroup_path.clone(),
                 )))
                 .unwrap();
@@ -399,7 +399,7 @@ impl CgroupsV2Readers {
             transmit_cgroup_writer
                 .send(WriteCgroupsDataMsg::PidsPeak(WriteCgroupsData::new(
                     time,
-                    *reader.values(),
+                    reader.values().clone(),
                     self.cgroup_path.clone(),
                 )))
                 .unwrap();
@@ -414,14 +414,15 @@ pub fn cgroup_initiater(
     receiver: Receiver<CgroupsV2Actions>,
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
 ) -> Result<(JoinHandle<()>, JoinHandle<()>), Box<dyn Error>> {
-    let cgroups_data: Arc<Mutex<HashMap<String, CgroupsV2Readers>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    let cgroups_data: Arc<RwLock<HashMap<String, CgroupsV2Readers>>> =
+        Arc::new(RwLock::new(HashMap::new()));
     let pattern_searcher = Box::new(
         AhoCorasick::builder()
             .ascii_case_insensitive(true)
             .build(config.cgroup_patterns.clone())
             .unwrap(),
     );
+    let cgroups_data_clone = Arc::clone(&cgroups_data);
     let parser_signaller = Arc::clone(&signaller);
     let parser_worker = thread::spawn(move || {
         while !parser_signaller.load(Ordering::Relaxed) {
@@ -429,7 +430,7 @@ pub fn cgroup_initiater(
                 Ok(CgroupsV2Actions::Add(cgroup)) => {
                     if pattern_searcher.is_match(cgroup.as_str()) {
                         let cgroup_stripped: &str = cgroup[4..].trim();
-                        let mut data = cgroups_data.lock().unwrap();
+                        let mut data = cgroups_data_clone.write().unwrap();
                         if !data.contains_key(cgroup_stripped) {
                             data.insert(
                                 cgroup_stripped.to_string(),
@@ -442,7 +443,7 @@ pub fn cgroup_initiater(
                 Ok(CgroupsV2Actions::Remove(cgroup)) => {
                     if pattern_searcher.is_match(cgroup.as_str()) {
                         let cgroup_stripped: &str = cgroup[4..].trim();
-                        let mut data = cgroups_data.lock().unwrap();
+                        let mut data = cgroups_data_clone.write().unwrap();
                         data.remove(cgroup_stripped);
                     }
                 }
@@ -487,7 +488,7 @@ pub fn cgroup_initiater(
 
     let reader_worker = thread::spawn(move || {
         while !signaller.load(Ordering::Relaxed) {
-            let gaurd = cgroups_data.lock();
+            let mut gaurd = cgroups_data.write().unwrap();
             for (key, cgroup_record) in gaurd.iter_mut() {
                 cgroup_record.read_cgroups(
                     &transmit_cgroup_writer,

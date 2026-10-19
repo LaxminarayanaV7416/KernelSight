@@ -90,6 +90,7 @@ pub fn initiate_procfs_parsing(
     threads.push(cgroup_reader_thread);
     threads.push(writer_thread);
     threads.push(writer_thread_gpu);
+    threads.push(write_thread_cgroup);
     threads.push(gpu_thread);
 
     Ok(threads)
