@@ -235,6 +235,18 @@ impl CgroupsV2Readers {
         pids_events_filter_map: &HashMap<&'static str, (usize, bool)>,
     ) -> bool {
         let time = monotonic();
+        // here we loop the cgroup_procs and send the PIDS to ProcfsPIDS monitoring thread such that
+        // it starts monitoring those specific pids inner files and our target is to monitor the pids
+        // that we are targetting not the whole system, but we can get around this by writing the
+        // match as empty in config.toml such that it picks the defualt pattern and matches all of
+        // them so we basically get all the pids!!
+        if self.cgroup_procs.read_and_parse() {
+            let values = self.cgroup_procs.values();
+            for pid in values.pids.iter() {
+                println!("PID found >>> {}", pid);
+            }
+        }
+
         if *is_cgroup_events_allowed {
             let Some(reader) = self.cgroup_events.as_mut() else {
                 return false;

@@ -1,8 +1,8 @@
 use super::pidsfs_utils::{PIDActions, ProcFSPID};
+use crate::common::parser_error::{ProcParserError, Result};
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::config::Config;
 use std::collections::HashSet;
-use std::error::Error;
 use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,7 +20,6 @@ use std::time::Duration;
  * spawn if process is not present.
  */
 
-
 // Idealogy: We can write the sensor and make sure each sensor is its own state machine
 // So goal is to make sure that we add and remove the PIDS
 
@@ -28,7 +27,7 @@ fn procfs_scrapper_sensor(
     transmitter: Sender<PIDActions>,
     config: &'static Config,
     signaller: Arc<AtomicBool>, // dont clone this we should clone and send this
-) -> Result<JoinHandle<()>, Box<dyn Error>> {
+) -> Result<JoinHandle<()>> {
     let mut prev_scrapper_state: HashSet<u64> = HashSet::new();
     let mut current_scrapper_state: HashSet<u64> = HashSet::new();
     let global_heart_beat = Box::new(config.heart_beat.clone());
@@ -76,7 +75,7 @@ pub fn start_pids_observer(
     transmitter: Sender<PIDActions>,
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
+) -> Result<Vec<JoinHandle<()>>> {
     let mut threads: Vec<JoinHandle<()>> = Vec::new();
 
     // let transmitter_clone = transmitter.clone();

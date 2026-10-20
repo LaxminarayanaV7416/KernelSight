@@ -2,24 +2,88 @@ use super::cgroups_v2_orchestrator::{CgroupsV2Actions, cgroup_initiater};
 use super::pidsfs_utils::PIDActions;
 use super::procfs_pid_parser::orchestrate_pids;
 use crate::common::message_passing_utils::initiate_mpsc_channel;
+use crate::common::parser_error::{ProcParserError, Result};
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
 use crate::gpu::nvidia::NvidiaGPUMetrics;
+use crate::parser::pidsfs_utils::ProcFSPID;
 use crate::parser::procfs_parser::record_procfs;
+use crate::procfs::pidfs::cachable_reads::parse_procfs_pid_cgroup;
 use crate::writer::writer::{start_cgroup_writer, start_gpu_writer, start_writer};
 use crate::writer::writer_utils::WriteCgroupsDataMsg;
 use crate::writer::writer_utils::WriteDataMsg;
 use crate::writer::writer_utils::WriteGPUDataMsg;
-use std::error::Error;
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;
+use std::time::Duration;
+
+/*
+ * Here is the pipeline overview of the what is happening
+ * Sensors --PID's--> cgroupfileparser (recieves this and keeps the state of cgroup file buffers)
+ * --Cgroup-->  cgroup_initiater (which sends the PIDS under cgroups.procs) --PID's-->
+ * orchestrate_pids (here we again dont open the cgroups file as it sent along with that)
+ * Rest GPU and Whole Kernel threads are running in there own space
+ */
+
+fn cgroup_file_parser(
+    signaller: Arc<AtomicBool>,
+    receiver: Receiver<PIDActions>,
+    transmit_cgroup: Sender<CgroupsV2Actions>,
+) -> Result<JoinHandle<()>> {
+    // let define the hashmap that holds the pids and cgroup strings
+    let mut pid_cgroup_map: HashMap<u64, String> = HashMap::new();
+
+    let thread_builder = std::thread::Builder::new().name("CgroupFileParserThread".to_string());
+    thread_builder
+        .spawn(move || {
+            while !signaller.load(Ordering::Relaxed) {
+                match receiver.recv_timeout(Duration::from_secs(1)) {
+                    Ok(PIDActions::Add(pid)) => {
+                        // now we have to check if we have read the file or not
+                        if !pid_cgroup_map.contains_key(&pid.pid) {
+                            // now open the file and persist it in the map
+                            let pid_cgroup = match parse_procfs_pid_cgroup(pid.pid as usize) {
+                                Ok(cgroup_value) => cgroup_value,
+                                Err(err) => {
+                                    eprintln!("ERROR:: Error opening the cgroup file, may the PID disappeared {}", err);
+                                    continue; // we dont need to add anything so just continue dont break the loop
+                                },
+                            };
+                            pid_cgroup_map.insert(pid.pid, pid_cgroup.clone());
+                            // now send the cgroup to the cgroup reader such that it reads
+                            transmit_cgroup.send(CgroupsV2Actions::Add(pid_cgroup));
+                        }
+                    }
+                    Ok(PIDActions::Remove(pid)) => {
+                        if pid_cgroup_map.contains_key(&pid) {
+                            let pid_cgroup = match pid_cgroup_map.remove(&pid) {
+                                Some(cgroup_value) => cgroup_value,
+                                None => {
+                                    eprintln!("ERROR:: Error remvoing PID from HashMap");
+                                    continue;
+                                }
+                            };
+                            // now send the cgroup to the cgroup reader such that it reads
+                            transmit_cgroup.send(CgroupsV2Actions::Remove(pid_cgroup));
+                        }
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|_io_error| ProcParserError::UnKnownError("Thread Spawning Error".into()))
+}
 
 pub fn initiate_procfs_parsing(
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
+) -> Result<Vec<JoinHandle<()>>> {
     // record the starting time as constant
     let start_time: &'static f64 = Box::leak(Box::new(monotonic()));
     let mut threads: Vec<JoinHandle<()>> = Vec::new();
@@ -40,22 +104,6 @@ pub fn initiate_procfs_parsing(
         Receiver<WriteCgroupsDataMsg>,
     ) = initiate_mpsc_channel::<WriteCgroupsDataMsg>();
 
-    // GPU Metrics Start from Here ================
-    let (transmitter_gpu_writer, receiver_gpu_writer): (
-        Sender<WriteGPUDataMsg>,
-        Receiver<WriteGPUDataMsg>,
-    ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
-    let mut nvidia = NvidiaGPUMetrics::new();
-    let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
-    let gpu_thread =
-        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
-            Ok(thread) => thread,
-            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
-        };
-    threads.push(writer_thread_gpu);
-    threads.push(gpu_thread);
-    // END of Gpu Metrics =========================
-
     let mut threads_procs =
         match record_procfs(&config, Arc::clone(&signaller), transmitter_writer.clone()) {
             Ok(threads) => threads,
@@ -68,7 +116,7 @@ pub fn initiate_procfs_parsing(
         transmitter_cgroup_writer,
     ) {
         Ok(thread) => thread,
-        Err(err) => panic!("Error occured starting Cgroup Reciever {}", err),
+        Err(err) => panic!("Error occured starting Cgroup Reciever {:?}", err),
     };
 
     let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
@@ -97,6 +145,22 @@ pub fn initiate_procfs_parsing(
     threads.push(cgroup_reader_thread);
     threads.push(writer_thread);
     threads.push(write_thread_cgroup);
+
+    // GPU Metrics Start from Here ================
+    let (transmitter_gpu_writer, receiver_gpu_writer): (
+        Sender<WriteGPUDataMsg>,
+        Receiver<WriteGPUDataMsg>,
+    ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
+    let mut nvidia = NvidiaGPUMetrics::new();
+    let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
+    let gpu_thread =
+        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
+            Ok(thread) => thread,
+            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
+        };
+    threads.push(writer_thread_gpu);
+    threads.push(gpu_thread);
+    // END of Gpu Metrics =========================
 
     Ok(threads)
 }

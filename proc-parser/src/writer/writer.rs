@@ -121,19 +121,19 @@ pub fn start_cgroup_writer(
             match receiver.recv_timeout(Duration::from_secs(1)) {
                 Ok(data) => match data {
                     WriteCgroupsDataMsg::CgroupEvent(msg) => {
-                        println!("Cgroup Event: {:?}", msg);
+                        // println!("Cgroup Event: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::CgroupProcs(msg) => {
                         println!("Cgroup Procs: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::CpuPressure(msg) => {
-                        println!("CPU Pressure: {:?}", msg);
+                        // println!("CPU Pressure: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::CpuStat(msg) => {
-                        println!("CPU Stat: {:?}", msg);
+                        // println!("CPU Stat: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::IoPressure(msg) => {
-                        println!("IO Pressure: {:?}", msg);
+                        // println!("IO Pressure: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::MemoryCurrent(msg) => {
                         println!("Memory Current: {:?}", msg);
@@ -142,22 +142,22 @@ pub fn start_cgroup_writer(
                         println!("Memory Event: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::MemoryPeak(msg) => {
-                        println!("Memory Peak: {:?}", msg);
+                        // println!("Memory Peak: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::MemoryPressure(msg) => {
                         println!("Memory Pressure: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::MemoryStat(msg) => {
-                        println!("Memory Stat: {:?}", msg);
+                        // println!("Memory Stat: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::PidsCurrent(msg) => {
                         println!("PIDS Current: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::PidsEvent(msg) => {
-                        println!("PIDS Event: {:?}", msg);
+                        // println!("PIDS Event: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::PidsPeak(msg) => {
-                        println!("PIDS Peak: {:?}", msg);
+                        // println!("PIDS Peak: {:?}", msg);
                     }
                 },
 
