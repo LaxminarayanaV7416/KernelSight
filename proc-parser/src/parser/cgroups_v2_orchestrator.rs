@@ -416,7 +416,6 @@ pub fn cgroup_initiater(
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
 ) -> Result<(JoinHandle<()>, JoinHandle<()>), Box<dyn Error>> {
     let cgroups_data_set: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
-    let mut cgroup_map: HashMap<String, CgroupsV2Readers> = HashMap::new();
     let pattern_searcher = Box::new(
         AhoCorasick::builder()
             .ascii_case_insensitive(true)
@@ -454,6 +453,7 @@ pub fn cgroup_initiater(
         }
     });
     let global_heart_beat = Box::new(config.heart_beat);
+    let mut cgroup_map: HashMap<String, CgroupsV2Readers> = HashMap::new();
     // get all configs values
     let is_cgroup_events_allowed = Box::new(config.cgroupfs.cgroup_events.is_enabled());
     let is_cpu_pressure_allowed = Box::new(config.cgroupfs.cpu_pressure.is_enabled());
@@ -496,6 +496,10 @@ pub fn cgroup_initiater(
                 };
                 gaurd.clone()
             };
+
+            // remove the cgroups that dont exist anymore in the procfs
+            cgroup_map.retain(|pid, _| cgroup_records.contains(pid));
+
             for cgroup_path_slug in cgroup_records {
                 // here handle the insertion or deletion of the new cgroup records
                 if !cgroup_map.contains_key(&cgroup_path_slug) {
