@@ -21,6 +21,16 @@ use std::io;
 use std::path::Path;
 use std::sync::mpsc::Sender;
 
+/*
+ * This struct holds the pid
+ * its usually more readable by user so i have maintained
+ * a struct, but let me compare the memory profile of
+ * maintaining the struct and then revert back if something is wrong
+ * As per google I can read as "When you compile your code,
+ * the struct wrapper is completely optimized away. The CPU sees
+ * the exact same assembly instructions whether the data is
+ * wrapped in a struct or stored as a plain variable."
+ */
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ProcFSPID {
     pub pid: u64,
@@ -31,9 +41,10 @@ impl ProcFSPID {
         Self { pid: pid }
     }
 }
-// 4. for borrowing usign the PID number, this
-// will enable the take method to get what struct value
+
 impl Borrow<u64> for ProcFSPID {
+    // for borrowing usign the PID number, this
+    // will enable the take method to get what struct value
     fn borrow(&self) -> &u64 {
         &self.pid
     }
@@ -87,15 +98,10 @@ impl ProcFSPIDReaders {
             })?;
 
             let pid_root = Path::new(PROC_FS_ROOT_PATH).join(pid.to_string());
-
             let schedstat_path = pid_root.join(PROC_PID_SCHEDSTAT_FILE_SLUG);
-
             let stat_path = pid_root.join(PROC_PID_STAT_FILE_SLUG);
-
             let statm_path = pid_root.join(PROC_PID_STATM_FILE_SLUG);
-
             let status_path = pid_root.join(PROC_PID_STATUS_FILE_SLUG);
-
             let schedstat = if config.procfs.pid.schedstat.is_enabled() {
                 let path = schedstat_path.to_str().ok_or_else(|| {
                     io::Error::new(

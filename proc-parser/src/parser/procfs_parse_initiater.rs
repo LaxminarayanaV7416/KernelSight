@@ -22,16 +22,13 @@ pub fn initiate_procfs_parsing(
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     // record the starting time as constant
     let start_time: &'static f64 = Box::leak(Box::new(monotonic()));
+    let mut threads: Vec<JoinHandle<()>> = Vec::new();
+
     let (transmitter_pids, receiver_pids): (Sender<PIDActions>, Receiver<PIDActions>) =
         initiate_mpsc_channel::<PIDActions>();
 
     let (transmitter_writer, receiver_writer): (Sender<WriteDataMsg>, Receiver<WriteDataMsg>) =
         initiate_mpsc_channel::<WriteDataMsg>();
-
-    let (transmitter_gpu_writer, receiver_gpu_writer): (
-        Sender<WriteGPUDataMsg>,
-        Receiver<WriteGPUDataMsg>,
-    ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
 
     let (transmitter_cgroup_invoker, receiver_cgroup_invoker): (
         Sender<CgroupsV2Actions>,
@@ -43,9 +40,23 @@ pub fn initiate_procfs_parsing(
         Receiver<WriteCgroupsDataMsg>,
     ) = initiate_mpsc_channel::<WriteCgroupsDataMsg>();
 
+    // GPU Metrics Start from Here ================
+    let (transmitter_gpu_writer, receiver_gpu_writer): (
+        Sender<WriteGPUDataMsg>,
+        Receiver<WriteGPUDataMsg>,
+    ) = initiate_mpsc_channel::<WriteGPUDataMsg>();
     let mut nvidia = NvidiaGPUMetrics::new();
+    let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
+    let gpu_thread =
+        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
+            Ok(thread) => thread,
+            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
+        };
+    threads.push(writer_thread_gpu);
+    threads.push(gpu_thread);
+    // END of Gpu Metrics =========================
 
-    let mut threads =
+    let mut threads_procs =
         match record_procfs(&config, Arc::clone(&signaller), transmitter_writer.clone()) {
             Ok(threads) => threads,
             Err(err) => panic!("Error occured starting the procfs {}", err),
@@ -61,7 +72,7 @@ pub fn initiate_procfs_parsing(
     };
 
     let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
-    let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
+
     let write_thread_cgroup =
         start_cgroup_writer(&config, Arc::clone(&signaller), receiver_cgroup_writer);
 
@@ -79,19 +90,13 @@ pub fn initiate_procfs_parsing(
             panic!("Error occurred while starting procfs PIDs: {err}")
         }
     };
-    let gpu_thread =
-        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
-            Ok(thread) => thread,
-            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
-        };
 
+    threads.append(&mut threads_procs);
     threads.append(&mut pids_threads);
     threads.push(cgroup_reciever_thread);
     threads.push(cgroup_reader_thread);
     threads.push(writer_thread);
-    threads.push(writer_thread_gpu);
     threads.push(write_thread_cgroup);
-    threads.push(gpu_thread);
 
     Ok(threads)
 }

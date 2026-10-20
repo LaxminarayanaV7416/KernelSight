@@ -4,6 +4,7 @@ pub mod common {
     pub mod file_reader;
     pub mod kernel_types;
     pub mod message_passing_utils;
+    pub mod parser_error;
     pub mod parser_utils;
     pub mod procfs_constants;
     pub mod system_call_utils;

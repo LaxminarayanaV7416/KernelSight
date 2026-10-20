@@ -15,6 +15,8 @@ use crate::common::cgroup_constants::{
     CGROUP_PIDS_CURRENT_FILE_SLUG, CGROUP_PIDS_EVENTS_FILE_SLUG, CGROUP_PIDS_PEAK_FILE_SLUG,
     CGROUP_PROCS_FILE_SLUG, CGROUP_V2_MOUNT_PATH,
 };
+use crate::common::parser_error::ProcParserError;
+use crate::common::parser_error::Result;
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
@@ -414,7 +416,7 @@ pub fn cgroup_initiater(
     signaller: Arc<AtomicBool>, // dont clone this we should clone and send this
     receiver: Receiver<CgroupsV2Actions>,
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
-) -> Result<(JoinHandle<()>, JoinHandle<()>), Box<dyn Error>> {
+) -> Result<(JoinHandle<()>, JoinHandle<()>)> {
     let cgroups_data_set: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
     let pattern_searcher = Box::new(
         AhoCorasick::builder()
