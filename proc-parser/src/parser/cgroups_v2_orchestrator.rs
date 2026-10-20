@@ -21,6 +21,7 @@ use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
 use crate::writer::writer_utils::{WriteCgroupsData, WriteCgroupsDataMsg};
 use aho_corasick::AhoCorasick;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -414,15 +415,15 @@ pub fn cgroup_initiater(
     receiver: Receiver<CgroupsV2Actions>,
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
 ) -> Result<(JoinHandle<()>, JoinHandle<()>), Box<dyn Error>> {
-    let cgroups_data: Arc<RwLock<HashMap<String, CgroupsV2Readers>>> =
-        Arc::new(RwLock::new(HashMap::new()));
+    let cgroups_data_set: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
+    let mut cgroup_map: HashMap<String, CgroupsV2Readers> = HashMap::new();
     let pattern_searcher = Box::new(
         AhoCorasick::builder()
             .ascii_case_insensitive(true)
             .build(config.cgroup_patterns.clone())
             .unwrap(),
     );
-    let cgroups_data_clone = Arc::clone(&cgroups_data);
+    let cgroups_data_clone = Arc::clone(&cgroups_data_set);
     let parser_signaller = Arc::clone(&signaller);
     let parser_worker = thread::spawn(move || {
         while !parser_signaller.load(Ordering::Relaxed) {
@@ -431,11 +432,8 @@ pub fn cgroup_initiater(
                     if pattern_searcher.is_match(cgroup.as_str()) {
                         let cgroup_stripped: &str = cgroup[4..].trim();
                         let mut data = cgroups_data_clone.write().unwrap();
-                        if !data.contains_key(cgroup_stripped) {
-                            data.insert(
-                                cgroup_stripped.to_string(),
-                                CgroupsV2Readers::new(cgroup_stripped),
-                            );
+                        if !data.contains(cgroup_stripped) {
+                            data.insert(cgroup_stripped.to_string());
                         }
                     }
                 }
@@ -488,9 +486,30 @@ pub fn cgroup_initiater(
 
     let reader_worker = thread::spawn(move || {
         while !signaller.load(Ordering::Relaxed) {
-            let mut gaurd = cgroups_data.write().unwrap();
-            for (key, cgroup_record) in gaurd.iter_mut() {
-                cgroup_record.read_cgroups(
+            let cgroup_records: HashSet<String> = {
+                let gaurd = match cgroups_data_set.read() {
+                    Ok(records) => records,
+                    Err(err) => {
+                        eprintln!("Soemthign is wrong in cgroup fetcher!! {}", err);
+                        return;
+                    }
+                };
+                gaurd.clone()
+            };
+            for cgroup_path_slug in cgroup_records {
+                // here handle the insertion or deletion of the new cgroup records
+                if !cgroup_map.contains_key(&cgroup_path_slug) {
+                    // add the new record
+                    cgroup_map.insert(
+                        cgroup_path_slug.clone(),
+                        CgroupsV2Readers::new(cgroup_path_slug.as_str()),
+                    );
+                }
+                let mut cgroup_map_record = match cgroup_map.get_mut(&cgroup_path_slug) {
+                    Some(record) => record,
+                    None => continue,
+                };
+                cgroup_map_record.read_cgroups(
                     &transmit_cgroup_writer,
                     &is_cgroup_events_allowed,
                     &is_cpu_pressure_allowed,

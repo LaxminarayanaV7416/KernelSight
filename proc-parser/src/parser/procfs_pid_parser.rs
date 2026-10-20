@@ -116,12 +116,8 @@ fn start_tracking_pids(
         // The parser worker owns and initializes the mutable file readers.
         if !data.pids_data.contains_key(&pid) {
             match data.add(pid, config, transmitter_writer, transmit_cgroup) {
-                Ok(true) => {
-                    // Reader was initialized and inserted.
-                }
-                Ok(false) => {
-                    // PID was already present.
-                }
+                Ok(true) => {}  // Reader was initialized and inserted.
+                Ok(false) => {} // PID was already present.
                 Err(error) => {
                     eprintln!("Unable to begin tracking PID {pid}: {error}");
                     continue;
