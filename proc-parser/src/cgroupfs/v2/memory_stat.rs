@@ -1,13 +1,7 @@
-use crate::common::cgroup_constants::CGROUP_V2_MOUNT_PATH;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::line_tracker;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
 
 /*
 populated
@@ -285,115 +279,4 @@ impl CgroupFSV2MemoryStatReader {
             }
         }
     }
-}
-
-pub fn parse_cgroup_v2_memory_stat(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-    cgroup_name: &str,
-) -> JoinHandle<()> {
-    let cgroup_event_path = Path::new(CGROUP_V2_MOUNT_PATH)
-        .join("system.slice")
-        .join(cgroup_name)
-        .join("memory.stat");
-    let cgroup_event_temp_reader =
-        CgroupFSV2MemoryStatReader::new(&cgroup_event_path.to_str().unwrap(), is_cachable, is_root);
-    let mut cgroup_event_reader = match cgroup_event_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    // TODO: from here get the config which have HashMap<&str, (usize, bool)>
-    // Just use the method get_field_string_to_struct_ids
-    // let filter_map = ProcMemInfoConfig.get_field_string_to_struct_ids()
-    let filter_map = HashMap::from([
-        ("anon", (1, true)),
-        ("file", (2, true)),
-        ("kernel", (3, true)),
-        ("kernel_stack", (4, true)),
-        ("pagetables", (5, true)),
-        ("sec_pagetables", (6, true)),
-        ("percpu", (7, true)),
-        ("sock", (8, true)),
-        ("vmalloc", (9, true)),
-        ("shmem", (10, true)),
-        ("zswap", (11, true)),
-        ("zswapped", (12, true)),
-        ("zswap_incomp", (13, true)),
-        ("file_mapped", (14, true)),
-        ("file_dirty", (15, true)),
-        ("file_writeback", (16, true)),
-        ("swapcached", (17, true)),
-        ("anon_thp", (18, true)),
-        ("file_thp", (19, true)),
-        ("shmem_thp", (20, true)),
-        ("inactive_anon", (21, true)),
-        ("active_anon", (22, true)),
-        ("inactive_file", (23, true)),
-        ("active_file", (24, true)),
-        ("unevictable", (25, true)),
-        ("slab_reclaimable", (26, true)),
-        ("slab_unreclaimable", (27, true)),
-        ("slab", (28, true)),
-        ("hugetlb", (29, true)),
-        ("workingset_refault_anon", (30, true)),
-        ("workingset_refault_file", (31, true)),
-        ("workingset_activate_anon", (32, true)),
-        ("workingset_activate_file", (33, true)),
-        ("workingset_restore_anon", (34, true)),
-        ("workingset_restore_file", (35, true)),
-        ("workingset_nodereclaim", (36, true)),
-        ("pgdemote_kswapd", (37, true)),
-        ("pgdemote_direct", (38, true)),
-        ("pgdemote_khugepaged", (39, true)),
-        ("pgdemote_proactive", (40, true)),
-        ("pgsteal_kswapd", (41, true)),
-        ("pgsteal_direct", (42, true)),
-        ("pgsteal_khugepaged", (43, true)),
-        ("pgsteal_proactive", (44, true)),
-        ("pgscan_kswapd", (45, true)),
-        ("pgscan_direct", (46, true)),
-        ("pgscan_khugepaged", (47, true)),
-        ("pgscan_proactive", (48, true)),
-        ("pgrefill", (49, true)),
-        ("pgpromote_success", (50, true)),
-        ("pgscan", (51, true)),
-        ("pgsteal", (52, true)),
-        ("pswpin", (53, true)),
-        ("pswpout", (54, true)),
-        ("pgfault", (55, true)),
-        ("pgmajfault", (56, true)),
-        ("pgactivate", (57, true)),
-        ("pgdeactivate", (58, true)),
-        ("pglazyfree", (59, true)),
-        ("pglazyfreed", (60, true)),
-        ("swpin_zero", (61, true)),
-        ("swpout_zero", (62, true)),
-        ("zswpin", (63, true)),
-        ("zswpout", (64, true)),
-        ("zswpwb", (65, true)),
-        ("thp_fault_alloc", (66, true)),
-        ("thp_collapse_alloc", (67, true)),
-        ("thp_swpout", (68, true)),
-        ("thp_swpout_fallback", (69, true)),
-        ("numa_pages_migrated", (70, true)),
-        ("numa_pte_updates", (71, true)),
-        ("numa_hint_faults", (72, true)),
-    ]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = cgroup_event_reader.read_and_parse(&filter_map);
-            if read_status {
-                println!("Parsed: {:?}", cgroup_event_reader.values());
-                println!("=====================================");
-                thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-            } else {
-                println!("Failed to read meminfo, ProcFS File closed!");
-                break;
-            }
-        }
-    });
-    println!("Killed LoadAvg thread!!");
-    thread_handle
 }

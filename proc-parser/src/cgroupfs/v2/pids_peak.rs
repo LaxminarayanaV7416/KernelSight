@@ -1,12 +1,5 @@
-use crate::common::cgroup_constants::CGROUP_V2_MOUNT_PATH;
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_u64_swar;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
-
 /*
 Contains the pids as single line in the cgroup.procs file
 */
@@ -60,37 +53,4 @@ impl CgroupFSV2PidsPeakReader {
             }
         }
     }
-}
-
-pub fn parse_cgroup_v2_pids_peak(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-    cgroup_name: &str,
-) -> JoinHandle<()> {
-    let cgroup_event_path = Path::new(CGROUP_V2_MOUNT_PATH)
-        .join("system.slice")
-        .join(cgroup_name)
-        .join("pids.peak");
-    let cgroup_event_temp_reader =
-        CgroupFSV2PidsPeakReader::new(&cgroup_event_path.to_str().unwrap(), is_cachable, is_root);
-    let mut cgroup_event_reader = match cgroup_event_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = cgroup_event_reader.read_and_parse();
-            if !read_status {
-                println!("Failed to read loadavg, ProcFS File closed!");
-                break;
-            }
-            println!("Parsed: {:?}", cgroup_event_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("Killed LoadAvg thread!!");
-    });
-    thread_handle
 }
