@@ -1,5 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::parse_u64_swar;
 /*
 Contains the pids as single line in the cgroup.procs file
  */
@@ -41,20 +40,61 @@ impl CgroupFSV2CgroupProcsReader {
     }
 
     fn parse_buffer(&mut self) {
-        let mut start: Option<usize> = None;
+        let mut pid_started = false;
+        let mut pid = 0u64;
+        let mut digit_count = 0usize;
+        let mut valid = true;
 
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
-
-            if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
-                    self.values
-                        .pids
-                        .push(parse_u64_swar(&self.reader.buffer[s..i]).unwrap_or(0));
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+            if matches!(byte, b'\n' | b'\0') {
+                if pid_started && valid && digit_count > 0 {
+                    self.values.pids.push(pid);
                 }
-            } else if start.is_none() {
-                start = Some(i);
+                pid_started = false;
+                pid = 0;
+                digit_count = 0;
+                valid = true;
+                continue;
             }
+            if matches!(byte, b' ' | b'\t' | b'\r') {
+                if pid_started {
+                    valid = false;
+                }
+                continue;
+            }
+            pid_started = true;
+            if !valid {
+                continue;
+            }
+            match byte {
+                b'0'..=b'9' => {
+                    digit_count += 1;
+
+                    if digit_count > 20 {
+                        valid = false;
+                        continue;
+                    }
+                    let digit = u64::from(byte - b'0');
+                    pid = match pid
+                        .checked_mul(10)
+                        .and_then(|value| value.checked_add(digit))
+                    {
+                        Some(value) => value,
+                        None => {
+                            valid = false;
+                            continue;
+                        }
+                    };
+                }
+                _ => {
+                    valid = false;
+                }
+            }
+        }
+
+        if pid_started && valid && digit_count > 0 {
+            self.values.pids.push(pid);
         }
     }
 }

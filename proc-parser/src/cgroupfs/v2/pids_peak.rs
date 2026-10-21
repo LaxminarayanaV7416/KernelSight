@@ -1,5 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::parse_u64_swar;
 /*
 Contains the pids as single line in the cgroup.procs file
 */
@@ -39,18 +38,51 @@ impl CgroupFSV2PidsPeakReader {
     }
 
     fn parse_buffer(&mut self) {
-        let mut start: Option<usize> = None;
-
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
-
-            if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
-                    self.values.pids = parse_u64_swar(&self.reader.buffer[s..i]).unwrap_or(0);
+        let mut value = 0u64;
+        let mut digit_count = 0usize;
+        let mut value_started = false;
+        let mut valid = true;
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+            match byte {
+                b'0'..=b'9' => {
+                    value_started = true;
+                    digit_count += 1;
+                    // Preserve parse_u64_swar's maximum token length.
+                    if digit_count > 20 {
+                        valid = false;
+                        continue;
+                    }
+                    let digit = u64::from(byte - b'0');
+                    value = match value
+                        .checked_mul(10)
+                        .and_then(|current| current.checked_add(digit))
+                    {
+                        Some(value) => value,
+                        None => {
+                            valid = false;
+                            continue;
+                        }
+                    };
                 }
-            } else if start.is_none() {
-                start = Some(i);
+                b' ' | b'\t' | b'\r' if !value_started => {
+                    // Tolerate leading whitespace.
+                }
+                b'\n' | b'\0' | b' ' | b'\t' | b'\r' if value_started => {
+                    // pids.peak contains one value.
+                    break;
+                }
+                _ => {
+                    valid = false;
+                    break;
+                }
             }
         }
+
+        self.values.pids = if valid && value_started && digit_count > 0 {
+            value
+        } else {
+            0
+        };
     }
 }

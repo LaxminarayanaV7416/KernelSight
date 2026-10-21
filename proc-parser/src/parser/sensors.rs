@@ -55,7 +55,7 @@ fn procfs_scrapper_sensor(
                     current_scrapper_state.insert(pid_val);
                 }
             }
-            // println!("Sensor PIDS: {:?}", current_scrapper_state);
+            // println!("Sensor PIDS: {}", current_scrapper_state.len());
             for added_items in current_scrapper_state.difference(&prev_scrapper_state) {
                 let add_msg = PIDActions::Add(ProcFSPID::new(*added_items));
                 transmitter.send(add_msg).unwrap();

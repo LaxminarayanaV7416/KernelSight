@@ -30,7 +30,15 @@ impl ProcFSConfigTrait for CgroupV2MemoryEventConfig {
     }
 
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
-        HashMap::new()
+        HashMap::from([
+            ("low", (1, self.fields.low)),
+            ("high", (2, self.fields.high)),
+            ("max", (3, self.fields.max)),
+            ("oom", (4, self.fields.oom)),
+            ("oom_kill", (5, self.fields.oom_kill)),
+            ("oom_group_kill", (6, self.fields.oom_group_kill)),
+            ("sock_throttled", (7, self.fields.sock_throttled)),
+        ])
     }
 
     fn is_enabled(&self) -> bool {

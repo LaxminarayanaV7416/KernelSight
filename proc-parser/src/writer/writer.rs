@@ -121,7 +121,7 @@ pub fn start_cgroup_writer(
             match receiver.recv_timeout(Duration::from_secs(1)) {
                 Ok(data) => match data {
                     WriteCgroupsDataMsg::CgroupEvent(msg) => {
-                        println!("Cgroup Event: {:?}", msg);
+                        // println!("Cgroup Event: {:?}", msg);
                     }
                     WriteCgroupsDataMsg::CgroupProcs(msg) => {
                         // println!("Cgroup Procs: {:?}", msg);

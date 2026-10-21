@@ -43,9 +43,8 @@ impl CgroupFSV2CgroupEventReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize) {
-        let bytes = &self.reader.buffer[start];
-        let value = parse_bool(bytes).unwrap_or(false);
+    #[inline]
+    fn set_field(&mut self, field: usize, value: bool) {
         match field {
             1 => self.values.populated = value,
             2 => self.values.frozen = value,
@@ -59,30 +58,58 @@ impl CgroupFSV2CgroupEventReader {
         }
 
         let mut line_number = 1usize;
-        let mut value_already_sent_for_line = false;
+        let mut seen_separator = false;
+        let mut value_parsed = false;
 
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
+        for index in 0..self.reader.buffer_len {
+            // Copy the byte so the borrow ends before set_field() takes &mut self.
+            let byte = self.reader.buffer[index];
 
-            if byte == b' ' && !value_already_sent_for_line {
-                let value_start = i + 1;
-
-                if value_start < self.reader.buffer_len
-                    && field_filter.get(&line_number).copied().unwrap_or(false)
-                {
-                    // Value is only one byte: b'0' or b'1'.
-                    self.set_field(line_number, value_start);
-                }
-
-                value_already_sent_for_line = true;
-            } else if byte == b'\n' || byte == b'\0' {
+            if matches!(byte, b'\n' | b'\0') {
                 line_number += 1;
-                value_already_sent_for_line = false;
 
                 if line_number > 2 {
                     break;
                 }
+
+                seen_separator = false;
+                value_parsed = false;
+                continue;
             }
+
+            if value_parsed {
+                continue;
+            }
+
+            if !seen_separator {
+                if matches!(byte, b' ' | b'\t') {
+                    seen_separator = true;
+                }
+
+                continue;
+            }
+
+            // Skip additional whitespace between the key and its value.
+            if matches!(byte, b' ' | b'\t') {
+                continue;
+            }
+
+            let value = match byte {
+                b'0' => false,
+                b'1' => true,
+
+                // The line is malformed. Ignore the remainder of it.
+                _ => {
+                    value_parsed = true;
+                    continue;
+                }
+            };
+
+            if field_filter.get(&line_number).copied().unwrap_or(false) {
+                self.set_field(line_number, value);
+            }
+
+            value_parsed = true;
         }
     }
 }

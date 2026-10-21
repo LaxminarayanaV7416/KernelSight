@@ -39,7 +39,21 @@ impl ProcFSConfigTrait for CgroupV2CpuStatConfig {
     }
 
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
-        HashMap::new()
+        HashMap::from([
+            ("usage_usec", (1, self.fields.usage_usec)),
+            ("user_usec", (2, self.fields.user_usec)),
+            ("system_usec", (3, self.fields.system_usec)),
+            ("nice_usec", (4, self.fields.nice_usec)),
+            (
+                "core_sched.force_idle_usec",
+                (5, self.fields.core_sched_force_idle_usec),
+            ),
+            ("nr_periods", (6, self.fields.nr_periods)),
+            ("nr_throttled", (7, self.fields.nr_throttled)),
+            ("throttled_usec", (8, self.fields.throttled_usec)),
+            ("nr_bursts", (9, self.fields.nr_bursts)),
+            ("burst_usec", (10, self.fields.burst_usec)),
+        ])
     }
 
     fn is_enabled(&self) -> bool {

@@ -1,6 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::line_tracker;
-use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
 /*
@@ -13,7 +11,6 @@ frozen
 pub struct CgroupFSV2PidsEventReader {
     reader: ProcFileReader<256>,
     values: CgroupFSV2PidsEventFields,
-    lines_map: Option<HashMap<usize, usize>>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -30,7 +27,6 @@ impl CgroupFSV2PidsEventReader {
         Ok(Self {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
             values: CgroupFSV2PidsEventFields::default(),
-            lines_map: None,
         })
     }
 
@@ -46,94 +42,106 @@ impl CgroupFSV2PidsEventReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-        let mut seen_colon = false;
-        let mut digit_start: Option<usize> = None;
-        let mut digit_end: usize = 0;
-        for (i, &byte) in bytes.iter().enumerate() {
-            if !seen_colon {
-                if byte == b' ' {
-                    seen_colon = true;
+    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
+        let max_enabled = field_filter
+            .get("max")
+            .map(|(_, enabled)| *enabled)
+            .unwrap_or(false);
+
+        if !max_enabled {
+            return;
+        }
+        const MAX_KEY: &[u8] = b"max";
+        let mut key_index = 0usize;
+        let mut key_matches = true;
+        let mut key_finished = false;
+        let mut is_max_line = false;
+        let mut value_started = false;
+        let mut value_finished = false;
+        let mut value = 0u64;
+        let mut digit_count = 0usize;
+        let mut valid = true;
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+            if matches!(byte, b'\n' | b'\0') {
+                if is_max_line {
+                    self.values.max = if value_started && valid && digit_count > 0 {
+                        value
+                    } else {
+                        0
+                    };
+                    // The desired field has been found; no further scan is
+                    // necessary.
+                    return;
                 }
+                key_index = 0;
+                key_matches = true;
+                key_finished = false;
+                is_max_line = false;
+                value_started = false;
+                value_finished = false;
+                value = 0;
+                digit_count = 0;
+                valid = true;
+                continue;
+            }
+            if !key_finished {
+                if matches!(byte, b' ' | b'\t') {
+                    key_finished = true;
+                    is_max_line = key_matches && key_index == MAX_KEY.len();
+                    continue;
+                }
+                if key_index >= MAX_KEY.len() || byte != MAX_KEY[key_index] {
+                    key_matches = false;
+                }
+                key_index += 1;
+                continue;
+            }
+            if !is_max_line || value_finished {
                 continue;
             }
             match byte {
                 b'0'..=b'9' => {
-                    if digit_start.is_none() {
-                        digit_start = Some(i);
+                    value_started = true;
+                    digit_count += 1;
+                    // Preserve parse_u64_swar's maximum token length.
+                    if digit_count > 20 {
+                        valid = false;
+                        continue;
                     }
-
-                    digit_end = i + 1;
+                    let digit = u64::from(byte - b'0');
+                    value = match value
+                        .checked_mul(10)
+                        .and_then(|current| current.checked_add(digit))
+                    {
+                        Some(value) => value,
+                        None => {
+                            valid = false;
+                            continue;
+                        }
+                    };
+                }
+                byte if byte.is_ascii_whitespace() => {
+                    if value_started {
+                        value_finished = true;
+                    }
+                }
+                _ if value_started => {
+                    value_finished = true;
                 }
                 _ => {
-                    if digit_start.is_some() {
-                        break;
-                    }
+                    valid = false;
+                    value_finished = true;
                 }
             }
         }
-        let Some(digit_start) = digit_start else {
-            return;
-        };
-        let value_bytes = &bytes[digit_start..digit_end];
-        let value = parse_u64_swar(value_bytes).unwrap_or_default();
-        match field {
-            1 => self.values.max = value,
-            _ => {}
-        }
-    }
-
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
-        // first step is to track line numbers for the fields we care about
-        // this is used to map field numbers to line numbers in the buffer
-        // once this is done we only parse the fields we care about
-        // the complicated logic is explained in the parser_utils line_tracker function
-        if self.lines_map.is_none() {
-            self.lines_map = Some(line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
-                b' ',
-            ));
-        }
-        let mut parser_line_number = 0usize;
-        let mut start: Option<usize> = None;
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
-
-            if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
-                    parser_line_number += 1;
-                    // now get the field number from the line number
-                    let field_number = self
-                        .lines_map
-                        .as_ref()
-                        .unwrap()
-                        .get(&parser_line_number)
-                        .copied()
-                        .unwrap_or(0);
-
-                    if field_number > 0 {
-                        self.set_field(field_number, s, i);
-                    }
-                }
-            } else if start.is_none() {
-                start = Some(i);
-            }
-        }
-        if let Some(s) = start {
-            parser_line_number += 1;
-            let field_number = self
-                .lines_map
-                .as_ref()
-                .unwrap()
-                .get(&parser_line_number)
-                .copied()
-                .unwrap_or(0);
-
-            if field_number > 0 {
-                self.set_field(field_number, s, self.reader.buffer_len);
-            }
+        // Handle a max line without trailing newline/NUL.
+        if is_max_line {
+            self.values.max = if value_started && valid && digit_count > 0 {
+                value
+            } else {
+                0
+            };
         }
     }
 }

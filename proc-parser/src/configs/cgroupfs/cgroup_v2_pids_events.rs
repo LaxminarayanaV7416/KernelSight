@@ -16,7 +16,7 @@ impl ProcFSConfigTrait for CgroupV2PidsEventsConfig {
     }
 
     fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
-        HashMap::new()
+        HashMap::from([("max", (1, self.fields.max))])
     }
 
     fn is_enabled(&self) -> bool {
