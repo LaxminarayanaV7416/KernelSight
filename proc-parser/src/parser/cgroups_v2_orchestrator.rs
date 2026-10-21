@@ -59,7 +59,6 @@ pub struct CgroupsV2Readers {
 impl CgroupsV2Readers {
     pub fn new(path: &str) -> Self {
         let base_path = Path::new(CGROUP_V2_MOUNT_PATH).join(path);
-
         let cgroup_events = match CgroupFSV2CgroupEventReader::new(
             &base_path.join(CGROUP_EVENTS_FILE_SLUG).to_str().unwrap(),
             false,
@@ -243,6 +242,7 @@ impl CgroupsV2Readers {
         // them so we basically get all the pids!!
         if self.cgroup_procs.read_and_parse() {
             let values = self.cgroup_procs.values();
+            // println!("PIDS Cgroups: {:?}", values.pids);
             for pid in values.pids.iter() {
                 transmit_cgroup_procs_to_pids
                     .send(PIDActions::Add(ProcFSPID::new(*pid)))
@@ -517,7 +517,8 @@ pub fn cgroup_initiater(
 
             // remove the cgroups that dont exist anymore in the procfs
             cgroup_map.retain(|pid, _| cgroup_records.contains(pid));
-
+            // println!("ALL Cgroups: {:?}", cgroup_records);
+            // println!("=============START===============");
             for cgroup_path_slug in cgroup_records {
                 // here handle the insertion or deletion of the new cgroup records
                 if !cgroup_map.contains_key(&cgroup_path_slug) {
@@ -556,6 +557,7 @@ pub fn cgroup_initiater(
                     &pids_events_filter_map,
                 );
             }
+            // println!("=============END===============");
 
             thread::sleep(Duration::from_millis(*global_heart_beat));
         }

@@ -107,7 +107,7 @@ fn start_tracking_pids(
 
     // Remove reader state for PIDs that are no longer assigned to any worker.
     data.pids_data.retain(|pid, _| active_pids.contains(pid));
-
+    // println!("ProcPids Length: {}", data.pids_data.len());
     for pid in active_pids {
         // The receiver worker adds PID identities to the round-robin.
         // The parser worker owns and initializes the mutable file readers.
@@ -117,6 +117,26 @@ fn start_tracking_pids(
                 Ok(false) => {} // PID was already present.
                 Err(error) => {
                     eprintln!("Unable to begin tracking PID {pid}: {error}");
+                    let mut round_robin_writing = match round_robin.write() {
+                        Ok(round_robin) => round_robin,
+                        Err(error) => {
+                            eprintln!("PID round-robin lock was poisoned: {error}");
+                            continue;
+                        }
+                    };
+
+                    match round_robin_writing.remove(pid) {
+                        Some(removed_pid) => {
+                            if config.debug {
+                                println!("Removing PID {:?}", removed_pid);
+                            }
+                        }
+                        None => {
+                            if config.debug {
+                                eprintln!("PID {pid} was not assigned to any worker");
+                            }
+                        }
+                    }
                     continue;
                 }
             }
@@ -169,10 +189,10 @@ fn round_robin_thread(
                     };
 
                     if !round_robin.add(pid) {
-                        eprintln!(
-                            "PID was not added because it already exists \
-                             or the worker pool is empty"
-                        );
+                        // eprintln!(
+                        //     "PID was not added because it already exists \
+                        //      or the worker pool is empty"
+                        // );
                     }
                 }
 

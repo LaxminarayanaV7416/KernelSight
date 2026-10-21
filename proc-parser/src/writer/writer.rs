@@ -43,13 +43,13 @@ pub fn start_writer(
                         // println!("Cgroup {:?}", msg);
                     }
                     WriteDataMsg::PIDComm(msg) => {
-                        println!("comm {:?}", msg);
+                        // println!("comm {:?}", msg);
                     }
                     WriteDataMsg::PIDCmdline(msg) => {
-                        println!("cmdline {:?}", msg);
+                        // println!("cmdline {:?}", msg);
                     }
                     WriteDataMsg::PIDSchedStat(msg) => {
-                        println!("Schedstat {:?}", msg);
+                        // println!("Schedstat {:?}", msg);
                     }
                     WriteDataMsg::PIDStat(msg) => {
                         // println!("PID Stat {:?}", msg);
