@@ -19,12 +19,12 @@ use crate::common::parser_error::ProcParserError;
 use crate::common::parser_error::Result;
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::{Config, ProcFSConfigTrait};
+use crate::parser::pidsfs_utils::{PIDActions, ProcFSPID};
 use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
 use crate::writer::writer_utils::{WriteCgroupsData, WriteCgroupsDataMsg};
 use aho_corasick::AhoCorasick;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -213,6 +213,7 @@ impl CgroupsV2Readers {
     pub fn read_cgroups(
         &mut self,
         transmit_cgroup_writer: &Sender<WriteCgroupsDataMsg>,
+        transmit_cgroup_procs_to_pids: &Sender<PIDActions>,
         is_cgroup_events_allowed: &bool,
         is_cpu_pressure_allowed: &bool,
         is_cpu_stat_allowed: &bool,
@@ -243,7 +244,9 @@ impl CgroupsV2Readers {
         if self.cgroup_procs.read_and_parse() {
             let values = self.cgroup_procs.values();
             for pid in values.pids.iter() {
-                println!("PID found >>> {}", pid);
+                transmit_cgroup_procs_to_pids
+                    .send(PIDActions::Add(ProcFSPID::new(*pid)))
+                    .unwrap();
             }
         }
 
@@ -427,6 +430,7 @@ pub fn cgroup_initiater(
     config: &'static Config,
     signaller: Arc<AtomicBool>, // dont clone this we should clone and send this
     receiver: Receiver<CgroupsV2Actions>,
+    transmit_cgroup_procs_to_pids: Sender<PIDActions>,
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
 ) -> Result<(JoinHandle<()>, JoinHandle<()>)> {
     let cgroups_data_set: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
@@ -529,6 +533,7 @@ pub fn cgroup_initiater(
                 };
                 cgroup_map_record.read_cgroups(
                     &transmit_cgroup_writer,
+                    &transmit_cgroup_procs_to_pids,
                     &is_cgroup_events_allowed,
                     &is_cpu_pressure_allowed,
                     &is_cpu_stat_allowed,

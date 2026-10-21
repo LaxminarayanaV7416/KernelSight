@@ -66,7 +66,6 @@ impl ProcFSPIDReaders {
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-        transmit_cgroup: &Sender<CgroupsV2Actions>,
     ) -> Result<Self, Box<dyn Error>> {
         let time = monotonic();
 
@@ -258,18 +257,6 @@ impl ProcFSPIDReaders {
                     )
                 })?;
 
-            transmit_cgroup
-                .send(CgroupsV2Actions::Add(pid_cgroup.clone()))
-                .map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        format!(
-                            "failed to send cgroup add action for PID {pid}: \
-                             {error}"
-                        ),
-                    )
-                })?;
-
             Ok(Self {
                 pid,
                 comm: pid_comm,
@@ -287,17 +274,6 @@ impl ProcFSPIDReaders {
 
             Err(error) => {
                 eprintln!("Failed to set up procfs readers for PID {pid}: {error}");
-
-                // Emit one cleanup message, rather than one message for every
-                // reader that failed.
-                if let Err(send_error) = transmit_cgroup.send(CgroupsV2Actions::Remove(pid_cgroup))
-                {
-                    eprintln!(
-                        "Failed to send cgroup cleanup action for PID {pid}: \
-                         {send_error}"
-                    );
-                }
-
                 Err(error)
             }
         }
@@ -308,7 +284,6 @@ impl ProcFSPIDReaders {
         debug: &bool,
         start_time: &'static f64,
         transmitter_writer: &Sender<WriteDataMsg>,
-        transmit_cgroup: &Sender<CgroupsV2Actions>,
         schedstat_map: &HashMap<usize, bool>,
         stat_map: &HashMap<usize, bool>,
         statm_map: &HashMap<usize, bool>,
@@ -321,15 +296,9 @@ impl ProcFSPIDReaders {
         let time = monotonic();
         if *schedstat_enabled {
             let Some(reader) = self.schedstat.as_mut() else {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             };
             if !reader.read_and_parse(schedstat_map) {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -347,16 +316,9 @@ impl ProcFSPIDReaders {
 
         if *stat_enabled {
             let Some(reader) = self.stat.as_mut() else {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             };
-
             if !reader.read_and_parse(stat_map) {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -374,16 +336,10 @@ impl ProcFSPIDReaders {
 
         if *statm_enabled {
             let Some(reader) = self.statm.as_mut() else {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             };
 
             if !reader.read_and_parse(statm_map) {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             }
             transmitter_writer
@@ -400,16 +356,10 @@ impl ProcFSPIDReaders {
         }
         if *status_enabled {
             let Some(reader) = self.status.as_mut() else {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             };
 
             if !reader.read_and_parse(status_map) {
-                transmit_cgroup
-                    .send(CgroupsV2Actions::Remove(self.cgroup.clone()))
-                    .unwrap();
                 return false;
             }
             transmitter_writer

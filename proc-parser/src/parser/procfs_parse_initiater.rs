@@ -77,7 +77,7 @@ fn cgroup_file_parser(
                 }
             }
         })
-        .map_err(|_io_error| ProcParserError::UnKnownError("Thread Spawning Error".into()))
+        .map_err(|_io_error| ProcParserError::UnKnownError("PID parser to Cgroup Thread Spawning Error".into()))
 }
 
 pub fn initiate_procfs_parsing(
@@ -88,38 +88,61 @@ pub fn initiate_procfs_parsing(
     let start_time: &'static f64 = Box::leak(Box::new(monotonic()));
     let mut threads: Vec<JoinHandle<()>> = Vec::new();
 
-    let (transmitter_pids, receiver_pids): (Sender<PIDActions>, Receiver<PIDActions>) =
-        initiate_mpsc_channel::<PIDActions>();
-
+    // ===========================================================================
+    // whole kernel proc scanner this is default and runs with 4 threads for now...
     let (transmitter_writer, receiver_writer): (Sender<WriteDataMsg>, Receiver<WriteDataMsg>) =
         initiate_mpsc_channel::<WriteDataMsg>();
+    let mut threads_procs =
+        match record_procfs(&config, Arc::clone(&signaller), transmitter_writer.clone()) {
+            Ok(threads) => threads,
+            Err(err) => panic!("Error occured starting the procfs {}", err),
+        };
+    let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
+    threads.append(&mut threads_procs);
+    threads.push(writer_thread);
+    // ===========================================================================
+
+    // this is the sensor triggering point, means sensors push this and cgroup
+    // reciever recieves this and reads the cgroup file and decides based on the
+    // read cgroup file.
+    let (transmitter_sensor_pids_to_cgroup_parser, receiver_sensor_pids_to_cgroup_parser): (
+        Sender<PIDActions>,
+        Receiver<PIDActions>,
+    ) = initiate_mpsc_channel::<PIDActions>();
 
     let (transmitter_cgroup_invoker, receiver_cgroup_invoker): (
         Sender<CgroupsV2Actions>,
         Receiver<CgroupsV2Actions>,
     ) = initiate_mpsc_channel::<CgroupsV2Actions>();
 
+    let pid_to_cgroup_bridge_thread = cgroup_file_parser(
+        Arc::clone(&signaller),
+        receiver_sensor_pids_to_cgroup_parser,
+        transmitter_cgroup_invoker,
+    )
+    .unwrap();
+    threads.push(pid_to_cgroup_bridge_thread);
+
     let (transmitter_cgroup_writer, receiver_cgroup_writer): (
         Sender<WriteCgroupsDataMsg>,
         Receiver<WriteCgroupsDataMsg>,
     ) = initiate_mpsc_channel::<WriteCgroupsDataMsg>();
 
-    let mut threads_procs =
-        match record_procfs(&config, Arc::clone(&signaller), transmitter_writer.clone()) {
-            Ok(threads) => threads,
-            Err(err) => panic!("Error occured starting the procfs {}", err),
-        };
+    let (transmitter_pids_from_cgroup, receiver_pids_from_cgroup): (
+        Sender<PIDActions>,
+        Receiver<PIDActions>,
+    ) = initiate_mpsc_channel::<PIDActions>();
+
     let (cgroup_reciever_thread, cgroup_reader_thread) = match cgroup_initiater(
         &config,
         Arc::clone(&signaller),
         receiver_cgroup_invoker,
+        transmitter_pids_from_cgroup,
         transmitter_cgroup_writer,
     ) {
         Ok(thread) => thread,
         Err(err) => panic!("Error occured starting Cgroup Reciever {:?}", err),
     };
-
-    let writer_thread = start_writer(&config, Arc::clone(&signaller), receiver_writer);
 
     let write_thread_cgroup =
         start_cgroup_writer(&config, Arc::clone(&signaller), receiver_cgroup_writer);
@@ -128,22 +151,18 @@ pub fn initiate_procfs_parsing(
         &config,
         Arc::clone(&signaller),
         start_time,
-        transmitter_pids.clone(),
-        receiver_pids,
+        transmitter_sensor_pids_to_cgroup_parser.clone(),
+        receiver_pids_from_cgroup,
         transmitter_writer.clone(),
-        transmitter_cgroup_invoker.clone(),
     ) {
         Ok(threads) => threads,
         Err(err) => {
             panic!("Error occurred while starting procfs PIDs: {err}")
         }
     };
-
-    threads.append(&mut threads_procs);
     threads.append(&mut pids_threads);
     threads.push(cgroup_reciever_thread);
     threads.push(cgroup_reader_thread);
-    threads.push(writer_thread);
     threads.push(write_thread_cgroup);
 
     // GPU Metrics Start from Here ================

@@ -1,4 +1,3 @@
-use super::cgroups_v2_orchestrator::CgroupsV2Actions;
 use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDReaders};
 use super::sensors::start_pids_observer;
 use crate::configs::config::{Config, ProcFSConfigTrait};
@@ -60,12 +59,11 @@ impl ProcFSRoundRobinData {
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-        transmit_cgroup: &Sender<CgroupsV2Actions>,
     ) -> Result<bool, Box<dyn Error>> {
         if self.pids_data.contains_key(&pid) {
             return Ok(false);
         }
-        let readers = ProcFSPIDReaders::new(pid, config, transmitter_writer, transmit_cgroup)?;
+        let readers = ProcFSPIDReaders::new(pid, config, transmitter_writer)?;
         self.pids_data.insert(pid, readers);
         Ok(true)
     }
@@ -80,7 +78,6 @@ fn start_tracking_pids(
     data: &mut ProcFSRoundRobinData,
     config: &'static Config,
     transmitter_writer: &Sender<WriteDataMsg>,
-    transmit_cgroup: &Sender<CgroupsV2Actions>,
     start_time: &'static f64,
     debug: &bool,
     schedstat_map: &HashMap<usize, bool>,
@@ -115,7 +112,7 @@ fn start_tracking_pids(
         // The receiver worker adds PID identities to the round-robin.
         // The parser worker owns and initializes the mutable file readers.
         if !data.pids_data.contains_key(&pid) {
-            match data.add(pid, config, transmitter_writer, transmit_cgroup) {
+            match data.add(pid, config, transmitter_writer) {
                 Ok(true) => {}  // Reader was initialized and inserted.
                 Ok(false) => {} // PID was already present.
                 Err(error) => {
@@ -136,7 +133,6 @@ fn start_tracking_pids(
                 debug,
                 start_time,
                 &transmitter_writer,
-                &transmit_cgroup,
                 schedstat_map,
                 stat_map,
                 statm_map,
@@ -219,12 +215,11 @@ pub fn orchestrate_pids(
     transmitter: Sender<PIDActions>,
     receiver: Receiver<PIDActions>,
     transmitter_writer: Sender<WriteDataMsg>,
-    transmit_cgroup: Sender<CgroupsV2Actions>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let signaller_clone = Arc::clone(&signaller);
     let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
         Ok(observer) => observer,
-        Err(err) => panic!("Error occured {}", err),
+        Err(err) => panic!("Error occured"),
     };
     let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
 
@@ -256,7 +251,6 @@ pub fn orchestrate_pids(
                 &mut round_robin_data,
                 config,
                 &transmitter_writer,
-                &transmit_cgroup,
                 start_time,
                 &debug,
                 &schedstat_filter_map,

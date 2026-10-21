@@ -1,6 +1,7 @@
 mod toml_parser;
 mod utils;
 use libc::{self};
+use proc_parser::common::parser_error::Result;
 use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
@@ -14,7 +15,7 @@ use utils::signal_handler;
 
 const PATH: &str = "/home/lax/Documents/perf_insight_lite/proc-parser/src/config.toml";
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let is_root = unsafe { libc::getuid() == 0 };
     println!(
         "is_root: {} and Available Logical CPUs: {}",
