@@ -64,50 +64,177 @@ impl ProcFSLoadAvgReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-        if field >= 4 {
-            let value = parse_u64_swar(bytes).unwrap_or(0);
-            match field {
-                4 => self.values.num_runnable = value,
-                5 => self.values.num_total = value,
-                6 => self.values.last_pid = value,
-                _ => {}
-            }
-        } else {
-            let value = parse_decimal_f64(bytes).unwrap_or(0.0);
-            match field {
-                1 => self.values.load_avg_1m = value,
-                2 => self.values.load_avg_5m = value,
-                3 => self.values.load_avg_15m = value,
-                _ => {}
-            }
+    fn set_float_field(&mut self, field: usize, value: f64) {
+        match field {
+            1 => self.values.load_avg_1m = value,
+            2 => self.values.load_avg_5m = value,
+            3 => self.values.load_avg_15m = value,
+            _ => {}
+        }
+    }
+
+    fn set_integer_field(&mut self, field: usize, value: u64) {
+        match field {
+            4 => self.values.num_runnable = value,
+            5 => self.values.num_total = value,
+            6 => self.values.last_pid = value,
+            _ => {}
         }
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
-        let mut field = 0usize;
-        let mut start: Option<usize> = None;
+        let mut field = 1usize;
+        let mut selected = field_filter.get(&field).copied().unwrap_or(false);
+        let mut token_started = false;
+        let mut valid = true;
 
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
+        // State for fields 1-3.
+        let mut integer_part = 0u64;
+        let mut fractional_part = 0u64;
+        let mut fractional_divisor = 1.0f64;
+        let mut seen_dot = false;
 
-            if byte == b' ' || byte == b'\n' || byte == b'\0' || byte == b'/' {
-                if let Some(s) = start.take() {
+        // State for fields 4-6.
+        let mut integer_value = 0u64;
+        let mut integer_digit_count = 0usize;
+
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+
+            let is_delimiter = matches!(byte, b' ' | b'/' | b'\n' | b'\0');
+
+            if is_delimiter {
+                if token_started {
+                    if selected {
+                        if field <= 3 {
+                            let value = if valid {
+                                integer_part as f64 + fractional_part as f64 / fractional_divisor
+                            } else {
+                                0.0
+                            };
+
+                            self.set_float_field(field, value);
+                        } else {
+                            let value = if valid && integer_digit_count > 0 {
+                                integer_value
+                            } else {
+                                0
+                            };
+
+                            self.set_integer_field(field, value);
+                        }
+                    }
+
                     field += 1;
-                    if field_filter.get(&field).copied().unwrap_or(false) {
-                        self.set_field(field, s, i);
+
+                    // /proc/loadavg has exactly six fields.
+                    if field > 6 {
+                        break;
+                    }
+
+                    selected = field_filter.get(&field).copied().unwrap_or(false);
+                    token_started = false;
+                    valid = true;
+                    integer_part = 0;
+                    fractional_part = 0;
+                    fractional_divisor = 1.0;
+                    seen_dot = false;
+                    integer_value = 0;
+                    integer_digit_count = 0;
+                }
+
+                continue;
+            }
+
+            token_started = true;
+
+            // An unselected field only needs delimiter detection.
+            if !selected || !valid {
+                continue;
+            }
+
+            if field <= 3 {
+                match byte {
+                    b'0'..=b'9' => {
+                        let digit = u64::from(byte - b'0');
+
+                        if seen_dot {
+                            fractional_part = match fractional_part
+                                .checked_mul(10)
+                                .and_then(|value| value.checked_add(digit))
+                            {
+                                Some(value) => value,
+                                None => {
+                                    valid = false;
+                                    continue;
+                                }
+                            };
+                            fractional_divisor *= 10.0;
+                        } else {
+                            integer_part = match integer_part
+                                .checked_mul(10)
+                                .and_then(|value| value.checked_add(digit))
+                            {
+                                Some(value) => value,
+                                None => {
+                                    valid = false;
+                                    continue;
+                                }
+                            };
+                        }
+                    }
+                    b'.' if !seen_dot => {
+                        seen_dot = true;
+                    }
+                    _ => {
+                        valid = false;
                     }
                 }
-            } else if start.is_none() {
-                start = Some(i);
+            } else {
+                match byte {
+                    b'0'..=b'9' => {
+                        integer_digit_count += 1;
+
+                        // Preserve parse_u64_swar's 20-digit limit.
+                        if integer_digit_count > 20 {
+                            valid = false;
+                            continue;
+                        }
+                        let digit = u64::from(byte - b'0');
+                        integer_value = match integer_value
+                            .checked_mul(10)
+                            .and_then(|value| value.checked_add(digit))
+                        {
+                            Some(value) => value,
+                            None => {
+                                valid = false;
+                                continue;
+                            }
+                        };
+                    }
+                    _ => {
+                        valid = false;
+                    }
+                }
             }
         }
 
-        if let Some(s) = start {
-            field += 1;
-            if field_filter.get(&field).copied().unwrap_or(false) {
-                self.set_field(field, s, self.reader.buffer_len);
+        // Handle input without a trailing newline or NUL byte.
+        if token_started && field <= 6 && selected {
+            if field <= 3 {
+                let value = if valid {
+                    integer_part as f64 + fractional_part as f64 / fractional_divisor
+                } else {
+                    0.0
+                };
+                self.set_float_field(field, value);
+            } else {
+                let value = if valid && integer_digit_count > 0 {
+                    integer_value
+                } else {
+                    0
+                };
+                self.set_integer_field(field, value);
             }
         }
     }

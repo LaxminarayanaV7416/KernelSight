@@ -1,5 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 /*
 /proc/stat
@@ -132,6 +131,30 @@ use std::collections::HashMap;
 //     pub rcu: u64,
 // }
 
+const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
+
+const fn hash_key(bytes: &[u8]) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    let mut index = 0usize;
+
+    while index < bytes.len() {
+        hash ^= bytes[index] as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+        index += 1;
+    }
+
+    hash
+}
+
+const INTR_HASH: u64 = hash_key(b"intr");
+const CTXT_HASH: u64 = hash_key(b"ctxt");
+const BTIME_HASH: u64 = hash_key(b"btime");
+const PROCESSES_HASH: u64 = hash_key(b"processes");
+const PROCS_RUNNING_HASH: u64 = hash_key(b"procs_running");
+const PROCS_BLOCKED_HASH: u64 = hash_key(b"procs_blocked");
+const SOFTIRQ_HASH: u64 = hash_key(b"softirq");
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ProcFSStatCPUFields {
     pub user: u64,
@@ -206,110 +229,37 @@ impl ProcFSStatReader {
         &self.values
     }
 
-    fn parse_stat_line(&mut self, start: usize, end: usize, field_filter: &HashMap<usize, bool>) {
-        if start >= end {
-            return;
-        }
-
-        let mut token_start: Option<usize> = None;
-        let mut token_number = 0usize;
-
-        let mut field = 0usize;
-        let mut is_cpu_line = false;
-        let mut cpu_values = [0u64; 10];
-        let mut cpu_value_index = 0usize;
-
-        // Used by intr, ctxt, btime, etc. Only their first numeric
-        // value is required.
-        let mut first_value: Option<u64> = None;
-
-        for index in start..=end {
-            let is_delimiter = index == end
-                || self.reader.buffer[index] == b' '
-                || self.reader.buffer[index] == b'\t'
-                || self.reader.buffer[index] == b'\n'
-                || self.reader.buffer[index] == b'\0';
-
-            if is_delimiter {
-                let Some(current_token_start) = token_start.take() else {
-                    continue;
-                };
-
-                token_number += 1;
-                let token = &self.reader.buffer[current_token_start..index];
-
-                if token_number == 1 {
-                    field = match token {
-                        b"cpu" => {
-                            is_cpu_line = true;
-                            1
-                        }
-                        token
-                            if token.starts_with(b"cpu")
-                                && token.len() > 3
-                                && token[3..].iter().all(u8::is_ascii_digit) =>
-                        {
-                            is_cpu_line = true;
-                            2
-                        }
-                        b"intr" => 3,
-                        b"ctxt" => 4,
-                        b"btime" => 5,
-                        b"processes" => 6,
-                        b"procs_running" => 7,
-                        b"procs_blocked" => 8,
-                        b"softirq" => 9,
-                        _ => return,
-                    };
-
-                    // Skip parsing the rest of a disabled field.
-                    if !field_filter.get(&field).copied().unwrap_or(false) {
-                        return;
-                    }
-
-                    continue;
-                }
-
-                if is_cpu_line {
-                    if cpu_value_index < cpu_values.len() {
-                        cpu_values[cpu_value_index] = parse_u64_swar(token).unwrap_or_default();
-
-                        cpu_value_index += 1;
-                    }
-
-                    // CPU lines contain at most ten values that we use.
-                    if cpu_value_index == cpu_values.len() {
-                        break;
-                    }
-                } else {
-                    // For intr, ctxt, btime, processes, procs_running,
-                    // procs_blocked, and softirq, only the first value
-                    // after the key is needed.
-                    first_value = Some(parse_u64_swar(token).unwrap_or_default());
-                    break;
-                }
-            } else if token_start.is_none() {
-                token_start = Some(index);
-            }
-        }
-
+    fn set_non_cpu_field(&mut self, field: usize, value: u64) {
         match field {
-            1 => {
-                self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
-            }
-            2 => {
-                self.values
-                    .cpu_cores
-                    .push(ProcFSStatCPUFields::from_values(cpu_values));
-            }
-            3 => self.values.intr = first_value.unwrap_or_default(),
-            4 => self.values.ctxt = first_value.unwrap_or_default(),
-            5 => self.values.btime = first_value.unwrap_or_default(),
-            6 => self.values.processes = first_value.unwrap_or_default(),
-            7 => self.values.processes_running = first_value.unwrap_or_default(),
-            8 => self.values.processes_blocked = first_value.unwrap_or_default(),
-            9 => self.values.softirq = first_value.unwrap_or_default(),
+            3 => self.values.intr = value,
+            4 => self.values.ctxt = value,
+            5 => self.values.btime = value,
+            6 => self.values.processes = value,
+            7 => self.values.processes_running = value,
+            8 => self.values.processes_blocked = value,
+            9 => self.values.softirq = value,
             _ => {}
+        }
+    }
+
+    fn classify_key(key_hash: u64, key_length: usize, is_cpu_key: bool) -> usize {
+        if is_cpu_key {
+            return match key_length {
+                3 => 1,   // cpu
+                4.. => 2, // cpu0, cpu1, ...
+                _ => 0,
+            };
+        }
+
+        match (key_hash, key_length) {
+            (INTR_HASH, 4) => 3,
+            (CTXT_HASH, 4) => 4,
+            (BTIME_HASH, 5) => 5,
+            (PROCESSES_HASH, 9) => 6,
+            (PROCS_RUNNING_HASH, 13) => 7,
+            (PROCS_BLOCKED_HASH, 13) => 8,
+            (SOFTIRQ_HASH, 7) => 9,
+            _ => 0,
         }
     }
 
@@ -318,27 +268,198 @@ impl ProcFSStatReader {
             return;
         }
 
-        // This Vec is reused between samples. Clear its length so CPU
-        // entries don't accumulate every time /proc/stat is read.
+        // Reuse the allocation between samples.
         self.values.cpu_cores.clear();
 
-        let mut line_start = 0usize;
+        let mut parsing_key = true;
+        let mut key_hash = FNV_OFFSET_BASIS;
+        let mut key_length = 0usize;
+
+        // Tracks whether the key has the form "cpu" or "cpu<digits>".
+        let mut is_cpu_key = true;
+
+        let mut field = 0usize;
+        let mut selected = false;
+        let mut is_cpu_line = false;
+
+        let mut cpu_values = [0u64; 10];
+        let mut cpu_value_index = 0usize;
+        let mut first_value: Option<u64> = None;
+
+        let mut parsing_number = false;
+        let mut number = 0u64;
+        let mut digit_count = 0usize;
+        let mut number_valid = true;
 
         for index in 0..self.reader.buffer_len {
             let byte = self.reader.buffer[index];
+            let is_line_end = matches!(byte, b'\n' | b'\0');
+            let is_separator = matches!(byte, b' ' | b'\t' | b'\n' | b'\0');
 
-            if byte == b'\n' || byte == b'\0' {
-                if line_start < index {
-                    self.parse_stat_line(line_start, index, field_filter);
+            if parsing_key {
+                if is_separator {
+                    if key_length > 0 {
+                        field = Self::classify_key(key_hash, key_length, is_cpu_key);
+
+                        selected = field > 0 && field_filter.get(&field).copied().unwrap_or(false);
+
+                        is_cpu_line = matches!(field, 1 | 2);
+                        parsing_key = false;
+                    }
+                } else {
+                    key_hash ^= u64::from(byte);
+                    key_hash = key_hash.wrapping_mul(FNV_PRIME);
+
+                    is_cpu_key &= match key_length {
+                        0 => byte == b'c',
+                        1 => byte == b'p',
+                        2 => byte == b'u',
+                        _ => byte.is_ascii_digit(),
+                    };
+
+                    key_length += 1;
+                }
+            } else if selected {
+                if is_separator {
+                    if parsing_number {
+                        let parsed_value = if number_valid && digit_count > 0 {
+                            number
+                        } else {
+                            0
+                        };
+
+                        if is_cpu_line {
+                            if cpu_value_index < cpu_values.len() {
+                                cpu_values[cpu_value_index] = parsed_value;
+                                cpu_value_index += 1;
+                            }
+                        } else if first_value.is_none() {
+                            // intr and softirq contain many counters, but only
+                            // their first numeric value is needed.
+                            first_value = Some(parsed_value);
+                        }
+
+                        parsing_number = false;
+                        number = 0;
+                        digit_count = 0;
+                        number_valid = true;
+                    }
+                } else if is_cpu_line && cpu_value_index == cpu_values.len() {
+                    // The ten CPU fields that we consume have already been read.
+                } else if !is_cpu_line && first_value.is_some() {
+                    // Only the first numeric value is needed for non-CPU lines.
+                } else {
+                    parsing_number = true;
+
+                    match byte {
+                        b'0'..=b'9' => {
+                            digit_count += 1;
+
+                            // Preserve parse_u64_swar's maximum token length.
+                            if digit_count > 20 {
+                                number_valid = false;
+                                continue;
+                            }
+
+                            let digit = u64::from(byte - b'0');
+
+                            number = match number
+                                .checked_mul(10)
+                                .and_then(|value| value.checked_add(digit))
+                            {
+                                Some(value) => value,
+                                None => {
+                                    number_valid = false;
+                                    continue;
+                                }
+                            };
+                        }
+
+                        _ => {
+                            number_valid = false;
+                        }
+                    }
+                }
+            }
+
+            if is_line_end {
+                if selected {
+                    match field {
+                        1 => {
+                            self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
+                        }
+
+                        2 => {
+                            self.values
+                                .cpu_cores
+                                .push(ProcFSStatCPUFields::from_values(cpu_values));
+                        }
+
+                        3..=9 => {
+                            self.set_non_cpu_field(field, first_value.unwrap_or_default());
+                        }
+
+                        _ => {}
+                    }
                 }
 
-                line_start = index + 1;
+                parsing_key = true;
+                key_hash = FNV_OFFSET_BASIS;
+                key_length = 0;
+                is_cpu_key = true;
+
+                field = 0;
+                selected = false;
+                is_cpu_line = false;
+
+                cpu_values = [0; 10];
+                cpu_value_index = 0;
+                first_value = None;
+
+                parsing_number = false;
+                number = 0;
+                digit_count = 0;
+                number_valid = true;
             }
         }
 
-        // Handle a final line when the input does not end with '\n'.
-        if line_start < self.reader.buffer_len {
-            self.parse_stat_line(line_start, self.reader.buffer_len, field_filter);
+        // Commit the final line when the buffer does not end with newline/NUL.
+        if !parsing_key {
+            if parsing_number && selected {
+                let parsed_value = if number_valid && digit_count > 0 {
+                    number
+                } else {
+                    0
+                };
+
+                if is_cpu_line {
+                    if cpu_value_index < cpu_values.len() {
+                        cpu_values[cpu_value_index] = parsed_value;
+                    }
+                } else if first_value.is_none() {
+                    first_value = Some(parsed_value);
+                }
+            }
+
+            if selected {
+                match field {
+                    1 => {
+                        self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
+                    }
+
+                    2 => {
+                        self.values
+                            .cpu_cores
+                            .push(ProcFSStatCPUFields::from_values(cpu_values));
+                    }
+
+                    3..=9 => {
+                        self.set_non_cpu_field(field, first_value.unwrap_or_default());
+                    }
+
+                    _ => {}
+                }
+            }
         }
     }
 }

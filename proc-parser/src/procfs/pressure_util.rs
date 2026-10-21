@@ -1,6 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::parse_decimal_f64;
-use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -45,124 +43,219 @@ impl ProcProcessGeneralReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-
+    fn set_float_field(&mut self, field: usize, value: f64) {
         match field {
-            1 => self.values.some_avg_10 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            2 => self.values.some_avg_60 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            3 => self.values.some_avg_300 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            4 => self.values.some_total = parse_u64_swar(bytes).unwrap_or(0),
-            5 => self.values.full_avg_10 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            6 => self.values.full_avg_60 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            7 => self.values.full_avg_300 = parse_decimal_f64(bytes).unwrap_or(0.0),
-            8 => self.values.full_total = parse_u64_swar(bytes).unwrap_or(0),
-
+            1 => self.values.some_avg_10 = value,
+            2 => self.values.some_avg_60 = value,
+            3 => self.values.some_avg_300 = value,
+            5 => self.values.full_avg_10 = value,
+            6 => self.values.full_avg_60 = value,
+            7 => self.values.full_avg_300 = value,
             _ => {}
         }
     }
 
-    fn pressure_field_id(&self, base: usize, key_start: usize, key_end: usize) -> usize {
-        match &self.reader.buffer[key_start..key_end] {
-            b"avg10" => base + 1,
-            b"avg60" => base + 2,
-            b"avg300" => base + 3,
-            b"total" => base + 4,
+    fn set_integer_field(&mut self, field: usize, value: u64) {
+        match field {
+            4 => self.values.some_total = value,
+            8 => self.values.full_total = value,
+            _ => {}
+        }
+    }
+
+    fn field_from_key(base: usize, key: u64) -> usize {
+        const AVG10: u64 = 0x61_76_67_31_30; // this is the hex representation of the
+        const AVG60: u64 = 0x61_76_67_36_30; // fields so we can store them easily
+        const AVG300: u64 = 0x61_76_67_33_30_30; // learned about this by looking at
+        const TOTAL: u64 = 0x74_6f_74_61_6c; // other repos, better for systems programming
+
+        match key {
+            AVG10 => base + 1,
+            AVG60 => base + 2,
+            AVG300 => base + 3,
+            TOTAL => base + 4,
             _ => 0,
         }
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
-        self.values = ProcProcessGeneralFields::default();
-        let mut line_start = 0usize;
-        let mut field_base: Option<usize> = None;
-        let mut token_start: Option<usize> = None;
-        let mut key_start: Option<usize> = None;
-        let mut key_end: Option<usize> = None;
-        let mut value_start: Option<usize> = None;
+        const SOME: u64 = 0x73_6f_6d_65;
+        const FULL: u64 = 0x66_75_6c_6c;
 
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
-            // At the start of each line, decide whether this line is "some" or "full".
-            if i == line_start {
-                let remaining = &self.reader.buffer[i..self.reader.buffer_len];
-                if remaining.starts_with(b"some ") {
-                    field_base = Some(0);
-                } else if remaining.starts_with(b"full ") {
-                    field_base = Some(4);
-                } else {
-                    field_base = None;
-                }
-            }
+        self.values = ProcProcessGeneralFields::default();
+
+        let mut field_base: Option<usize> = None;
+        let mut token_code = 0u64;
+        let mut token_length = 0usize;
+
+        let mut field = 0usize;
+        let mut selected = false;
+        let mut parsing_value = false;
+        let mut valid = true;
+
+        // Decimal parsing state.
+        let mut integer_part = 0u64;
+        let mut fractional_part = 0u64;
+        let mut fractional_divisor = 1.0f64;
+        let mut seen_dot = false;
+        let mut digit_count = 0usize;
+
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+
             match byte {
-                b' ' => {
-                    // Space ends either:
-                    // - the prefix token: "some" / "full"
-                    // - or a key=value token
-                    if let Some(vs) = value_start.take() {
-                        if let Some(base) = field_base {
-                            if let (Some(ks), Some(ke)) = (key_start, key_end) {
-                                let field = self.pressure_field_id(base, ks, ke);
-                                if field > 0 && field_filter.get(&field).copied().unwrap_or(false) {
-                                    self.set_field(field, vs, i);
-                                }
+                b'=' if !parsing_value => {
+                    field = field_base
+                        .map(|base| Self::field_from_key(base, token_code))
+                        .unwrap_or(0);
+
+                    selected = field > 0 && field_filter.get(&field).copied().unwrap_or(false);
+
+                    parsing_value = true;
+                    valid = true;
+
+                    integer_part = 0;
+                    fractional_part = 0;
+                    fractional_divisor = 1.0;
+                    seen_dot = false;
+                    digit_count = 0;
+                }
+
+                b' ' | b'\n' | b'\0' => {
+                    if parsing_value {
+                        if selected {
+                            if matches!(field, 4 | 8) {
+                                let value = if valid && digit_count > 0 {
+                                    integer_part
+                                } else {
+                                    0
+                                };
+
+                                self.set_integer_field(field, value);
+                            } else {
+                                let value = if valid && digit_count > 0 {
+                                    integer_part as f64
+                                        + fractional_part as f64 / fractional_divisor
+                                } else {
+                                    0.0
+                                };
+
+                                self.set_float_field(field, value);
                             }
                         }
-                        token_start = None;
-                        key_start = None;
-                        key_end = None;
-                    } else {
-                        // This was probably the space after "some" or "full".
-                        token_start = None;
-                        key_start = None;
-                        key_end = None;
+                    } else if field_base.is_none() {
+                        // The first token on each line is either "some" or "full".
+                        field_base = match token_code {
+                            SOME => Some(0),
+                            FULL => Some(4),
+                            _ => None,
+                        };
+                    }
+
+                    token_code = 0;
+                    token_length = 0;
+                    field = 0;
+                    selected = false;
+                    parsing_value = false;
+                    valid = true;
+
+                    integer_part = 0;
+                    fractional_part = 0;
+                    fractional_divisor = 1.0;
+                    seen_dot = false;
+                    digit_count = 0;
+
+                    if matches!(byte, b'\n' | b'\0') {
+                        field_base = None;
                     }
                 }
-                b'=' => {
-                    // We just finished reading the key part.
-                    key_end = Some(i);
-                    value_start = Some(i + 1);
-                }
-                b'\n' | b'\0' => {
-                    // Newline may end a key=value token, usually total=...
-                    if let Some(vs) = value_start.take() {
-                        if let Some(base) = field_base {
-                            if let (Some(ks), Some(ke)) = (key_start, key_end) {
-                                let field = self.pressure_field_id(base, ks, ke);
-                                if field > 0 && field_filter.get(&field).copied().unwrap_or(false) {
-                                    self.set_field(field, vs, i);
+
+                _ if parsing_value => {
+                    // For unselected fields, only scan until the next delimiter.
+                    if !selected || !valid {
+                        continue;
+                    }
+
+                    match byte {
+                        b'0'..=b'9' => {
+                            digit_count += 1;
+                            let digit = u64::from(byte - b'0');
+
+                            if seen_dot {
+                                fractional_part = match fractional_part
+                                    .checked_mul(10)
+                                    .and_then(|value| value.checked_add(digit))
+                                {
+                                    Some(value) => value,
+                                    None => {
+                                        valid = false;
+                                        continue;
+                                    }
+                                };
+
+                                fractional_divisor *= 10.0;
+                            } else {
+                                // Preserve parse_u64_swar's limit for total fields.
+                                if matches!(field, 4 | 8) && digit_count > 20 {
+                                    valid = false;
+                                    continue;
                                 }
+
+                                integer_part = match integer_part
+                                    .checked_mul(10)
+                                    .and_then(|value| value.checked_add(digit))
+                                {
+                                    Some(value) => value,
+                                    None => {
+                                        valid = false;
+                                        continue;
+                                    }
+                                };
                             }
                         }
+
+                        b'.' if !seen_dot && !matches!(field, 4 | 8) => {
+                            seen_dot = true;
+                        }
+
+                        _ => {
+                            valid = false;
+                        }
                     }
-                    // Reset state for next line.
-                    line_start = i + 1;
-                    field_base = None;
-                    token_start = None;
-                    key_start = None;
-                    key_end = None;
-                    value_start = None;
                 }
+
                 _ => {
-                    // Start of a token.
-                    if token_start.is_none() {
-                        token_start = Some(i);
-                        key_start = Some(i);
-                        key_end = None;
-                        value_start = None;
+                    // Build a compact key identifier while scanning the key.
+                    // PSI keys are at most six bytes long.
+                    if token_length < 8 {
+                        token_code = (token_code << 8) | u64::from(byte);
+                        token_length += 1;
+                    } else {
+                        // Ensure an unexpectedly long key cannot match.
+                        token_code = u64::MAX;
                     }
                 }
             }
         }
-        // Handle final token if the file does not end with '\n'.
-        if let Some(vs) = value_start {
-            if let Some(base) = field_base {
-                if let (Some(ks), Some(ke)) = (key_start, key_end) {
-                    let field = self.pressure_field_id(base, ks, ke);
-                    if field > 0 && field_filter.get(&field).copied().unwrap_or(false) {
-                        self.set_field(field, vs, self.reader.buffer_len);
-                    }
-                }
+
+        // Handle a final value when the file has no trailing newline.
+        if parsing_value && selected {
+            if matches!(field, 4 | 8) {
+                let value = if valid && digit_count > 0 {
+                    integer_part
+                } else {
+                    0
+                };
+
+                self.set_integer_field(field, value);
+            } else {
+                let value = if valid && digit_count > 0 {
+                    integer_part as f64 + fractional_part as f64 / fractional_divisor
+                } else {
+                    0.0
+                };
+
+                self.set_float_field(field, value);
             }
         }
     }

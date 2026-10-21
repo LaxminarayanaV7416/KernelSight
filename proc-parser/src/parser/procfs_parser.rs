@@ -1,5 +1,5 @@
 use crate::common::system_call_utils::monotonic;
-use crate::procfs::loadavg::{ProcFSLoadAvgReader, ProcLoadAvgFields};
+use crate::procfs::loadavg::ProcFSLoadAvgReader;
 use crate::procfs::meminfo::ProcFSMemInfoReader;
 use crate::procfs::pressure_util::ProcProcessGeneralReader;
 use crate::procfs::stat::ProcFSStatReader;
@@ -271,11 +271,20 @@ pub fn record_procfs(
         is_root,
     )?);
     let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
-
+    let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_vmstat_allowed {
         let vmstat_thread_handle = thread::spawn(move || {
             while !vmstat_signaller.load(Ordering::Relaxed) {
+                let time = monotonic();
                 let read_status = proc_vmstat_reader.read_and_parse(&proc_vmstat_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::VmStat(WriteData::new(
+                        time,
+                        *proc_vmstat_reader.values(),
+                        None,
+                        None,
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/vmstat..");
@@ -301,11 +310,20 @@ pub fn record_procfs(
         is_root,
     )?);
     let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
-
+    let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_stat_allowed {
         let stat_thread_handle = thread::spawn(move || {
             while !stat_signaller.load(Ordering::Relaxed) {
+                let time = monotonic();
                 let read_status = proc_stat_reader.read_and_parse(&proc_stat_filter_map);
+                transmit_writer_clone
+                    .send(WriteDataMsg::Stat(WriteData::new(
+                        time,
+                        proc_stat_reader.values().clone(),
+                        None,
+                        None,
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_status {
                     panic!("Failed to read the /proc/stat..");
@@ -331,11 +349,19 @@ pub fn record_procfs(
         is_root,
     )?);
     let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
-
     if *is_proc_meminfo_allowed {
         let meminfo_thread_handle = thread::spawn(move || {
             while !meminfo_signaller.load(Ordering::Relaxed) {
+                let time = monotonic();
                 let read_meminfo = proc_meminfo_reader.read_and_parse(&proc_meminfo_filter_map);
+                transmit_writer
+                    .send(WriteDataMsg::MemInfo(WriteData::new(
+                        time,
+                        *proc_meminfo_reader.values(),
+                        None,
+                        None,
+                    )))
+                    .unwrap();
                 //TODO make sure we include the error handling properly
                 if !read_meminfo {
                     panic!("Failed to read the /proc/meminfo..");

@@ -1,5 +1,4 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
 /*
@@ -256,31 +255,7 @@ impl ProcFSVmStatReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let Some(bytes) = self.reader.buffer.get(start..end) else {
-            return;
-        };
-        // Find the whitespace separating the field name from its value.
-        let Some(mut value_start) = bytes.iter().position(|byte| byte.is_ascii_whitespace()) else {
-            // This can happen if the buffer ends in the middle of a line.
-            return;
-        };
-        // Skip all whitespace between the field name and value.
-        while value_start < bytes.len() && bytes[value_start].is_ascii_whitespace() {
-            value_start += 1;
-        }
-        if value_start == bytes.len() {
-            return;
-        }
-        // Only include the contiguous decimal value.
-        let mut value_end = value_start;
-        while value_end < bytes.len() && bytes[value_end].is_ascii_digit() {
-            value_end += 1;
-        }
-        if value_start == value_end {
-            return;
-        }
-        let value = parse_u64_swar(&bytes[value_start..value_end]).unwrap_or_default();
+    fn set_field(&mut self, field: usize, value: u64) {
         match field {
             1 => self.values.nr_free_pages = value,
             2 => self.values.nr_free_pages_blocks = value,
@@ -485,29 +460,120 @@ impl ProcFSVmStatReader {
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
-        let mut field = 0usize;
-        let mut start: Option<usize> = None;
+        if field_filter.is_empty() {
+            return;
+        }
+        let mut field = 1usize;
+        let mut line_started = false;
+        let mut key_finished = false;
+        let mut selected = field_filter.get(&field).copied().unwrap_or(false);
+        let mut value_started = false;
+        let mut value_finished = false;
+        let mut value = 0u64;
+        let mut digit_count = 0usize;
+        let mut value_valid = true;
 
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
+        for index in 0..self.reader.buffer_len {
+            let byte = self.reader.buffer[index];
+            if matches!(byte, b'\n' | b'\0') {
+                if line_started {
+                    if selected && value_started {
+                        let parsed_value = if value_valid && digit_count > 0 {
+                            value
+                        } else {
+                            0
+                        };
 
-            if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
+                        self.set_field(field, parsed_value);
+                    }
+
                     field += 1;
-                    if field_filter.get(&field).copied().unwrap_or(false) {
-                        self.set_field(field, s, i);
+                }
+
+                line_started = false;
+                key_finished = false;
+                selected = field_filter.get(&field).copied().unwrap_or(false);
+
+                value_started = false;
+                value_finished = false;
+                value = 0;
+                digit_count = 0;
+                value_valid = true;
+
+                continue;
+            }
+
+            if !line_started {
+                line_started = true;
+            }
+
+            if !key_finished {
+                if byte.is_ascii_whitespace() {
+                    key_finished = true;
+                }
+
+                continue;
+            }
+
+            // A disabled field only needs its newline to be detected.
+            if !selected || value_finished {
+                continue;
+            }
+
+            match byte {
+                b'0'..=b'9' => {
+                    value_started = true;
+                    digit_count += 1;
+
+                    // Preserve parse_u64_swar's 20-digit input limit.
+                    if digit_count > 20 {
+                        value_valid = false;
+                        continue;
+                    }
+
+                    let digit = u64::from(byte - b'0');
+
+                    value = match value
+                        .checked_mul(10)
+                        .and_then(|current| current.checked_add(digit))
+                    {
+                        Some(value) => value,
+
+                        None => {
+                            value_valid = false;
+                            continue;
+                        }
+                    };
+                }
+                byte if byte.is_ascii_whitespace() => {
+                    if value_started {
+                        // The decimal value has ended. Ignore anything else
+                        // on this line.
+                        value_finished = true;
                     }
                 }
-            } else if start.is_none() {
-                start = Some(i);
+                _ if value_started => {
+                    // Match the previous parser's behavior: only the initial
+                    // contiguous decimal value is parsed.
+                    value_finished = true;
+                }
+                _ => {
+                    // A non-whitespace, non-digit byte before the value makes
+                    // this line malformed.
+                    value_valid = false;
+                    value_finished = true;
+                }
             }
         }
+        // Handle a final line without a trailing newline or NUL.
+        if line_started && selected && value_started {
+            let parsed_value = if value_valid && digit_count > 0 {
+                value
+            } else {
+                0
+            };
 
-        if let Some(s) = start {
-            field += 1;
-            if field_filter.get(&field).copied().unwrap_or(false) {
-                self.set_field(field, s, self.reader.buffer_len);
-            }
+            self.set_field(field, parsed_value);
         }
     }
 }

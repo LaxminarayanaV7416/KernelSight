@@ -1,7 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::line_tracker;
-use crate::common::parser_utils::parse_string;
-use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 
 /*
@@ -261,7 +259,6 @@ pub struct ProcFSPIDStatusReader {
     reader: ProcFileReader<4096>,
     values: ProcPIDStatusFields,
     lines_map: Option<HashMap<usize, usize>>,
-    string_field_ids: [usize; 22],
 }
 
 #[derive(Debug, Default, Clone)]
@@ -339,9 +336,6 @@ impl ProcFSPIDStatusReader {
             reader: ProcFileReader::new(path, is_cachable, is_root)?,
             values: ProcPIDStatusFields::default(),
             lines_map: None,
-            string_field_ids: [
-                1, 2, 3, 12, 36, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 52, 53, 54, 55, 56, 57,
-            ],
         })
     }
 
@@ -357,122 +351,125 @@ impl ProcFSPIDStatusReader {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
-        let bytes = &self.reader.buffer[start..end];
-        let bytes_length = bytes.len();
-        let mut seen_colon = false;
-        let mut digit_start: Option<usize> = None;
-        let mut digit_end: usize = 0;
-        if self.string_field_ids.contains(&field) {
-            for (i, &byte) in bytes.iter().enumerate() {
-                if !seen_colon {
-                    if byte == b':' {
-                        seen_colon = true;
-                    }
-                    continue;
-                }
-                if digit_start.is_none() {
-                    digit_start = Some(i);
-                    digit_end = bytes_length;
-                    break;
-                }
-            }
-        } else {
-            for (i, &byte) in bytes.iter().enumerate() {
-                if !seen_colon {
-                    if byte == b':' {
-                        seen_colon = true;
-                    }
-                    continue;
-                }
-                match byte {
-                    // TODO because of this the string parsing is not working
-                    b'0'..=b'9' => {
-                        if digit_start.is_none() {
-                            digit_start = Some(i);
-                        }
+    #[inline]
+    fn is_string_field(field: usize) -> bool {
+        matches!(
+            field,
+            1 | 2
+                | 3
+                | 12
+                | 36
+                | 38
+                | 39
+                | 40
+                | 41
+                | 42
+                | 43
+                | 44
+                | 45
+                | 46
+                | 47
+                | 48
+                | 52
+                | 53
+                | 54
+                | 55
+                | 56
+                | 57
+        )
+    }
 
-                        digit_end = i + 1;
-                    }
-                    _ => {
-                        if digit_start.is_some() {
-                            break;
-                        }
-                    }
-                }
-            }
+    fn set_numeric_field(&mut self, field: usize, value: u64) {
+        match field {
+            4 => self.values.tgid = value,
+            5 => self.values.ngid = value,
+            6 => self.values.pid = value,
+            7 => self.values.ppid = value,
+            8 => self.values.tracer_pid = value,
+            9 => self.values.uid = value,
+            10 => self.values.gid = value,
+            11 => self.values.fd_size = value,
+            13 => self.values.nstgid = value,
+            14 => self.values.nspid = value,
+            15 => self.values.nspgid = value,
+            16 => self.values.nssid = value,
+            17 => self.values.kthread = value,
+            18 => self.values.vm_peak = value,
+            19 => self.values.vm_size = value,
+            20 => self.values.vm_lck = value,
+            21 => self.values.vm_pin = value,
+            22 => self.values.vm_hwm = value,
+            23 => self.values.vm_rss = value,
+            24 => self.values.rss_anon = value,
+            25 => self.values.rss_file = value,
+            26 => self.values.rss_shmem = value,
+            27 => self.values.vm_data = value,
+            28 => self.values.vm_stk = value,
+            29 => self.values.vm_exe = value,
+            30 => self.values.vm_lib = value,
+            31 => self.values.vm_pte = value,
+            32 => self.values.vm_swap = value,
+            33 => self.values.hugetlb_pages = value,
+            34 => self.values.core_dumping = value,
+            35 => self.values.thp_enabled = value,
+            37 => self.values.threads = value,
+            49 => self.values.nonewprivs = value,
+            50 => self.values.seccomp = value,
+            51 => self.values.seccomp_filters = value,
+            58 => self.values.voluntary_ctxt_switches = value,
+            59 => self.values.nonvoluntary_ctxt_switches = value,
+            60 => self.values.x86_thread_features = value,
+            61 => self.values.x86_thread_features_locked = value,
+            _ => {}
         }
-        let Some(digit_start) = digit_start else {
+    }
+
+    fn finish_string_field(&mut self, field: usize, start: Option<usize>, end: usize) {
+        let Some(start) = start else {
             return;
         };
-        let value_bytes = &bytes[digit_start..digit_end];
+
+        if start >= end {
+            self.set_string_field(field, String::new());
+            return;
+        }
+
+        let value = {
+            let bytes = &self.reader.buffer[start..end];
+
+            match std::str::from_utf8(bytes) {
+                Ok(value) => value.to_owned(),
+                Err(_) => String::new(),
+            }
+        };
+
+        self.set_string_field(field, value);
+    }
+
+    fn set_string_field(&mut self, field: usize, value: String) {
         match field {
-            1 => self.values.name = parse_string(value_bytes).unwrap_or_default(),
-            2 => self.values.umask = parse_string(value_bytes).unwrap_or_default(),
-            3 => self.values.state = parse_string(value_bytes).unwrap_or_default(),
-            4 => self.values.tgid = parse_u64_swar(value_bytes).unwrap_or(0),
-            5 => self.values.ngid = parse_u64_swar(value_bytes).unwrap_or(0),
-            6 => self.values.pid = parse_u64_swar(value_bytes).unwrap_or(0),
-            7 => self.values.ppid = parse_u64_swar(value_bytes).unwrap_or(0),
-            8 => self.values.tracer_pid = parse_u64_swar(value_bytes).unwrap_or(0),
-            9 => self.values.uid = parse_u64_swar(value_bytes).unwrap_or(0),
-            10 => self.values.gid = parse_u64_swar(value_bytes).unwrap_or(0),
-            11 => self.values.fd_size = parse_u64_swar(value_bytes).unwrap_or(0),
-            12 => self.values.groups = parse_string(value_bytes).unwrap_or_default(),
-            13 => self.values.nstgid = parse_u64_swar(value_bytes).unwrap_or(0),
-            14 => self.values.nspid = parse_u64_swar(value_bytes).unwrap_or(0),
-            15 => self.values.nspgid = parse_u64_swar(value_bytes).unwrap_or(0),
-            16 => self.values.nssid = parse_u64_swar(value_bytes).unwrap_or(0),
-            17 => self.values.kthread = parse_u64_swar(value_bytes).unwrap_or(0),
-            18 => self.values.vm_peak = parse_u64_swar(value_bytes).unwrap_or(0),
-            19 => self.values.vm_size = parse_u64_swar(value_bytes).unwrap_or(0),
-            20 => self.values.vm_lck = parse_u64_swar(value_bytes).unwrap_or(0),
-            21 => self.values.vm_pin = parse_u64_swar(value_bytes).unwrap_or(0),
-            22 => self.values.vm_hwm = parse_u64_swar(value_bytes).unwrap_or(0),
-            23 => self.values.vm_rss = parse_u64_swar(value_bytes).unwrap_or(0),
-            24 => self.values.rss_anon = parse_u64_swar(value_bytes).unwrap_or(0),
-            25 => self.values.rss_file = parse_u64_swar(value_bytes).unwrap_or(0),
-            26 => self.values.rss_shmem = parse_u64_swar(value_bytes).unwrap_or(0),
-            27 => self.values.vm_data = parse_u64_swar(value_bytes).unwrap_or(0),
-            28 => self.values.vm_stk = parse_u64_swar(value_bytes).unwrap_or(0),
-            29 => self.values.vm_exe = parse_u64_swar(value_bytes).unwrap_or(0),
-            30 => self.values.vm_lib = parse_u64_swar(value_bytes).unwrap_or(0),
-            31 => self.values.vm_pte = parse_u64_swar(value_bytes).unwrap_or(0),
-            32 => self.values.vm_swap = parse_u64_swar(value_bytes).unwrap_or(0),
-            33 => self.values.hugetlb_pages = parse_u64_swar(value_bytes).unwrap_or(0),
-            34 => self.values.core_dumping = parse_u64_swar(value_bytes).unwrap_or(0),
-            35 => self.values.thp_enabled = parse_u64_swar(value_bytes).unwrap_or(0),
-            36 => self.values.untag_mask = parse_string(value_bytes).unwrap_or_default(),
-            37 => self.values.threads = parse_u64_swar(value_bytes).unwrap_or(0),
-            38 => self.values.sigq = parse_string(value_bytes).unwrap_or_default(),
-            39 => self.values.sigpnd = parse_string(value_bytes).unwrap_or_default(),
-            40 => self.values.shdpnd = parse_string(value_bytes).unwrap_or_default(),
-            41 => self.values.sigblk = parse_string(value_bytes).unwrap_or_default(),
-            42 => self.values.sigign = parse_string(value_bytes).unwrap_or_default(),
-            43 => self.values.sigcgt = parse_string(value_bytes).unwrap_or_default(),
-            44 => self.values.capinh = parse_string(value_bytes).unwrap_or_default(),
-            45 => self.values.capprm = parse_string(value_bytes).unwrap_or_default(),
-            46 => self.values.capeff = parse_string(value_bytes).unwrap_or_default(),
-            47 => self.values.capbnd = parse_string(value_bytes).unwrap_or_default(),
-            48 => self.values.capamb = parse_string(value_bytes).unwrap_or_default(),
-            49 => self.values.nonewprivs = parse_u64_swar(value_bytes).unwrap_or(0),
-            50 => self.values.seccomp = parse_u64_swar(value_bytes).unwrap_or(0),
-            51 => self.values.seccomp_filters = parse_u64_swar(value_bytes).unwrap_or(0),
-            52 => {
-                self.values.speculation_store_bypass = parse_string(value_bytes).unwrap_or_default()
-            }
-            53 => {
-                self.values.speculationindirectbranch =
-                    parse_string(value_bytes).unwrap_or_default()
-            }
-            54 => self.values.cpus_allowed = parse_string(value_bytes).unwrap_or_default(),
-            55 => self.values.cpus_allowed_list = parse_string(value_bytes).unwrap_or_default(),
-            56 => self.values.mems_allowed = parse_string(value_bytes).unwrap_or_default(),
-            57 => self.values.mems_allowed_list = parse_string(value_bytes).unwrap_or_default(),
-            58 => self.values.voluntary_ctxt_switches = parse_u64_swar(value_bytes).unwrap_or(0),
-            59 => self.values.nonvoluntary_ctxt_switches = parse_u64_swar(value_bytes).unwrap_or(0),
-            60 => self.values.x86_thread_features = parse_u64_swar(value_bytes).unwrap_or(0),
-            61 => self.values.x86_thread_features_locked = parse_u64_swar(value_bytes).unwrap_or(0),
+            1 => self.values.name = value,
+            2 => self.values.umask = value,
+            3 => self.values.state = value,
+            12 => self.values.groups = value,
+            36 => self.values.untag_mask = value,
+            38 => self.values.sigq = value,
+            39 => self.values.sigpnd = value,
+            40 => self.values.shdpnd = value,
+            41 => self.values.sigblk = value,
+            42 => self.values.sigign = value,
+            43 => self.values.sigcgt = value,
+            44 => self.values.capinh = value,
+            45 => self.values.capprm = value,
+            46 => self.values.capeff = value,
+            47 => self.values.capbnd = value,
+            48 => self.values.capamb = value,
+            52 => self.values.speculation_store_bypass = value,
+            53 => self.values.speculationindirectbranch = value,
+            54 => self.values.cpus_allowed = value,
+            55 => self.values.cpus_allowed_list = value,
+            56 => self.values.mems_allowed = value,
+            57 => self.values.mems_allowed_list = value,
             _ => {}
         }
     }
@@ -485,44 +482,126 @@ impl ProcFSPIDStatusReader {
                 b':',
             ));
         }
-        let mut parser_line_number = 0usize;
-        let mut start: Option<usize> = None;
-
-        for i in 0..self.reader.buffer_len {
-            let byte = self.reader.buffer[i];
-
-            if byte == b'\n' || byte == b'\0' {
-                if let Some(s) = start.take() {
-                    parser_line_number += 1;
-                    // now get the field number from the line number
-                    let field_number = self
-                        .lines_map
-                        .as_ref()
-                        .unwrap()
-                        .get(&parser_line_number)
-                        .copied()
-                        .unwrap_or(0);
-
-                    if field_number > 0 {
-                        self.set_field(field_number, s, i);
+        let mut line_number = 1usize;
+        let mut field = self
+            .lines_map
+            .as_ref()
+            .and_then(|lines| lines.get(&line_number))
+            .copied()
+            .unwrap_or(0);
+        let mut seen_colon = false;
+        let mut is_string = Self::is_string_field(field);
+        let mut string_start: Option<usize> = None;
+        let mut number_started = false;
+        let mut number_finished = false;
+        let mut number = 0u64;
+        let mut digit_count = 0usize;
+        let mut number_valid = true;
+        for index in 0..self.reader.buffer_len {
+            // Copy the byte so no buffer borrow survives calls taking &mut self.
+            let byte = self.reader.buffer[index];
+            if matches!(byte, b'\n' | b'\0') {
+                if field > 0 {
+                    if is_string {
+                        self.finish_string_field(field, string_start, index);
+                    } else if number_started {
+                        let value = if number_valid && digit_count > 0 {
+                            number
+                        } else {
+                            0
+                        };
+                        self.set_numeric_field(field, value);
                     }
                 }
-            } else if start.is_none() {
-                start = Some(i);
+                line_number += 1;
+                field = self
+                    .lines_map
+                    .as_ref()
+                    .and_then(|lines| lines.get(&line_number))
+                    .copied()
+                    .unwrap_or(0);
+
+                seen_colon = false;
+                is_string = Self::is_string_field(field);
+                string_start = None;
+                number_started = false;
+                number_finished = false;
+                number = 0;
+                digit_count = 0;
+                number_valid = true;
+                continue;
+            }
+            // line_tracker maps unselected and unknown lines to field zero.
+            if field == 0 {
+                continue;
+            }
+            if !seen_colon {
+                if byte == b':' {
+                    seen_colon = true;
+                }
+                continue;
+            }
+            if is_string {
+                if string_start.is_none() {
+                    // Skip the whitespace separating ':' from the value.
+                    if byte.is_ascii_whitespace() {
+                        continue;
+                    }
+                    string_start = Some(index);
+                }
+                continue;
+            }
+            if number_finished {
+                continue;
+            }
+            match byte {
+                b'0'..=b'9' => {
+                    number_started = true;
+                    digit_count += 1;
+                    // Preserve parse_u64_swar's maximum token length.
+                    if digit_count > 20 {
+                        number_valid = false;
+                        continue;
+                    }
+                    let digit = u64::from(byte - b'0');
+                    number = match number
+                        .checked_mul(10)
+                        .and_then(|value| value.checked_add(digit))
+                    {
+                        Some(value) => value,
+                        None => {
+                            number_valid = false;
+                            continue;
+                        }
+                    };
+                }
+                byte if byte.is_ascii_whitespace() => {
+                    if number_started {
+                        // Ignore units such as "kB" and additional values such
+                        // as the effective/saved UID columns.
+                        number_finished = true;
+                    }
+                }
+                _ if number_started => {
+                    number_finished = true;
+                }
+                _ => {
+                    // Ignore characters before the first decimal value.
+                }
             }
         }
-        if let Some(s) = start {
-            parser_line_number += 1;
-            let field_number = self
-                .lines_map
-                .as_ref()
-                .unwrap()
-                .get(&parser_line_number)
-                .copied()
-                .unwrap_or(0);
+        // Handle the final line if it has no trailing newline or NUL.
+        if field > 0 {
+            if is_string {
+                self.finish_string_field(field, string_start, self.reader.buffer_len);
+            } else if number_started {
+                let value = if number_valid && digit_count > 0 {
+                    number
+                } else {
+                    0
+                };
 
-            if field_number > 0 {
-                self.set_field(field_number, s, self.reader.buffer_len);
+                self.set_numeric_field(field, value);
             }
         }
     }
