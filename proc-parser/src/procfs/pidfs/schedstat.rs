@@ -1,14 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_u64_swar;
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
-
 /*
 schedstats also adds a new /proc/<pid>/schedstat file to include some of the same information on a per-process level.
 There are three fields in this file correlating for that process to:
@@ -91,37 +83,4 @@ impl ProcFSPIDSchedStatReader {
             }
         }
     }
-}
-
-pub fn parse_procfs_pid_schedstat(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-    pid: usize,
-) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH)
-        .join(pid.to_string())
-        .join("schedstat");
-    let load_avg_temp_reader =
-        ProcFSPIDSchedStatReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
-    let mut load_avg_reader = match load_avg_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    let filter_map = HashMap::from([(1, true), (2, true), (3, true)]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = load_avg_reader.read_and_parse(&filter_map);
-            if !read_status {
-                println!("Failed to read loadavg, ProcFS File closed!");
-                break;
-            }
-            println!("Parsed: {:?}", load_avg_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("Killed LoadAvg thread!!");
-    });
-    thread_handle
 }

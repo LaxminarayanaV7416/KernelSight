@@ -1,5 +1,5 @@
 use crate::common::cgroup_constants::CGROUP_V2_MOUNT_PATH;
-use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
+use crate::procfs::pressure_util::ProcProcessGeneralReader;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

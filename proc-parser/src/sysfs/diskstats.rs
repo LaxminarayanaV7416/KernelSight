@@ -1,16 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::kernel_types::{UnsignedInt, UnsignedLong};
 use crate::common::parser_utils::parse_u64_swar;
-use crate::common::procfs_constants::SYS_FS_ROOT_PATH;
-use crate::configs::procfs_diskstats_config::ProcDiskStatsConfig;
 use std::collections::HashMap;
-use std::fs::read_dir;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
-
 /*
 Both files contain the same 17 statistics. /sys/block/<device>/stat contains the fields for <device>.
 In /proc/diskstats the fields are prefixed with the major and minor device numbers and the device name.
@@ -84,23 +74,23 @@ pub struct DiskStatsReader {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DiskStatsFields {
-    pub reads_completed: UnsignedLong,
-    pub reads_merged: UnsignedLong,
-    pub sectors_read: UnsignedLong,
-    pub time_spent_reading: UnsignedInt,
-    pub writes_completed: UnsignedLong,
-    pub writes_merged: UnsignedLong,
-    pub sectors_written: UnsignedLong,
-    pub time_spent_writing: UnsignedInt,
-    pub ios_in_progress: UnsignedInt,
-    pub time_spent_doing_io: UnsignedInt,
-    pub weighted_time_spent_doing_io: UnsignedInt,
-    pub discards_completed: UnsignedLong,
-    pub discards_merged: UnsignedLong,
-    pub sectors_discarded: UnsignedLong,
-    pub time_spent_discarding: UnsignedInt,
-    pub flushes_completed: UnsignedLong,
-    pub time_spent_flushing: UnsignedInt,
+    pub reads_completed: u64,
+    pub reads_merged: u64,
+    pub sectors_read: u64,
+    pub time_spent_reading: u32,
+    pub writes_completed: u64,
+    pub writes_merged: u64,
+    pub sectors_written: u64,
+    pub time_spent_writing: u32,
+    pub ios_in_progress: u32,
+    pub time_spent_doing_io: u32,
+    pub weighted_time_spent_doing_io: u32,
+    pub discards_completed: u64,
+    pub discards_merged: u64,
+    pub sectors_discarded: u64,
+    pub time_spent_discarding: u32,
+    pub flushes_completed: u64,
+    pub time_spent_flushing: u32,
 }
 
 impl DiskStatsReader {
@@ -158,20 +148,20 @@ impl DiskStatsReader {
             1 => self.values.reads_completed = value,
             2 => self.values.reads_merged = value,
             3 => self.values.sectors_read = value,
-            4 => self.values.time_spent_reading = value as UnsignedInt,
+            4 => self.values.time_spent_reading = value as u32,
             5 => self.values.writes_completed = value,
             6 => self.values.writes_merged = value,
             7 => self.values.sectors_written = value,
-            8 => self.values.time_spent_writing = value as UnsignedInt,
-            9 => self.values.ios_in_progress = value as UnsignedInt,
-            10 => self.values.time_spent_doing_io = value as UnsignedInt,
-            11 => self.values.weighted_time_spent_doing_io = value as UnsignedInt,
+            8 => self.values.time_spent_writing = value as u32,
+            9 => self.values.ios_in_progress = value as u32,
+            10 => self.values.time_spent_doing_io = value as u32,
+            11 => self.values.weighted_time_spent_doing_io = value as u32,
             12 => self.values.discards_completed = value,
             13 => self.values.discards_merged = value,
             14 => self.values.sectors_discarded = value,
-            15 => self.values.time_spent_discarding = value as UnsignedInt,
+            15 => self.values.time_spent_discarding = value as u32,
             16 => self.values.flushes_completed = value,
-            17 => self.values.time_spent_flushing = value as UnsignedInt,
+            17 => self.values.time_spent_flushing = value as u32,
             _ => {}
         }
     }
@@ -179,73 +169,4 @@ impl DiskStatsReader {
     pub fn values(&self) -> &DiskStatsFields {
         &self.values
     }
-}
-
-// this function parses the diskstats files from each block device including zram
-// its thread so it runs in parallel with other parsers
-pub fn parse_diskstats(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-) -> JoinHandle<()> {
-    let sys_block_path = Path::new(SYS_FS_ROOT_PATH).join("block");
-    let mut diskstats_paths = Vec::new();
-    for entry in read_dir(&sys_block_path).into_iter().flatten().flatten() {
-        let device_name = entry.file_name().to_string_lossy().into_owned();
-        let block_device_path = sys_block_path.join(&device_name).join("stat");
-        diskstats_paths.push(block_device_path);
-    }
-    let mut diskstats = Vec::new();
-    for path in diskstats_paths {
-        let diskstat = DiskStatsReader::new(&path.to_str().unwrap(), is_cachable, is_root);
-        match diskstat {
-            Ok(diskstat) => diskstats.push(diskstat),
-            Err(_) => {
-                println!(
-                    "Failed to parse diskstats for device: {}",
-                    path.to_string_lossy()
-                );
-            }
-        }
-    }
-    // TODO: Hook the config path here
-    let filter_map = HashMap::from([
-        (1, true),
-        (2, true),
-        (3, true),
-        (4, true),
-        (5, true),
-        (6, true),
-        (7, true),
-        (8, true),
-        (9, true),
-        (10, true),
-        (11, true),
-        (12, true),
-        (13, true),
-        (14, true),
-        (15, true),
-        (16, true),
-        (17, true),
-    ]);
-    let threads_info = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            for diskstat in diskstats.iter_mut() {
-                if signal_hook.load(Ordering::Relaxed) {
-                    break;
-                }
-                let read_status = diskstat.read_and_parse(&filter_map);
-                if !read_status {
-                    println!("Failed to read diskstats, ProcFS File closed!");
-                    break;
-                }
-                println!("Parsed: {:?}", diskstat.values());
-                println!("=====================================");
-            }
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("diskstats thread exiting");
-    });
-    threads_info
 }

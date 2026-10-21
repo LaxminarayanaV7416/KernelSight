@@ -2,14 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::line_tracker;
 use crate::common::parser_utils::parse_string;
 use crate::common::parser_utils::parse_u64_swar;
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
 
 /*
 /proc/pid/status
@@ -533,99 +526,4 @@ impl ProcFSPIDStatusReader {
             }
         }
     }
-}
-
-pub fn parse_procfs_pid_status(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-    pid: usize,
-) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH)
-        .join(pid.to_string())
-        .join("status");
-    let load_avg_temp_reader =
-        ProcFSPIDStatusReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
-    let mut load_avg_reader = match load_avg_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    let filter_map = HashMap::from([
-        ("Name", (1, true)),
-        ("Umask", (2, true)),
-        ("State", (3, true)),
-        ("Tgid", (4, true)),
-        ("Ngid", (5, true)),
-        ("Pid", (6, true)),
-        ("PPid", (7, true)),
-        ("TracerPid", (8, true)),
-        ("Uid", (9, true)),
-        ("Gid", (10, true)),
-        ("FDSize", (11, true)),
-        ("Groups", (12, true)),
-        ("NStgid", (13, true)),
-        ("NSpid", (14, true)),
-        ("NSpgid", (15, true)),
-        ("NSsid", (16, true)),
-        ("Kthread", (17, true)),
-        ("VmPeak", (18, true)),
-        ("VmSize", (19, true)),
-        ("VmLck", (20, true)),
-        ("VmPin", (21, true)),
-        ("VmHWM", (22, true)),
-        ("VmRSS", (23, true)),
-        ("RssAnon", (24, true)),
-        ("RssFile", (25, true)),
-        ("RssShmem", (26, true)),
-        ("VmData", (27, true)),
-        ("VmStk", (28, true)),
-        ("VmExe", (29, true)),
-        ("VmLib", (30, true)),
-        ("VmPTE", (31, true)),
-        ("VmSwap", (32, true)),
-        ("HugetlbPages", (33, true)),
-        ("CoreDumping", (34, true)),
-        ("THP_enabled", (35, true)),
-        ("untag_mask", (36, true)),
-        ("Threads", (37, true)),
-        ("SigQ", (38, true)),
-        ("SigPnd", (39, true)),
-        ("ShdPnd", (40, true)),
-        ("SigBlk", (41, true)),
-        ("SigIgn", (42, true)),
-        ("SigCgt", (43, true)),
-        ("CapInh", (44, true)),
-        ("CapPrm", (45, true)),
-        ("CapEff", (46, true)),
-        ("CapBnd", (47, true)),
-        ("CapAmb", (48, true)),
-        ("NoNewPrivs", (49, true)),
-        ("Seccomp", (50, true)),
-        ("Seccomp_filters", (51, true)),
-        ("Speculation_Store_Bypass", (52, true)),
-        ("SpeculationIndirectBranch", (53, true)),
-        ("Cpus_allowed", (54, true)),
-        ("Cpus_allowed_list", (55, true)),
-        ("Mems_allowed", (56, true)),
-        ("Mems_allowed_list", (57, true)),
-        ("voluntary_ctxt_switches", (58, true)),
-        ("nonvoluntary_ctxt_switches", (59, true)),
-        ("x86_Thread_features", (60, true)),
-        ("x86_Thread_features_locked", (61, true)),
-    ]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = load_avg_reader.read_and_parse(&filter_map);
-            if !read_status {
-                println!("Failed to read loadavg, ProcFS File closed!");
-                break;
-            }
-            println!("Parsed: {:?}", load_avg_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("Killed LoadAvg thread!!");
-    });
-    thread_handle
 }

@@ -1,7 +1,7 @@
 use crate::common::system_call_utils::monotonic;
 use crate::procfs::loadavg::{ProcFSLoadAvgReader, ProcLoadAvgFields};
 use crate::procfs::meminfo::ProcFSMemInfoReader;
-use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
+use crate::procfs::pressure_util::ProcProcessGeneralReader;
 use crate::procfs::stat::ProcFSStatReader;
 use crate::procfs::uptime::ProcFSUptimeReader;
 use crate::procfs::vmstat::ProcFSVmStatReader;

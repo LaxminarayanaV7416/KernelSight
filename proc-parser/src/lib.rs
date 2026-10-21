@@ -2,7 +2,6 @@ pub mod common {
     pub mod cgroup_constants;
     pub mod config;
     pub mod file_reader;
-    pub mod kernel_types;
     pub mod message_passing_utils;
     pub mod parser_error;
     pub mod parser_utils;
@@ -63,15 +62,9 @@ pub mod procfs {
         pub mod statm;
         pub mod status;
     }
-    pub mod pressure {
-        pub mod cpu;
-        pub mod io;
-        pub mod irq;
-        pub mod memory;
-        pub mod pressure_util;
-    }
     pub mod loadavg;
     pub mod meminfo;
+    pub mod pressure_util;
     pub mod stat;
     pub mod uptime;
     pub mod vmstat;

@@ -1,15 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
-use crate::common::kernel_types::UnsignedLong;
 use crate::common::parser_utils::line_tracker;
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_meminfo_config::ProcMemInfoConfig;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
-
 /*
 MemTotal %lu
        Total usable RAM (i.e., physical RAM minus a few
@@ -297,80 +288,80 @@ pub struct ProcFSMemInfoReader {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ProcMemInfoFields {
-    pub mem_total: UnsignedLong,
-    pub mem_free: UnsignedLong,
-    pub mem_available: UnsignedLong,
-    pub mem_buffers: UnsignedLong,
-    pub mem_cached: UnsignedLong,
-    pub mem_swap_cached: UnsignedLong,
+    pub mem_total: u64,
+    pub mem_free: u64,
+    pub mem_available: u64,
+    pub mem_buffers: u64,
+    pub mem_cached: u64,
+    pub mem_swap_cached: u64,
 
-    pub mem_active: UnsignedLong,
-    pub mem_inactive: UnsignedLong,
-    pub mem_active_anon: UnsignedLong,
-    pub mem_inactive_anon: UnsignedLong,
-    pub mem_active_file: UnsignedLong,
-    pub mem_inactive_file: UnsignedLong,
-    pub mem_unevictable: UnsignedLong,
-    pub mem_mlocked: UnsignedLong,
+    pub mem_active: u64,
+    pub mem_inactive: u64,
+    pub mem_active_anon: u64,
+    pub mem_inactive_anon: u64,
+    pub mem_active_file: u64,
+    pub mem_inactive_file: u64,
+    pub mem_unevictable: u64,
+    pub mem_mlocked: u64,
 
-    pub mem_swap_total: UnsignedLong,
-    pub mem_swap_free: UnsignedLong,
-    pub mem_zswap: UnsignedLong,
-    pub mem_zswapped: UnsignedLong,
+    pub mem_swap_total: u64,
+    pub mem_swap_free: u64,
+    pub mem_zswap: u64,
+    pub mem_zswapped: u64,
 
-    pub mem_dirty: UnsignedLong,
-    pub mem_write_back: UnsignedLong,
-    pub mem_anon_pages: UnsignedLong,
-    pub mem_mapped: UnsignedLong,
-    pub mem_shmem: UnsignedLong,
+    pub mem_dirty: u64,
+    pub mem_write_back: u64,
+    pub mem_anon_pages: u64,
+    pub mem_mapped: u64,
+    pub mem_shmem: u64,
 
-    pub mem_k_reclaimable: UnsignedLong,
-    pub mem_slab: UnsignedLong,
-    pub mem_s_reclaimable: UnsignedLong,
-    pub mem_s_unreclaim: UnsignedLong,
+    pub mem_k_reclaimable: u64,
+    pub mem_slab: u64,
+    pub mem_s_reclaimable: u64,
+    pub mem_s_unreclaim: u64,
 
-    pub mem_kernel_stack: UnsignedLong,
-    pub mem_page_tables: UnsignedLong,
-    pub mem_sec_page_tables: UnsignedLong,
+    pub mem_kernel_stack: u64,
+    pub mem_page_tables: u64,
+    pub mem_sec_page_tables: u64,
 
-    pub mem_nfs_unstable: UnsignedLong,
-    pub mem_bounce: UnsignedLong,
-    pub mem_write_back_tmp: UnsignedLong,
+    pub mem_nfs_unstable: u64,
+    pub mem_bounce: u64,
+    pub mem_write_back_tmp: u64,
 
-    pub mem_commit_limit: UnsignedLong,
-    pub mem_committed_as: UnsignedLong,
+    pub mem_commit_limit: u64,
+    pub mem_committed_as: u64,
 
-    pub mem_vmalloc_total: UnsignedLong,
-    pub mem_vmalloc_used: UnsignedLong,
-    pub mem_vmalloc_chunk: UnsignedLong,
+    pub mem_vmalloc_total: u64,
+    pub mem_vmalloc_used: u64,
+    pub mem_vmalloc_chunk: u64,
 
-    pub mem_percpu: UnsignedLong,
-    pub mem_hardware_corrupted: UnsignedLong,
+    pub mem_percpu: u64,
+    pub mem_hardware_corrupted: u64,
 
-    pub mem_anon_huge_pages: UnsignedLong,
-    pub mem_shmem_huge_pages: UnsignedLong,
-    pub mem_shmem_pmd_mapped: UnsignedLong,
-    pub mem_file_huge_pages: UnsignedLong,
-    pub mem_file_pmd_mapped: UnsignedLong,
+    pub mem_anon_huge_pages: u64,
+    pub mem_shmem_huge_pages: u64,
+    pub mem_shmem_pmd_mapped: u64,
+    pub mem_file_huge_pages: u64,
+    pub mem_file_pmd_mapped: u64,
 
-    pub mem_cma_total: UnsignedLong,
-    pub mem_cma_free: UnsignedLong,
+    pub mem_cma_total: u64,
+    pub mem_cma_free: u64,
 
-    pub mem_unaccepted: UnsignedLong,
-    pub mem_balloon: UnsignedLong,
-    pub mem_gpu_active: UnsignedLong,
-    pub mem_gpu_reclaim: UnsignedLong,
+    pub mem_unaccepted: u64,
+    pub mem_balloon: u64,
+    pub mem_gpu_active: u64,
+    pub mem_gpu_reclaim: u64,
 
-    pub mem_huge_pages_total: UnsignedLong,
-    pub mem_huge_pages_free: UnsignedLong,
-    pub mem_huge_pages_reserved: UnsignedLong,
-    pub mem_huge_pages_surp: UnsignedLong,
-    pub mem_huge_page_size: UnsignedLong,
-    pub mem_hugetlb: UnsignedLong,
+    pub mem_huge_pages_total: u64,
+    pub mem_huge_pages_free: u64,
+    pub mem_huge_pages_reserved: u64,
+    pub mem_huge_pages_surp: u64,
+    pub mem_huge_page_size: u64,
+    pub mem_hugetlb: u64,
 
-    pub mem_direct_map_4k: UnsignedLong,
-    pub mem_direct_map_2m: UnsignedLong,
-    pub mem_direct_map_1g: UnsignedLong,
+    pub mem_direct_map_4k: u64,
+    pub mem_direct_map_2m: u64,
+    pub mem_direct_map_1g: u64,
 }
 
 impl ProcFSMemInfoReader {
@@ -568,99 +559,4 @@ impl ProcFSMemInfoReader {
             self.set_field(field_number, value.unwrap_or_default());
         }
     }
-}
-
-pub fn parse_procfs_meminfo(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("meminfo");
-    let load_avg_temp_reader =
-        ProcFSMemInfoReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
-    let mut load_avg_reader = match load_avg_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    // TODO: from here get the config which have HashMap<&str, (usize, bool)>
-    // Just use the method get_field_string_to_struct_ids
-    // let filter_map = ProcMemInfoConfig.get_field_string_to_struct_ids()
-    let filter_map = HashMap::from([
-        ("MemTotal", (1, true)),
-        ("MemFree", (2, true)),
-        ("MemAvailable", (3, true)),
-        ("Buffers", (4, true)),
-        ("Cached", (5, true)),
-        ("SwapCached", (6, true)),
-        ("Active", (7, true)),
-        ("Inactive", (8, true)),
-        ("Active(anon)", (9, true)),
-        ("Inactive(anon)", (10, true)),
-        ("Active(file)", (11, true)),
-        ("Inactive(file)", (12, true)),
-        ("Unevictable", (13, true)),
-        ("Mlocked", (14, true)),
-        ("SwapTotal", (15, true)),
-        ("SwapFree", (16, true)),
-        ("Zswap", (17, true)),
-        ("Zswapped", (18, true)),
-        ("Dirty", (19, true)),
-        ("Writeback", (20, true)),
-        ("AnonPages", (21, true)),
-        ("Mapped", (22, true)),
-        ("Shmem", (23, true)),
-        ("KReclaimable", (24, true)),
-        ("Slab", (25, true)),
-        ("SReclaimable", (26, true)),
-        ("SUnreclaim", (27, true)),
-        ("KernelStack", (28, true)),
-        ("PageTables", (29, true)),
-        ("SecPageTables", (30, true)),
-        ("NFS_Unstable", (31, true)),
-        ("Bounce", (32, true)),
-        ("WritebackTmp", (33, true)),
-        ("CommitLimit", (34, true)),
-        ("Committed_AS", (35, true)),
-        ("VmallocTotal", (36, true)),
-        ("VmallocUsed", (37, true)),
-        ("VmallocChunk", (38, true)),
-        ("Percpu", (39, true)),
-        ("HardwareCorrupted", (40, true)),
-        ("AnonHugePages", (41, true)),
-        ("ShmemHugePages", (42, true)),
-        ("ShmemPmdMapped", (43, true)),
-        ("FileHugePages", (44, true)),
-        ("FilePmdMapped", (45, true)),
-        ("CmaTotal", (46, true)),
-        ("CmaFree", (47, true)),
-        ("Unaccepted", (48, true)),
-        ("Balloon", (49, true)),
-        ("GPUActive", (50, true)),
-        ("GPUReclaim", (51, true)),
-        ("HugePages_Total", (52, true)),
-        ("HugePages_Free", (53, true)),
-        ("HugePages_Rsvd", (54, true)),
-        ("HugePages_Surp", (55, true)),
-        ("Hugepagesize", (56, true)),
-        ("Hugetlb", (57, true)),
-        ("DirectMap4k", (58, true)),
-        ("DirectMap2M", (59, true)),
-        ("DirectMap1G", (60, true)),
-    ]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = load_avg_reader.read_and_parse(&filter_map);
-            if read_status {
-                println!("Parsed: {:?}", load_avg_reader.values());
-                println!("=====================================");
-                thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-            } else {
-                println!("Failed to read meminfo, ProcFS File closed!");
-                break;
-            }
-        }
-    });
-    println!("Killed LoadAvg thread!!");
-    thread_handle
 }

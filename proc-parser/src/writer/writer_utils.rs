@@ -15,7 +15,7 @@ use crate::procfs::pidfs::schedstat::ProcPIDSchedStatFields;
 use crate::procfs::pidfs::stat::ProcPIDStatFields;
 use crate::procfs::pidfs::statm::ProcPIDStatmFields;
 use crate::procfs::pidfs::status::ProcPIDStatusFields;
-use crate::procfs::pressure::pressure_util::ProcProcessGeneralFields;
+use crate::procfs::pressure_util::ProcProcessGeneralFields;
 use crate::procfs::stat::ProcStatFields;
 use crate::procfs::uptime::ProcUptimeFields;
 use crate::procfs::vmstat::ProcVmStatFields;

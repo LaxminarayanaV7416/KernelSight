@@ -3,13 +3,7 @@ use crate::common::parser_utils::parse_char;
 use crate::common::parser_utils::parse_i64_swar;
 use crate::common::parser_utils::parse_string;
 use crate::common::parser_utils::parse_u64_swar;
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub struct ProcFSPIDStatReader {
@@ -220,90 +214,4 @@ impl ProcFSPIDStatReader {
             }
         }
     }
-}
-
-pub fn parse_procfs_pid_stat(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-    pid: usize,
-) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH)
-        .join(pid.to_string())
-        .join("stat");
-    let load_avg_temp_reader =
-        ProcFSPIDStatReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
-    let mut load_avg_reader = match load_avg_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    let filter_map = HashMap::from([
-        (1, true),
-        (2, true),
-        (3, true),
-        (4, true),
-        (5, true),
-        (6, true),
-        (7, true),
-        (8, true),
-        (9, true),
-        (10, true),
-        (11, true),
-        (12, true),
-        (13, true),
-        (14, true),
-        (15, true),
-        (16, true),
-        (17, true),
-        (18, true),
-        (19, true),
-        (20, true),
-        (21, true),
-        (22, true),
-        (23, true),
-        (24, true),
-        (25, true),
-        (26, true),
-        (27, true),
-        (28, true),
-        (29, true),
-        (30, true),
-        (31, true),
-        (32, true),
-        (33, true),
-        (34, true),
-        (35, true),
-        (36, true),
-        (37, true),
-        (38, true),
-        (39, true),
-        (40, true),
-        (41, true),
-        (42, true),
-        (43, true),
-        (44, true),
-        (45, true),
-        (46, true),
-        (47, true),
-        (48, true),
-        (49, true),
-        (50, true),
-        (51, true),
-        (52, true),
-    ]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = load_avg_reader.read_and_parse(&filter_map);
-            if !read_status {
-                println!("Failed to read loadavg, ProcFS File closed!");
-                break;
-            }
-            println!("Parsed: {:?}", load_avg_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("Killed LoadAvg thread!!");
-    });
-    thread_handle
 }

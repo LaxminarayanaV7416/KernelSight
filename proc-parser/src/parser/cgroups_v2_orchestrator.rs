@@ -20,7 +20,7 @@ use crate::common::parser_error::Result;
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::parser::pidsfs_utils::{PIDActions, ProcFSPID};
-use crate::procfs::pressure::pressure_util::ProcProcessGeneralReader;
+use crate::procfs::pressure_util::ProcProcessGeneralReader;
 use crate::writer::writer_utils::{WriteCgroupsData, WriteCgroupsDataMsg};
 use aho_corasick::AhoCorasick;
 use std::collections::HashMap;

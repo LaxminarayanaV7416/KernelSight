@@ -1,14 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_decimal_f64;
-use crate::common::parser_utils::parse_u64_swar;
-use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
-use crate::configs::procfs_loadavg_config::ProcLoadAvgConfig;
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::thread::JoinHandle;
 
 /*
 Field Number
@@ -104,34 +96,4 @@ impl ProcFSUptimeReader {
             }
         }
     }
-}
-
-pub fn parse_procfs_uptime(
-    signal_hook: Arc<AtomicBool>,
-    monitoring_heartbeat: u64,
-    is_cachable: bool,
-    is_root: bool,
-) -> JoinHandle<()> {
-    let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("uptime");
-    let load_avg_temp_reader =
-        ProcFSUptimeReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
-    let mut load_avg_reader = match load_avg_temp_reader {
-        Ok(reader) => Box::new(reader),
-        Err(e) => panic!("Failed to create loadavg reader: {}", e),
-    };
-    let filter_map = HashMap::from([(1, true), (2, true)]);
-    let thread_handle = thread::spawn(move || {
-        while !signal_hook.load(Ordering::Relaxed) {
-            let read_status = load_avg_reader.read_and_parse(&filter_map);
-            if !read_status {
-                println!("Failed to read loadavg, ProcFS File closed!");
-                break;
-            }
-            println!("Parsed: {:?}", load_avg_reader.values());
-            println!("=====================================");
-            thread::sleep(std::time::Duration::from_millis(monitoring_heartbeat));
-        }
-        println!("Killed LoadAvg thread!!");
-    });
-    thread_handle
 }
