@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter};
 pub enum ProcParserError {
     FileReadError(String),
     GPUError,
+    ThreadSpawningError(String),
     ParseError(Box<dyn Error + Send + Sync + 'static>),
 }
 
@@ -23,6 +24,9 @@ impl Display for ProcParserError {
         match self {
             Self::FileReadError(path) => write!(f, "Something is wrong {}", path),
             Self::GPUError => write!(f, "GPU error"),
+            Self::ThreadSpawningError(thread_info) => {
+                write!(f, "ThreadSpawning Error for {}", thread_info)
+            }
             Self::ParseError(err) => write!(f, "{err}"),
         }
     }

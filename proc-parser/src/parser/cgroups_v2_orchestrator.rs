@@ -41,13 +41,13 @@ pub enum CgroupsV2Actions {
 
 pub struct CgroupsV2Readers {
     pub cgroup_events: Option<CgroupFSV2CgroupEventReader>,
-    pub cgroup_procs: CgroupFSV2CgroupProcsReader,
-    pub cpu_pressure: ProcProcessGeneralReader,
-    pub cpu_stat: CgroupFSV2CPUStatReader,
-    pub io_pressure: ProcProcessGeneralReader,
+    pub cgroup_procs: Option<CgroupFSV2CgroupProcsReader>,
+    pub cpu_pressure: Option<ProcProcessGeneralReader>,
+    pub cpu_stat: Option<CgroupFSV2CPUStatReader>,
+    pub io_pressure: Option<ProcProcessGeneralReader>,
     pub memory_current: Option<CgroupFSV2MemoryCurrentReader>,
     pub memory_events: Option<CgroupFSV2MemoryEventReader>,
-    pub memory_pressure: ProcProcessGeneralReader,
+    pub memory_pressure: Option<ProcProcessGeneralReader>,
     pub memory_peak: Option<CgroupFSV2MemoryPeakReader>,
     pub memory_stat: Option<CgroupFSV2MemoryStatReader>,
     pub pids_current: Option<CgroupFSV2PidsCurrentReader>,
@@ -66,23 +66,23 @@ impl CgroupsV2Readers {
             };
         let cgroup_procs =
             match CgroupFSV2CgroupProcsReader::new(&base_path.join(CGROUP_PROCS_FILE_SLUG)) {
-                Ok(reader) => reader,
-                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+                Ok(reader) => Some(reader),
+                Err(_) => None,
             };
         let cpu_pressure =
             match ProcProcessGeneralReader::new(&base_path.join(CGROUP_CPU_PRESSURE_FILE_SLUG)) {
-                Ok(reader) => reader,
-                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+                Ok(reader) => Some(reader),
+                Err(_) => None,
             };
         let cpu_stat =
             match CgroupFSV2CPUStatReader::new(&base_path.join(CGROUP_CPU_STAT_FILE_SLUG)) {
-                Ok(reader) => reader,
-                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+                Ok(reader) => Some(reader),
+                Err(_) => None,
             };
         let io_pressure =
             match ProcProcessGeneralReader::new(&base_path.join(CGROUP_IO_PRESSURE_FILE_SLUG)) {
-                Ok(reader) => reader,
-                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+                Ok(reader) => Some(reader),
+                Err(_) => None,
             };
         let memory_current = match CgroupFSV2MemoryCurrentReader::new(
             &base_path.join(CGROUP_MEMORY_CURRENT_FILE_SLUG),
@@ -99,8 +99,8 @@ impl CgroupsV2Readers {
         let memory_pressure = match ProcProcessGeneralReader::new(
             &base_path.join(CGROUP_MEMORY_PRESSURE_FILE_SLUG),
         ) {
-            Ok(reader) => reader,
-            Err(err) => panic!("Somethign is wrong in Cgroups!"),
+            Ok(reader) => Some(reader),
+            Err(_) => None,
         };
         let memory_peak =
             match CgroupFSV2MemoryPeakReader::new(&base_path.join(CGROUP_MEMORY_PEAK_FILE_SLUG)) {
@@ -178,14 +178,24 @@ impl CgroupsV2Readers {
         // that we are targetting not the whole system, but we can get around this by writing the
         // match as empty in config.toml such that it picks the defualt pattern and matches all of
         // them so we basically get all the pids!!
-        if self.cgroup_procs.read_and_parse() {
-            let values = self.cgroup_procs.values();
+        let Some(reader_procs) = self.cgroup_procs.as_mut() else {
+            // Why return makes sense here, assume that the kernel have closed the file and
+            // we are not able to get the buffer from the file as it not exists so we are bound
+            // to return since obviously it doesnt make sense to parse rest of the file since
+            // kernel have eventually killed those as well!!
+            // Return False makes sense!!
+            return false;
+        };
+        if reader_procs.read_and_parse() {
+            let values = reader_procs.values();
             // println!("PIDS Cgroups: {:?}", values.pids);
             for pid in values.pids.iter() {
                 transmit_cgroup_procs_to_pids
                     .send(PIDActions::Add(ProcFSPID::new(*pid)))
                     .unwrap();
             }
+        } else {
+            return false;
         }
 
         if *is_cgroup_events_allowed {
@@ -204,43 +214,66 @@ impl CgroupsV2Readers {
                 .unwrap();
         }
         if *is_cpu_pressure_allowed {
-            let reader = &mut self.cpu_pressure;
+            let Some(reader) = self.cpu_pressure.as_mut() else {
+                return false;
+            };
             if !reader.read_and_parse(cpu_pressure_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::CpuPressure(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::CpuPressure(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/cpu.pressure at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_cpu_stat_allowed {
-            let reader = &mut self.cpu_stat;
+            let Some(reader) = self.cpu_stat.as_mut() else {
+                return false;
+            };
             if !reader.read_and_parse(cpu_stat_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::CpuStat(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::CpuStat(WriteCgroupsData::new(
+                time,
+                *reader.values(),
+                self.cgroup_path.clone(),
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/cpu.stat at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_io_pressure_allowed {
-            let reader = &mut self.io_pressure;
+            let Some(reader) = self.io_pressure.as_mut() else {
+                return false;
+            };
             if !reader.read_and_parse(io_pressure_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::IoPressure(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::IoPressure(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/io.pressure at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_memory_current_allowed {
             let Some(reader) = self.memory_current.as_mut() else {
@@ -249,13 +282,18 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse() {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::MemoryCurrent(WriteCgroupsData::new(
-                    time,
-                    reader.values().clone(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryCurrent(
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/memory.current at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_memory_events_allowed {
             let Some(reader) = self.memory_events.as_mut() else {
@@ -264,26 +302,38 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse(memory_events_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::MemoryEvent(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryEvent(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/memory.events at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_memory_pressure_allowed {
-            let reader = &mut self.memory_pressure;
+            let Some(reader) = self.memory_pressure.as_mut() else {
+                return false;
+            };
             if !reader.read_and_parse(memory_pressure_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::MemoryPressure(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryPressure(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/memory.pressure at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_memory_peak_allowed {
             let Some(reader) = self.memory_peak.as_mut() else {
@@ -292,13 +342,18 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse() {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::MemoryPeak(WriteCgroupsData::new(
-                    time,
-                    reader.values().clone(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryPeak(
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/memory.peak at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_memory_stat_allowed {
             let Some(reader) = self.memory_stat.as_mut() else {
@@ -307,13 +362,18 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse(memory_stat_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::MemoryStat(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryStat(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/memory.stat at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_pids_current_allowed {
             let Some(reader) = self.pids_current.as_mut() else {
@@ -322,13 +382,18 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse() {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::PidsCurrent(WriteCgroupsData::new(
-                    time,
-                    reader.values().clone(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsCurrent(
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/pids.current at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_pids_events_allowed {
             let Some(reader) = self.pids_event.as_mut() else {
@@ -337,13 +402,18 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse(pids_events_filter_map) {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::PidsEvent(WriteCgroupsData::new(
-                    time,
-                    *reader.values(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsEvent(
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+            )) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/pids.events at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         if *is_pids_peak_allowed {
             let Some(reader) = self.pids_peak.as_mut() else {
@@ -352,13 +422,20 @@ impl CgroupsV2Readers {
             if !reader.read_and_parse() {
                 return false;
             }
-            transmit_cgroup_writer
-                .send(WriteCgroupsDataMsg::PidsPeak(WriteCgroupsData::new(
-                    time,
-                    reader.values().clone(),
-                    self.cgroup_path.clone(),
-                )))
-                .unwrap();
+            match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsPeak(WriteCgroupsData::new(
+                time,
+                reader.values().clone(),
+                self.cgroup_path.clone(),
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    // dont panic this is the MPSC error, just log and go ahead!
+                    eprintln!(
+                        "CGROUP_PARSER::Sending Message from /sys/fs/cgroup/{}/pids.peak at {} failed!!",
+                        self.cgroup_path, time
+                    );
+                }
+            };
         }
         true
     }
@@ -370,7 +447,7 @@ pub fn cgroup_initiater(
     receiver: Receiver<CgroupsV2Actions>,
     transmit_cgroup_procs_to_pids: Sender<PIDActions>,
     transmit_cgroup_writer: Sender<WriteCgroupsDataMsg>,
-) -> Result<(JoinHandle<()>, JoinHandle<()>)> {
+) -> (Result<JoinHandle<()>>, Result<JoinHandle<()>>) {
     let cgroups_data_set: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
     let pattern_searcher = Box::new(
         AhoCorasick::builder()
@@ -380,34 +457,38 @@ pub fn cgroup_initiater(
     );
     let cgroups_data_clone = Arc::clone(&cgroups_data_set);
     let parser_signaller = Arc::clone(&signaller);
-    let parser_worker = thread::spawn(move || {
-        while !parser_signaller.load(Ordering::Relaxed) {
-            match receiver.recv_timeout(Duration::from_secs(1)) {
-                Ok(CgroupsV2Actions::Add(cgroup)) => {
-                    if pattern_searcher.is_match(cgroup.as_str()) {
-                        let cgroup_stripped: &str = cgroup[4..].trim();
-                        let mut data = cgroups_data_clone.write().unwrap();
-                        if !data.contains(cgroup_stripped) {
-                            data.insert(cgroup_stripped.to_string());
+    let thread_builder = thread::Builder::new().name("CgroupRecieverThread".to_string());
+    let parser_worker = thread_builder
+        .spawn(move || {
+            while !parser_signaller.load(Ordering::Relaxed) {
+                match receiver.recv_timeout(Duration::from_secs(1)) {
+                    Ok(CgroupsV2Actions::Add(cgroup)) => {
+                        if pattern_searcher.is_match(cgroup.as_str()) {
+                            let cgroup_stripped: &str = cgroup[4..].trim();
+                            let mut data = cgroups_data_clone.write().unwrap();
+                            if !data.contains(cgroup_stripped) {
+                                data.insert(cgroup_stripped.to_string());
+                            }
                         }
                     }
-                }
 
-                Ok(CgroupsV2Actions::Remove(cgroup)) => {
-                    if pattern_searcher.is_match(cgroup.as_str()) {
-                        let cgroup_stripped: &str = cgroup[4..].trim();
-                        let mut data = cgroups_data_clone.write().unwrap();
-                        data.remove(cgroup_stripped);
+                    Ok(CgroupsV2Actions::Remove(cgroup)) => {
+                        if pattern_searcher.is_match(cgroup.as_str()) {
+                            let cgroup_stripped: &str = cgroup[4..].trim();
+                            let mut data = cgroups_data_clone.write().unwrap();
+                            data.remove(cgroup_stripped);
+                        }
+                    }
+
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        break;
                     }
                 }
-
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    break;
-                }
             }
-        }
-    });
+        })
+        .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
+
     let global_heart_beat = Box::new(config.heart_beat);
     let mut cgroup_map: HashMap<String, CgroupsV2Readers> = HashMap::new();
     // get all configs values
@@ -439,67 +520,68 @@ pub fn cgroup_initiater(
         Box::new(config.cgroupfs.memory_stat.get_field_string_to_struct_ids());
     let pids_events_filter_map =
         Box::new(config.cgroupfs.pids_events.get_field_string_to_struct_ids());
-
-    let reader_worker = thread::spawn(move || {
-        while !signaller.load(Ordering::Relaxed) {
-            let cgroup_records: HashSet<String> = {
-                let gaurd = match cgroups_data_set.read() {
-                    Ok(records) => records,
-                    Err(err) => {
-                        eprintln!("Soemthign is wrong in cgroup fetcher!! {}", err);
-                        return;
+    let thread_builder = thread::Builder::new().name("CgroupParserThread".to_string());
+    let reader_worker = thread_builder
+        .spawn(move || {
+            while !signaller.load(Ordering::Relaxed) {
+                let cgroup_records: HashSet<String> = {
+                    // read and give the scope just to make sure lets wrap the read in the scope
+                    match cgroups_data_set.read() {
+                        Ok(records) => records.clone(),
+                        Err(err) => {
+                            eprintln!("CGROUP_PARSER:: Cgroup Hashset RwLock Read Error, {}", err);
+                            continue;
+                        }
                     }
                 };
-                gaurd.clone()
-            };
 
-            // remove the cgroups that dont exist anymore in the procfs
-            cgroup_map.retain(|pid, _| cgroup_records.contains(pid));
-            // println!("ALL Cgroups: {:?}", cgroup_records);
-            // println!("=============START===============");
-            for cgroup_path_slug in cgroup_records {
-                // here handle the insertion or deletion of the new cgroup records
-                if !cgroup_map.contains_key(&cgroup_path_slug) {
-                    // add the new record
-                    cgroup_map.insert(
-                        cgroup_path_slug.clone(),
-                        CgroupsV2Readers::new(cgroup_path_slug.as_str()),
+                // remove the cgroups that dont exist anymore in the procfs
+                cgroup_map.retain(|pid, _| cgroup_records.contains(pid));
+                // println!("ALL Cgroups: {:?}", cgroup_records);
+                // println!("=============START===============");
+                for cgroup_path_slug in cgroup_records {
+                    // here handle the insertion or deletion of the new cgroup records
+                    if !cgroup_map.contains_key(&cgroup_path_slug) {
+                        // add the new record
+                        cgroup_map.insert(
+                            cgroup_path_slug.clone(),
+                            CgroupsV2Readers::new(cgroup_path_slug.as_str()),
+                        );
+                    }
+                    let cgroup_map_record = match cgroup_map.get_mut(&cgroup_path_slug) {
+                        Some(record) => record,
+                        None => continue,
+                    };
+                    cgroup_map_record.read_cgroups(
+                        &transmit_cgroup_writer,
+                        &transmit_cgroup_procs_to_pids,
+                        &is_cgroup_events_allowed,
+                        &is_cpu_pressure_allowed,
+                        &is_cpu_stat_allowed,
+                        &is_io_pressure_allowed,
+                        &is_memory_current_allowed,
+                        &is_memory_events_allowed,
+                        &is_memory_peak_allowed,
+                        &is_memory_pressure_allowed,
+                        &is_memory_stat_allowed,
+                        &is_pids_current_allowed,
+                        &is_pids_events_allowed,
+                        &is_pids_peak_allowed,
+                        &cgroup_events_filter_map,
+                        &cpu_pressure_filter_map,
+                        &cpu_stat_filter_map,
+                        &io_pressure_filter_map,
+                        &memory_events_filter_map,
+                        &memory_pressure_filter_map,
+                        &memory_stat_filter_map,
+                        &pids_events_filter_map,
                     );
                 }
-                let mut cgroup_map_record = match cgroup_map.get_mut(&cgroup_path_slug) {
-                    Some(record) => record,
-                    None => continue,
-                };
-                cgroup_map_record.read_cgroups(
-                    &transmit_cgroup_writer,
-                    &transmit_cgroup_procs_to_pids,
-                    &is_cgroup_events_allowed,
-                    &is_cpu_pressure_allowed,
-                    &is_cpu_stat_allowed,
-                    &is_io_pressure_allowed,
-                    &is_memory_current_allowed,
-                    &is_memory_events_allowed,
-                    &is_memory_peak_allowed,
-                    &is_memory_pressure_allowed,
-                    &is_memory_stat_allowed,
-                    &is_pids_current_allowed,
-                    &is_pids_events_allowed,
-                    &is_pids_peak_allowed,
-                    &cgroup_events_filter_map,
-                    &cpu_pressure_filter_map,
-                    &cpu_stat_filter_map,
-                    &io_pressure_filter_map,
-                    &memory_events_filter_map,
-                    &memory_pressure_filter_map,
-                    &memory_stat_filter_map,
-                    &pids_events_filter_map,
-                );
+                // println!("=============END===============");
+                thread::sleep(Duration::from_millis(*global_heart_beat));
             }
-            // println!("=============END===============");
+        })
+        .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
 
-            thread::sleep(Duration::from_millis(*global_heart_beat));
-        }
-    });
-
-    Ok((parser_worker, reader_worker))
+    (parser_worker, reader_worker)
 }

@@ -20,3 +20,4 @@ basic-toml = { workspace = true }
 libc = { workspace = true }
 nvml-wrapper = "0.13.0"
 aho-corasick = "1.1.5"
+rustix = {version = "1.1.5", features = ["time"]}

@@ -1,9 +1,9 @@
 use super::pidsfs_utils::{PIDActions, ProcFSPID};
-use crate::common::parser_error::{ProcParserError, Result};
+use crate::common::parser_error::Result;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use crate::configs::config::Config;
 use std::collections::HashSet;
-use std::fs;
+use std::fs::read_dir;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -33,11 +33,7 @@ fn procfs_scrapper_sensor(
     let global_heart_beat = Box::new(config.heart_beat.clone());
     let thread_handler = thread::spawn(move || {
         while !signaller.load(Ordering::Relaxed) {
-            for entry in fs::read_dir(PROC_FS_ROOT_PATH)
-                .into_iter()
-                .flatten()
-                .flatten()
-            {
+            for entry in read_dir(PROC_FS_ROOT_PATH).into_iter().flatten().flatten() {
                 let path = entry.path();
                 if !path.is_dir() {
                     continue;
@@ -76,15 +72,15 @@ pub fn start_pids_observer(
     transmitter: Sender<PIDActions>,
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-) -> Result<Vec<JoinHandle<()>>> {
-    let mut threads: Vec<JoinHandle<()>> = Vec::new();
+) -> Vec<Result<JoinHandle<()>>> {
+    let mut threads: Vec<Result<JoinHandle<()>>> = Vec::new();
 
     // let transmitter_clone = transmitter.clone();
     // let signaller_clone = Arc::clone(&signaller);
     // start all the observers here
-    let folder_scrapper = procfs_scrapper_sensor(transmitter, &config, signaller).unwrap();
+    let folder_scrapper = procfs_scrapper_sensor(transmitter, &config, signaller);
     threads.push(folder_scrapper);
     // dont forget to clone the transmitter and signaler as well, last one doesnot need any clone
 
-    Ok(threads)
+    threads
 }

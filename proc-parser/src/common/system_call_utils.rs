@@ -1,8 +1,8 @@
-use libc::{
-    CLOCK_MONOTONIC_COARSE, CPU_COUNT, CPU_ZERO, clock_gettime, cpu_set_t, sched_getaffinity,
-    timespec,
-};
+use libc::{CPU_COUNT, CPU_ZERO};
+use libc::{cpu_set_t, sched_getaffinity};
+use rustix::time::{ClockId, clock_gettime};
 use std::mem;
+// use libc::{clock_gettime, timespec, CLOCK_MONOTONIC_COARSE};
 
 pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
     // we use sched_getaffinity to get the number of logical CPUs
@@ -22,11 +22,17 @@ pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
     }
 }
 
+// pub fn monotonic() -> f64 {
+//     let mut time = timespec {
+//         tv_sec: 0,
+//         tv_nsec: 0,
+//     };
+//     unsafe { clock_gettime(CLOCK_MONOTONIC_COARSE, &mut time) };
+//     (time.tv_sec as f64) + (time.tv_nsec as f64 / 1_000_000_000.0)
+// }
+
 pub fn monotonic() -> f64 {
-    let mut time = timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    unsafe { clock_gettime(CLOCK_MONOTONIC_COARSE, &mut time) };
-    (time.tv_sec as f64) + (time.tv_nsec as f64 / 1_000_000_000.0)
+    // this is the rustix version and I feel its way faster than libc wrapper
+    let real_time = clock_gettime(ClockId::MonotonicCoarse);
+    (real_time.tv_sec as f64) + (real_time.tv_nsec as f64 / 1_000_000_000.0)
 }

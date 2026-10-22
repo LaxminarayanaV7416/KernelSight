@@ -1,3 +1,4 @@
+use crate::common::parser_error::{ProcParserError, Result};
 use crate::common::system_call_utils::monotonic;
 use crate::procfs::loadavg::ProcFSLoadAvgReader;
 use crate::procfs::meminfo::ProcFSMemInfoReader;
@@ -16,9 +17,7 @@ use crate::common::procfs_constants::{
     PROC_VMSTAT_FILE_SLUG, SYS_FS_BLOCK_SLUG, SYS_FS_ROOT_PATH,
 };
 use crate::configs::config::{Config, ProcFSConfigTrait};
-use std::error::Error;
 use std::fs;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,21 +26,18 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-fn initialize_diskstats() -> io::Result<Vec<(PathBuf, DiskStatsReader)>> {
+fn initialize_diskstats() -> Result<Vec<(PathBuf, DiskStatsReader)>> {
     let sys_block_path = Path::new(SYS_FS_ROOT_PATH).join(SYS_FS_BLOCK_SLUG);
-    let entries = fs::read_dir(&sys_block_path)?;
+    let entries = fs::read_dir(&sys_block_path).map_err(|_| {
+        ProcParserError::FileReadError(sys_block_path.to_string_lossy().into_owned())
+    })?;
     let mut diskstats = Vec::new();
     for entry in entries {
-        let entry = entry?;
+        let entry = entry.map_err(|err| ProcParserError::FileReadError(err.to_string()))?;
         let path = entry.path().join(PROC_STAT_FILE_SLUG);
-        match DiskStatsReader::new(&path) {
-            Ok(reader) => diskstats.push((path, reader)),
-            Err(err) => {
-                eprintln!("Failed to initialize {}: {:?}", path.display(), err);
-            }
-        }
+        let reader = DiskStatsReader::new(&path)?;
+        diskstats.push((path, reader));
     }
-
     Ok(diskstats)
 }
 
@@ -49,20 +45,20 @@ pub fn record_procfs(
     config: &Config,
     signaller: Arc<AtomicBool>,
     transmit_writer: Sender<WriteDataMsg>,
-) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
-    let mut threads: Vec<JoinHandle<()>> = vec![];
+) -> Result<Vec<Result<JoinHandle<()>>>> {
+    let mut threads: Vec<Result<JoinHandle<()>>> = Vec::new();
     let global_heart_beat = Box::new(config.heart_beat.clone());
-    let debug = Box::new(config.debug.clone()); //Box::new(false);
     let general_signaller = Arc::clone(&signaller);
     // /proc/loadavg
     let is_loadavg_allowed: Box<bool> = Box::new(config.procfs.loadavg.is_enabled());
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_LOADAVG_FILE_SLUG);
+    // below omits a result of our Custom Error so this is allowed with no map_err
     let mut load_avg_temp_reader = Box::new(ProcFSLoadAvgReader::new(&load_avg_path)?);
     let loadavg_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
 
     // /proc/diskstats or /sys/block/<device>/stat
     let is_diskstat_allowed: Box<bool> = Box::new(config.procfs.diskstats.is_enabled());
-    let mut diskstats_readers = initialize_diskstats()?;
+    let mut diskstats_readers = initialize_diskstats()?; // this is already mapped so no need to worry about this
     let diskstats_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
 
     // /proc/pressure/cpu
@@ -107,132 +103,196 @@ pub fn record_procfs(
 
     let transmit_writer_clone = transmit_writer.clone();
 
-    let group_thread_handle = thread::spawn(move || {
+    let thread_builder = thread::Builder::new().name("ProcGeneralThread".to_string());
+    let group_thread_handle = thread_builder.spawn(move || {
         while !general_signaller.load(Ordering::Relaxed) {
             // globally calculate  the time monotonically
             let time = monotonic();
 
             if *is_loadavg_allowed {
                 let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::LoadAvg(WriteData::new(
-                        time,
-                        *load_avg_temp_reader.values(),
-                        None,
-                        None,
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::LoadAvg(WriteData::new(
+                    time,
+                    *load_avg_temp_reader.values(),
+                    None,
+                    None,
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/loadavg at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/loadavg..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from /proc/loadavg at {}!!",
+                        time
+                    );
                 }
             }
             if *is_diskstat_allowed {
                 for (_, disk_reader) in diskstats_readers.iter_mut() {
                     let read_status = disk_reader.read_and_parse(&diskstats_filter_map);
-                    transmit_writer_clone
-                        .send(WriteDataMsg::DiskStats(WriteData::new(
-                            time,
-                            *disk_reader.values(),
-                            None,
-                            None,
-                        )))
-                        .unwrap();
+                    match transmit_writer_clone.send(WriteDataMsg::DiskStats(WriteData::new(
+                        time,
+                        *disk_reader.values(),
+                        None,
+                        None,
+                    ))) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            eprintln!(
+                                "PROC_PARSER::Sending Message from /sys/block/<SLUG> at {} failed!!",
+                                time
+                            );
+                        }
+                    };
                     if !read_status {
-                        panic!("Failed to read diskstats, ProcFS File closed!");
+                        // dont panic just log that reading have failed!!
+                        eprintln!(
+                            "PROC_PARSER::Failed to read from file /sys/block/<SLUG> at {}!!",
+                            time
+                        );
                     }
                 }
             }
             if *is_pressure_cpu_allowed {
                 let read_status = pressure_cpu_reader.read_and_parse(&pressure_cpu_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Pressure(WriteData::new(
-                        time,
-                        *pressure_cpu_reader.values(),
-                        None,
-                        Some(PROC_PRESSURE_CPU_FILE_SLUG),
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
+                    time,
+                    *pressure_cpu_reader.values(),
+                    None,
+                    Some(PROC_PRESSURE_CPU_FILE_SLUG),
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/pressure/cpu at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/pressure/cpu..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from file /proc/pressure/cpu at {}!!",
+                        time
+                    );
                 }
             }
 
             if *is_pressure_io_allowed {
                 let read_status = pressure_io_reader.read_and_parse(&pressure_io_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Pressure(WriteData::new(
-                        time,
-                        *pressure_io_reader.values(),
-                        None,
-                        Some(PROC_PRESSURE_IO_FILE_SLUG),
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
+                    time,
+                    *pressure_io_reader.values(),
+                    None,
+                    Some(PROC_PRESSURE_IO_FILE_SLUG),
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/pressure/io at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/pressure/io..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from file /proc/pressure/io at {}!!",
+                        time
+                    );
                 }
             }
 
             if *is_pressure_memory_allowed {
                 let read_status =
                     pressure_memory_reader.read_and_parse(&pressure_memory_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Pressure(WriteData::new(
-                        time,
-                        *pressure_memory_reader.values(),
-                        None,
-                        Some(PROC_PRESSURE_MEMORY_FILE_SLUG),
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
+                    time,
+                    *pressure_memory_reader.values(),
+                    None,
+                    Some(PROC_PRESSURE_MEMORY_FILE_SLUG),
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/pressure/memory at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/pressure/memory..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from file /proc/pressure/memory at {}!!",
+                        time
+                    );
                 }
             }
 
             if *is_pressure_irq_allowed {
                 let read_status = pressure_irq_reader.read_and_parse(&pressure_irq_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Pressure(WriteData::new(
-                        time,
-                        *pressure_irq_reader.values(),
-                        None,
-                        Some(PROC_PRESSURE_IRQ_FILE_SLUG),
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
+                    time,
+                    *pressure_irq_reader.values(),
+                    None,
+                    Some(PROC_PRESSURE_IRQ_FILE_SLUG),
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/pressure/irq at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/pressure/irq..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from file /proc/pressure/irq at {}!!",
+                        time
+                    );
                 }
             }
 
             if *is_proc_uptime_allowed {
                 let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Uptime(WriteData::new(
-                        time,
-                        *proc_uptime_reader.values(),
-                        None,
-                        None,
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
+                match transmit_writer_clone.send(WriteDataMsg::Uptime(WriteData::new(
+                    time,
+                    *proc_uptime_reader.values(),
+                    None,
+                    None,
+                ))) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        eprintln!(
+                            "PROC_PARSER::Sending Message from /proc/uptime at {} failed!!",
+                            time
+                        );
+                    }
+                };
                 if !read_status {
-                    panic!("Failed to read the /proc/uptime..");
+                    // dont panic just log that reading have failed!!
+                    eprintln!(
+                        "PROC_PARSER::Failed to read from file /proc/uptime at {}!!",
+                        time
+                    );
                 }
             }
 
             thread::sleep(Duration::from_millis(*global_heart_beat));
         }
-    });
+    }).map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
     threads.push(group_thread_handle);
 
     // the Below requires new thread of there own
     // /proc/vmstat
     let global_heart_beat = Box::new(config.heart_beat.clone());
-    let debug = Box::new(config.debug.clone());
     let vmstat_signaller = Arc::clone(&signaller);
     let proc_vmstat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_VMSTAT_FILE_SLUG);
     let is_proc_vmstat_allowed: Box<bool> = Box::new(config.procfs.vmstat.allow.clone());
@@ -240,34 +300,42 @@ pub fn record_procfs(
     let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
     let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_vmstat_allowed {
-        let vmstat_thread_handle = thread::spawn(move || {
-            while !vmstat_signaller.load(Ordering::Relaxed) {
-                let time = monotonic();
-                let read_status = proc_vmstat_reader.read_and_parse(&proc_vmstat_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::VmStat(WriteData::new(
+        let thread_builder = thread::Builder::new().name("ProcVmStatThread".to_string());
+        let vmstat_thread_handle = thread_builder
+            .spawn(move || {
+                while !vmstat_signaller.load(Ordering::Relaxed) {
+                    let time = monotonic();
+                    let read_status = proc_vmstat_reader.read_and_parse(&proc_vmstat_filter_map);
+                    match transmit_writer_clone.send(WriteDataMsg::VmStat(WriteData::new(
                         time,
                         *proc_vmstat_reader.values(),
                         None,
                         None,
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
-                if !read_status {
-                    panic!("Failed to read the /proc/vmstat..");
+                    ))) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            eprintln!(
+                                "PROC_PARSER::Sending Message from /proc/vsmtat at {} failed!!",
+                                time
+                            );
+                        }
+                    };
+                    if !read_status {
+                        // dont panic just log that reading have failed!!
+                        eprintln!(
+                            "PROC_PARSER::Failed to read from file /proc/vsmtat at {}!!",
+                            time
+                        );
+                    }
+                    thread::sleep(Duration::from_millis(*global_heart_beat));
                 }
-                if *debug {
-                    println!("/proc/vmstat : {:?}", proc_vmstat_reader.values());
-                }
-                thread::sleep(Duration::from_millis(*global_heart_beat));
-            }
-        });
+            })
+            .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
         threads.push(vmstat_thread_handle);
     }
 
     // /proc/stat
     let global_heart_beat = Box::new(config.heart_beat.clone());
-    let debug = Box::new(config.debug.clone());
     let stat_signaller = Arc::clone(&signaller);
     let proc_stat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_STAT_FILE_SLUG);
     let is_proc_stat_allowed: Box<bool> = Box::new(config.procfs.stat.allow.clone());
@@ -275,62 +343,79 @@ pub fn record_procfs(
     let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
     let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_stat_allowed {
-        let stat_thread_handle = thread::spawn(move || {
-            while !stat_signaller.load(Ordering::Relaxed) {
-                let time = monotonic();
-                let read_status = proc_stat_reader.read_and_parse(&proc_stat_filter_map);
-                transmit_writer_clone
-                    .send(WriteDataMsg::Stat(WriteData::new(
+        let thread_builder = thread::Builder::new().name("ProcStatThread".to_string());
+        let stat_thread_handle = thread_builder
+            .spawn(move || {
+                while !stat_signaller.load(Ordering::Relaxed) {
+                    let time = monotonic();
+                    let read_status = proc_stat_reader.read_and_parse(&proc_stat_filter_map);
+                    match transmit_writer_clone.send(WriteDataMsg::Stat(WriteData::new(
                         time,
                         proc_stat_reader.values().clone(),
                         None,
                         None,
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
-                if !read_status {
-                    panic!("Failed to read the /proc/stat..");
+                    ))) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            eprintln!(
+                                "PROC_PARSER::Sending Message from /proc/stat at {} failed!!",
+                                time
+                            );
+                        }
+                    };
+                    if !read_status {
+                        // dont panic just log that reading have failed!!
+                        eprintln!(
+                            "PROC_PARSER::Failed to read from file /proc/stat at {}!!",
+                            time
+                        );
+                    }
+                    thread::sleep(Duration::from_millis(*global_heart_beat));
                 }
-                if *debug {
-                    println!("/proc/stat : {:?}", proc_stat_reader.values());
-                }
-                thread::sleep(Duration::from_millis(*global_heart_beat));
-            }
-        });
+            })
+            .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
         threads.push(stat_thread_handle);
     }
 
     // /proc/meminfo
     let global_heart_beat = Box::new(config.heart_beat.clone());
-    let debug = Box::new(config.debug.clone());
     let meminfo_signaller = Arc::clone(&signaller);
     let proc_meminfo_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_MEMINFO_FILE_SLUG);
     let is_proc_meminfo_allowed: Box<bool> = Box::new(config.procfs.meminfo.allow.clone());
     let mut proc_meminfo_reader = Box::new(ProcFSMemInfoReader::new(&proc_meminfo_path)?);
     let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
     if *is_proc_meminfo_allowed {
-        let meminfo_thread_handle = thread::spawn(move || {
-            while !meminfo_signaller.load(Ordering::Relaxed) {
-                let time = monotonic();
-                let read_meminfo = proc_meminfo_reader.read_and_parse(&proc_meminfo_filter_map);
-                transmit_writer
-                    .send(WriteDataMsg::MemInfo(WriteData::new(
+        let thread_builder = thread::Builder::new().name("ProcMemInfoThread".to_string());
+        let meminfo_thread_handle = thread_builder
+            .spawn(move || {
+                while !meminfo_signaller.load(Ordering::Relaxed) {
+                    let time = monotonic();
+                    let read_status = proc_meminfo_reader.read_and_parse(&proc_meminfo_filter_map);
+                    match transmit_writer.send(WriteDataMsg::MemInfo(WriteData::new(
                         time,
                         *proc_meminfo_reader.values(),
                         None,
                         None,
-                    )))
-                    .unwrap();
-                //TODO make sure we include the error handling properly
-                if !read_meminfo {
-                    panic!("Failed to read the /proc/meminfo..");
+                    ))) {
+                        Ok(_) => (),
+                        Err(_) => {
+                            eprintln!(
+                                "PROC_PARSER::Sending Message from /proc/meminfo at {} failed!!",
+                                time
+                            );
+                        }
+                    };
+                    if !read_status {
+                        // dont panic just log that reading have failed!!
+                        eprintln!(
+                            "PROC_PARSER::Failed to read from file /proc/meminfo at {}!!",
+                            time
+                        );
+                    }
+                    thread::sleep(Duration::from_millis(*global_heart_beat));
                 }
-                if *debug {
-                    println!("/proc/meminfo : {:?}", proc_meminfo_reader.values());
-                }
-                thread::sleep(Duration::from_millis(*global_heart_beat));
-            }
-        });
+            })
+            .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
         threads.push(meminfo_thread_handle);
     }
 

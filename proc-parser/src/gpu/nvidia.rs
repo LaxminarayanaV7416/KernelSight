@@ -1,3 +1,4 @@
+use crate::common::parser_error::{ProcParserError, Result};
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
 use crate::writer::writer_utils::{WriteGPUData, WriteGPUDataMsg};
@@ -5,7 +6,6 @@ use nvml_wrapper::Nvml;
 use nvml_wrapper::enums::device::UsedGpuMemory;
 use nvml_wrapper::error::NvmlError;
 use std::collections::HashMap;
-use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -104,11 +104,14 @@ impl NvidiaGPUMetrics {
         config: &'static Config,
         transmitter_writer: &Sender<WriteGPUDataMsg>,
         signaller: Arc<AtomicBool>,
-    ) -> Result<JoinHandle<()>, Box<dyn Error>> {
+    ) -> Result<JoinHandle<()>> {
         let global_heart_beat = Box::new(config.gpu_scan_heart_beat);
         let nvml = match self.nvml.take() {
             Some(nvml) => nvml,
-            None => panic!("somethign is wrong!"),
+            None => {
+                eprintln!("Failed to take the NVML instance!!");
+                return Err(ProcParserError::GPUError);
+            }
         };
         let gpu_count = self.gpu_count;
         let mut prev_timestamp = monotonic();
@@ -121,7 +124,8 @@ impl NvidiaGPUMetrics {
                 .unwrap();
         }
         let writer = transmitter_writer.clone();
-        let thread_spawned = thread::spawn(move || {
+        let thread_builder = thread::Builder::new().name("GpuParsingThread".to_string());
+        let thread_spawned = thread_builder.spawn(move || {
             while !signaller.load(Ordering::Relaxed) {
                 let time = monotonic();
                 for index in 0..gpu_count {
@@ -219,13 +223,14 @@ impl NvidiaGPUMetrics {
                 prev_timestamp = time;
                 thread::sleep(Duration::from_millis(*global_heart_beat));
             }
-        });
-        Ok(thread_spawned)
+        }).map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
+        thread_spawned
     }
 
-    pub fn close_nvml(&mut self) -> Result<(), NvmlError> {
+    pub fn close_nvml(&mut self) -> Result<()> {
         if let Some(nvml) = self.nvml.take() {
-            nvml.shutdown()?;
+            nvml.shutdown()
+                .map_err(|err| ProcParserError::ParseError(err.into()))?;
         }
         Ok(())
     }

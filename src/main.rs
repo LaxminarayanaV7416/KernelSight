@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     signal_handler(&signaller);
     let threads = initiate_procfs_parsing(&config, Arc::clone(&signaller))?;
     for thread in threads {
-        thread.join().unwrap();
+        thread?.join().unwrap();
     }
     Ok(())
 }

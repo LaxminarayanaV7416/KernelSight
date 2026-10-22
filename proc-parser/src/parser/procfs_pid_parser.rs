@@ -1,5 +1,6 @@
 use super::pidsfs_utils::{PIDActions, ProcFSPID, ProcFSPIDReaders};
 use super::sensors::start_pids_observer;
+use crate::common::parser_error::{ProcParserError, Result};
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::writer::writer_utils::WriteDataMsg;
 use std::collections::{HashMap, HashSet};
@@ -59,7 +60,7 @@ impl ProcFSRoundRobinData {
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool> {
         if self.pids_data.contains_key(&pid) {
             return Ok(false);
         }
@@ -175,57 +176,54 @@ fn round_robin_thread(
     receiver_signaller: Arc<AtomicBool>,
     receiver: Receiver<PIDActions>,
     config: &'static Config,
-) -> JoinHandle<()> {
-    thread::spawn(move || {
-        while !receiver_signaller.load(Ordering::Relaxed) {
-            match receiver.recv_timeout(Duration::from_secs(1)) {
-                Ok(PIDActions::Add(pid)) => {
-                    let mut round_robin = match receiver_round_robin.write() {
-                        Ok(round_robin) => round_robin,
-                        Err(error) => {
-                            eprintln!("PID round-robin lock was poisoned: {error}");
-                            return;
-                        }
-                    };
-
-                    if !round_robin.add(pid) {
-                        // eprintln!(
-                        //     "PID was not added because it already exists \
-                        //      or the worker pool is empty"
-                        // );
-                    }
-                }
-
-                Ok(PIDActions::Remove(pid)) => {
-                    let mut round_robin = match receiver_round_robin.write() {
-                        Ok(round_robin) => round_robin,
-                        Err(error) => {
-                            eprintln!("PID round-robin lock was poisoned: {error}");
-                            return;
-                        }
-                    };
-
-                    match round_robin.remove(pid) {
-                        Some(removed_pid) => {
-                            if config.debug {
-                                println!("Removing PID {:?}", removed_pid);
+) -> Result<JoinHandle<()>> {
+    let thread_builder = thread::Builder::new().name("ProcPIDsReciverThread".to_string());
+    thread_builder
+        .spawn(move || {
+            while !receiver_signaller.load(Ordering::Relaxed) {
+                match receiver.recv_timeout(Duration::from_secs(1)) {
+                    Ok(PIDActions::Add(pid)) => {
+                        let mut round_robin = match receiver_round_robin.write() {
+                            Ok(round_robin) => round_robin,
+                            Err(error) => {
+                                eprintln!("PID round-robin lock was poisoned: {error}");
+                                continue;
                             }
-                        }
-                        None => {
-                            if config.debug {
-                                eprintln!("PID {pid} was not assigned to any worker");
+                        };
+                        round_robin.add(pid);
+                    }
+
+                    Ok(PIDActions::Remove(pid)) => {
+                        let mut round_robin = match receiver_round_robin.write() {
+                            Ok(round_robin) => round_robin,
+                            Err(error) => {
+                                eprintln!("PID round-robin lock was poisoned: {error}");
+                                continue;
+                            }
+                        };
+
+                        match round_robin.remove(pid) {
+                            Some(removed_pid) => {
+                                if config.debug {
+                                    println!("Removing PID {:?}", removed_pid);
+                                }
+                            }
+                            None => {
+                                if config.debug {
+                                    eprintln!("PID {pid} was not assigned to any worker");
+                                }
                             }
                         }
                     }
-                }
 
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    break;
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                        break;
+                    }
                 }
             }
-        }
-    })
+        })
+        .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()))
 }
 
 pub fn orchestrate_pids(
@@ -235,12 +233,9 @@ pub fn orchestrate_pids(
     transmitter: Sender<PIDActions>,
     receiver: Receiver<PIDActions>,
     transmitter_writer: Sender<WriteDataMsg>,
-) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
+) -> Vec<Result<JoinHandle<()>>> {
     let signaller_clone = Arc::clone(&signaller);
-    let mut observers = match start_pids_observer(transmitter, &config, signaller_clone) {
-        Ok(observer) => observer,
-        Err(err) => panic!("Error occured"),
-    };
+    let mut observers = start_pids_observer(transmitter, &config, signaller_clone);
     let round_robin_pids = Arc::new(RwLock::new(PIDSRoundRobin::new()));
 
     let receiver_worker = round_robin_thread(
@@ -264,28 +259,31 @@ pub fn orchestrate_pids(
     let is_stat_allowed = config.procfs.pid.stat.is_enabled();
     let is_statm_allowed = config.procfs.pid.statm.is_enabled();
     let is_status_allowed = config.procfs.pid.status.is_enabled();
-    let parser_worker = thread::spawn(move || {
-        while !parser_signaller.load(Ordering::Relaxed) {
-            start_tracking_pids(
-                &parser_round_robin,
-                &mut round_robin_data,
-                config,
-                &transmitter_writer,
-                start_time,
-                &debug,
-                &schedstat_filter_map,
-                &stat_filter_map,
-                &statm_filter_map,
-                &status_filter_map,
-                &is_schedstat_allowed,
-                &is_stat_allowed,
-                &is_statm_allowed,
-                &is_status_allowed,
-            );
+    let thread_builder = thread::Builder::new().name("ProcPIDsParserThread".to_string());
+    let parser_worker = thread_builder
+        .spawn(move || {
+            while !parser_signaller.load(Ordering::Relaxed) {
+                start_tracking_pids(
+                    &parser_round_robin,
+                    &mut round_robin_data,
+                    config,
+                    &transmitter_writer,
+                    start_time,
+                    &debug,
+                    &schedstat_filter_map,
+                    &stat_filter_map,
+                    &statm_filter_map,
+                    &status_filter_map,
+                    &is_schedstat_allowed,
+                    &is_stat_allowed,
+                    &is_statm_allowed,
+                    &is_status_allowed,
+                );
 
-            thread::sleep(Duration::from_millis(global_heart_beat));
-        }
-    });
+                thread::sleep(Duration::from_millis(global_heart_beat));
+            }
+        })
+        .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()));
 
     // Decision made, linux does allocate the PIDS sequentially and after few mins of break
     // if the submission of processes are like somany within a second, then its 1 hour
@@ -294,5 +292,5 @@ pub fn orchestrate_pids(
     // across the threads.
     observers.push(receiver_worker);
     observers.push(parser_worker);
-    Ok(observers)
+    observers
 }

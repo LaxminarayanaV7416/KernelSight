@@ -6,7 +6,6 @@ use crate::common::parser_error::{ProcParserError, Result};
 use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
 use crate::gpu::nvidia::NvidiaGPUMetrics;
-use crate::parser::pidsfs_utils::ProcFSPID;
 use crate::parser::procfs_parser::record_procfs;
 use crate::procfs::pidfs::cachable_reads::parse_procfs_pid_cgroup;
 use crate::writer::writer::{start_cgroup_writer, start_gpu_writer, start_writer};
@@ -48,9 +47,14 @@ fn cgroup_file_parser(
                             let pid_cgroup = match parse_procfs_pid_cgroup(pid.pid as usize) {
                                 Ok(cgroup_value) => cgroup_value,
                                 Err(err) => {
-                                    eprintln!("ERROR:: Error opening the cgroup file, may the PID disappeared {}", err);
-                                    continue; // we dont need to add anything so just continue dont break the loop
-                                },
+                                    // the error is of type ProcParserError::FileReadError, so we continue so log and proceed
+                                    eprintln!(
+                                        "PROC_PID_CGROUP::Failed to read {} PID disappeared",
+                                        err
+                                    );
+                                    // we dont need to add anything so just continue dont break the loop
+                                    continue;
+                                }
                             };
                             pid_cgroup_map.insert(pid.pid, pid_cgroup.clone());
                             // now send the cgroup to the cgroup reader such that it reads
@@ -61,10 +65,7 @@ fn cgroup_file_parser(
                         if pid_cgroup_map.contains_key(&pid) {
                             let pid_cgroup = match pid_cgroup_map.remove(&pid) {
                                 Some(cgroup_value) => cgroup_value,
-                                None => {
-                                    eprintln!("ERROR:: Error remvoing PID from HashMap");
-                                    continue;
-                                }
+                                None => continue,
                             };
                             // now send the cgroup to the cgroup reader such that it reads
                             transmit_cgroup.send(CgroupsV2Actions::Remove(pid_cgroup));
@@ -77,16 +78,16 @@ fn cgroup_file_parser(
                 }
             }
         })
-        .map_err(|_io_error| ProcParserError::ParseError("PID parser to Cgroup Thread Spawning Error".into()))
+        .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()))
 }
 
 pub fn initiate_procfs_parsing(
     config: &'static Config,
     signaller: Arc<AtomicBool>,
-) -> Result<Vec<JoinHandle<()>>> {
+) -> Result<Vec<Result<JoinHandle<()>>>> {
     // record the starting time as constant
     let start_time: &'static f64 = Box::leak(Box::new(monotonic()));
-    let mut threads: Vec<JoinHandle<()>> = Vec::new();
+    let mut threads: Vec<Result<JoinHandle<()>>> = Vec::new();
 
     // ===========================================================================
     // whole kernel proc scanner this is default and runs with 4 threads for now...
@@ -119,8 +120,7 @@ pub fn initiate_procfs_parsing(
         Arc::clone(&signaller),
         receiver_sensor_pids_to_cgroup_parser,
         transmitter_cgroup_invoker,
-    )
-    .unwrap();
+    );
     threads.push(pid_to_cgroup_bridge_thread);
 
     let (transmitter_cgroup_writer, receiver_cgroup_writer): (
@@ -133,33 +133,25 @@ pub fn initiate_procfs_parsing(
         Receiver<PIDActions>,
     ) = initiate_mpsc_channel::<PIDActions>();
 
-    let (cgroup_reciever_thread, cgroup_reader_thread) = match cgroup_initiater(
+    let (cgroup_reciever_thread, cgroup_reader_thread) = cgroup_initiater(
         &config,
         Arc::clone(&signaller),
         receiver_cgroup_invoker,
         transmitter_pids_from_cgroup,
         transmitter_cgroup_writer,
-    ) {
-        Ok(thread) => thread,
-        Err(err) => panic!("Error occured starting Cgroup Reciever {:?}", err),
-    };
+    );
 
     let write_thread_cgroup =
         start_cgroup_writer(&config, Arc::clone(&signaller), receiver_cgroup_writer);
 
-    let mut pids_threads = match orchestrate_pids(
+    let mut pids_threads = orchestrate_pids(
         &config,
         Arc::clone(&signaller),
         start_time,
         transmitter_sensor_pids_to_cgroup_parser.clone(),
         receiver_pids_from_cgroup,
         transmitter_writer.clone(),
-    ) {
-        Ok(threads) => threads,
-        Err(err) => {
-            panic!("Error occurred while starting procfs PIDs: {err}")
-        }
-    };
+    );
     threads.append(&mut pids_threads);
     threads.push(cgroup_reciever_thread);
     threads.push(cgroup_reader_thread);
@@ -173,10 +165,7 @@ pub fn initiate_procfs_parsing(
     let mut nvidia = NvidiaGPUMetrics::new();
     let writer_thread_gpu = start_gpu_writer(&config, Arc::clone(&signaller), receiver_gpu_writer);
     let gpu_thread =
-        match nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller)) {
-            Ok(thread) => thread,
-            Err(err) => panic!("Error occured while calling the Gpu send message {err}"),
-        };
+        nvidia.get_device_details(&config, &transmitter_gpu_writer, Arc::clone(&signaller));
     threads.push(writer_thread_gpu);
     threads.push(gpu_thread);
     // END of Gpu Metrics =========================

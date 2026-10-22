@@ -1,4 +1,3 @@
-use crate::common::parser_error::ProcParserError;
 use crate::common::parser_error::Result;
 use crate::common::procfs_constants::{
     PROC_FS_ROOT_PATH, PROC_PID_SCHEDSTAT_FILE_SLUG, PROC_PID_STAT_FILE_SLUG,
@@ -16,9 +15,7 @@ use crate::procfs::pidfs::status::ProcFSPIDStatusReader;
 use crate::writer::writer_utils::{WriteData, WriteDataMsg};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::error::Error;
 use std::hash::Hash;
-use std::io;
 use std::path::Path;
 use std::sync::mpsc::Sender;
 
@@ -72,160 +69,97 @@ impl ProcFSPIDReaders {
 
         // Without a cgroup value there is nothing meaningful to send to the
         // cgroup orchestrator. Return the original error to the caller.
-        let pid_cgroup = match parse_procfs_pid_cgroup(pid as usize) {
-            Ok(cgroup) => cgroup,
-            Err(error) => {
-                eprintln!("Failed to read cgroup information for PID {pid}: {error}");
-                return ProcParserError::ParseError(error);
-            }
-        };
+        let pid_cgroup = parse_procfs_pid_cgroup(pid as usize)?;
 
         // Keep pid_cgroup outside this closure so it remains available for
         // cleanup if any later setup step fails.
-        let setup_result: Result<Self, Box<dyn Error>> = (|| {
-            let pid_comm = parse_procfs_pid_comm(pid as usize).map_err(|error| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("failed to read comm for PID {pid}: {error}"),
-                )
-            })?;
+        let pid_comm = parse_procfs_pid_comm(pid as usize)?;
+        let pid_cmdline = parse_procfs_pid_cmdline(pid as usize)?;
 
-            let pid_cmdline = parse_procfs_pid_cmdline(pid as usize).map_err(|error| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("failed to read cmdline for PID {pid}: {error}"),
-                )
-            })?;
+        let pid_root = Path::new(PROC_FS_ROOT_PATH).join(pid.to_string());
+        let schedstat_path = pid_root.join(PROC_PID_SCHEDSTAT_FILE_SLUG);
+        let stat_path = pid_root.join(PROC_PID_STAT_FILE_SLUG);
+        let statm_path = pid_root.join(PROC_PID_STATM_FILE_SLUG);
+        let status_path = pid_root.join(PROC_PID_STATUS_FILE_SLUG);
+        let schedstat = if config.procfs.pid.schedstat.is_enabled() {
+            Some(ProcFSPIDSchedStatReader::new(&schedstat_path)?)
+        } else {
+            None
+        };
+        let stat = if config.procfs.pid.stat.is_enabled() {
+            Some(ProcFSPIDStatReader::new(&stat_path)?)
+        } else {
+            None
+        };
 
-            let pid_root = Path::new(PROC_FS_ROOT_PATH).join(pid.to_string());
-            let schedstat_path = pid_root.join(PROC_PID_SCHEDSTAT_FILE_SLUG);
-            let stat_path = pid_root.join(PROC_PID_STAT_FILE_SLUG);
-            let statm_path = pid_root.join(PROC_PID_STATM_FILE_SLUG);
-            let status_path = pid_root.join(PROC_PID_STATUS_FILE_SLUG);
-            let schedstat = if config.procfs.pid.schedstat.is_enabled() {
-                Some(
-                    ProcFSPIDSchedStatReader::new(&schedstat_path).map_err(|error| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("failed to initialize schedstat reader for PID {pid}: {error}"),
-                        )
-                    })?,
-                )
-            } else {
-                None
-            };
+        let statm = if config.procfs.pid.statm.is_enabled() {
+            Some(ProcFSPIDStatmReader::new(&statm_path)?)
+        } else {
+            None
+        };
 
-            let stat = if config.procfs.pid.stat.is_enabled() {
-                Some(ProcFSPIDStatReader::new(&stat_path).map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("failed to initialize stat reader for PID {pid}: {error}"),
-                    )
-                })?)
-            } else {
-                None
-            };
+        let status = if config.procfs.pid.status.is_enabled() {
+            Some(ProcFSPIDStatusReader::new(&status_path)?)
+        } else {
+            None
+        };
 
-            let statm = if config.procfs.pid.statm.is_enabled() {
-                Some(ProcFSPIDStatmReader::new(&statm_path).map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "failed to initialize statm reader \
-                                     for PID {pid}: {error}"
-                        ),
-                    )
-                })?)
-            } else {
-                None
-            };
-
-            let status = if config.procfs.pid.status.is_enabled() {
-                Some(ProcFSPIDStatusReader::new(&status_path).map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "failed to initialize status reader \
-                                     for PID {pid}: {error}"
-                        ),
-                    )
-                })?)
-            } else {
-                None
-            };
-
-            // Reader setup succeeded. Only now publish metadata.
-            transmitter_writer
-                .send(WriteDataMsg::PIDCgroup(WriteData::new(
-                    time,
-                    pid_cgroup.clone(),
-                    Some(pid),
-                    None,
-                )))
-                .map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        format!(
-                            "failed to send cgroup metadata for PID {pid}: \
-                             {error}"
-                        ),
-                    )
-                })?;
-
-            transmitter_writer
-                .send(WriteDataMsg::PIDComm(WriteData::new(
-                    time,
-                    pid_comm.clone(),
-                    Some(pid),
-                    None,
-                )))
-                .map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        format!(
-                            "failed to send comm metadata for PID {pid}: \
-                             {error}"
-                        ),
-                    )
-                })?;
-
-            transmitter_writer
-                .send(WriteDataMsg::PIDCmdline(WriteData::new(
-                    time,
-                    pid_cmdline.clone(),
-                    Some(pid),
-                    None,
-                )))
-                .map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        format!(
-                            "failed to send cmdline metadata for PID {pid}: \
-                             {error}"
-                        ),
-                    )
-                })?;
-
-            Ok(Self {
-                pid,
-                comm: pid_comm,
-                cmdline: pid_cmdline,
-                cgroup: pid_cgroup.clone(),
-                schedstat,
-                stat,
-                statm,
-                status,
-            })
-        })();
-
-        match setup_result {
-            Ok(readers) => Ok(readers),
-
-            Err(error) => {
-                eprintln!("Failed to set up procfs readers for PID {pid}: {error}");
-                Err(error)
+        // Reader setup succeeded. Only now publish metadata.
+        match transmitter_writer.send(WriteDataMsg::PIDCgroup(WriteData::new(
+            time,
+            pid_cgroup.clone(),
+            Some(pid),
+            None,
+        ))) {
+            Ok(_) => (),
+            Err(_) => {
+                eprintln!(
+                    "PROC_PID_PARSER::Sending Message from /proc/{}/cgroup at {} failed!!",
+                    pid, time
+                );
             }
-        }
+        };
+
+        match transmitter_writer.send(WriteDataMsg::PIDComm(WriteData::new(
+            time,
+            pid_comm.clone(),
+            Some(pid),
+            None,
+        ))) {
+            Ok(_) => (),
+            Err(_) => {
+                eprintln!(
+                    "PROC_PARSER::Sending Message from /proc/{}/comm at {} failed!!",
+                    pid, time
+                );
+            }
+        };
+
+        match transmitter_writer.send(WriteDataMsg::PIDCmdline(WriteData::new(
+            time,
+            pid_cmdline.clone(),
+            Some(pid),
+            None,
+        ))) {
+            Ok(_) => (),
+            Err(_) => {
+                eprintln!(
+                    "PROC_PARSER::Sending Message from /proc/{}/cmdline at {} failed!!",
+                    pid, time
+                );
+            }
+        };
+
+        Ok(Self {
+            pid,
+            comm: pid_comm,
+            cmdline: pid_cmdline,
+            cgroup: pid_cgroup.clone(),
+            schedstat,
+            stat,
+            statm,
+            status,
+        })
     }
 
     pub fn read_and_parse(
@@ -250,17 +184,20 @@ impl ProcFSPIDReaders {
             if !reader.read_and_parse(schedstat_map) {
                 return false;
             }
-            transmitter_writer
-                .send(WriteDataMsg::PIDSchedStat(WriteData::new(
-                    time,
-                    *reader.values(),
-                    Some(self.pid),
-                    None,
-                )))
-                .unwrap();
-            // if *debug {
-            //     println!("/proc/{}/schedstat: {:?}", self.pid, reader.values());
-            // }
+            match transmitter_writer.send(WriteDataMsg::PIDSchedStat(WriteData::new(
+                time,
+                *reader.values(),
+                Some(self.pid),
+                None,
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    eprintln!(
+                        "PROC_PARSER::Sending Message from /proc/{}/schedstat at {} failed!!",
+                        self.pid, time
+                    );
+                }
+            };
         }
 
         if *stat_enabled {
@@ -270,17 +207,20 @@ impl ProcFSPIDReaders {
             if !reader.read_and_parse(stat_map) {
                 return false;
             }
-            transmitter_writer
-                .send(WriteDataMsg::PIDStat(WriteData::new(
-                    time,
-                    reader.values().clone(),
-                    Some(self.pid),
-                    None,
-                )))
-                .unwrap();
-            // if *debug {
-            //     println!("/proc/{}/stat: {:?}", self.pid, reader.values());
-            // }
+            match transmitter_writer.send(WriteDataMsg::PIDStat(WriteData::new(
+                time,
+                reader.values().clone(),
+                Some(self.pid),
+                None,
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    eprintln!(
+                        "PROC_PARSER::Sending Message from /proc/{}/stat at {} failed!!",
+                        self.pid, time
+                    );
+                }
+            };
         }
 
         if *statm_enabled {
@@ -291,17 +231,20 @@ impl ProcFSPIDReaders {
             if !reader.read_and_parse(statm_map) {
                 return false;
             }
-            transmitter_writer
-                .send(WriteDataMsg::PIDStatm(WriteData::new(
-                    time,
-                    *reader.values(),
-                    Some(self.pid),
-                    None,
-                )))
-                .unwrap();
-            // if *debug {
-            //     println!("/proc/{}/statm: {:?}", self.pid, reader.values());
-            // }
+            match transmitter_writer.send(WriteDataMsg::PIDStatm(WriteData::new(
+                time,
+                *reader.values(),
+                Some(self.pid),
+                None,
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    eprintln!(
+                        "PROC_PARSER::Sending Message from /proc/{}/statm at {} failed!!",
+                        self.pid, time
+                    );
+                }
+            };
         }
         if *status_enabled {
             let Some(reader) = self.status.as_mut() else {
@@ -311,17 +254,20 @@ impl ProcFSPIDReaders {
             if !reader.read_and_parse(status_map) {
                 return false;
             }
-            transmitter_writer
-                .send(WriteDataMsg::PIDStatus(WriteData::new(
-                    time,
-                    reader.values().clone(),
-                    Some(self.pid),
-                    None,
-                )))
-                .unwrap();
-            // if *debug {
-            //     println!("/proc/{}/status: {:?}", self.pid, reader.values());
-            // }
+            match transmitter_writer.send(WriteDataMsg::PIDStatus(WriteData::new(
+                time,
+                reader.values().clone(),
+                Some(self.pid),
+                None,
+            ))) {
+                Ok(_) => (),
+                Err(_) => {
+                    eprintln!(
+                        "PROC_PARSER::Sending Message from /proc/{}/status at {} failed!!",
+                        self.pid, time
+                    );
+                }
+            };
         }
         true
     }
