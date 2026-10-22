@@ -1,4 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
+use crate::common::parser_error::Result;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -96,7 +97,7 @@ pub struct DiskStatsFields {
 }
 
 impl DiskStatsReader {
-    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
             values: Box::new(DiskStatsFields::default()),

@@ -1,6 +1,5 @@
 pub mod common {
     pub mod cgroup_constants;
-    pub mod config;
     pub mod file_reader;
     pub mod message_passing_utils;
     pub mod parser_error;

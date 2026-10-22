@@ -51,7 +51,7 @@ pub struct ProcLoadAvgFields {
 impl ProcFSLoadAvgReader {
     pub fn new(
         path: &PathBuf
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
             values: ProcLoadAvgFields::default(),

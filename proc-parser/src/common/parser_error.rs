@@ -1,9 +1,9 @@
 use std::error::Error;
-use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum ProcParserError {
-    FileReadError,
+    FileReadError(String),
     GPUError,
     ParseError(Box<dyn Error + Send + Sync + 'static>),
 }
@@ -18,10 +18,10 @@ impl ProcParserError {
     }
 }
 
-impl fmt::Display for ProcParserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ProcParserError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FileReadError => fmt::Display::fmt("Soemthing is wrong", f),
+            Self::FileReadError(path) => write!(f, "Something is wrong {}", path),
             Self::GPUError => write!(f, "GPU error"),
             Self::ParseError(err) => write!(f, "{err}"),
         }
@@ -38,14 +38,8 @@ impl Error for ProcParserError {
 }
 
 /// Allows `?` to convert standard I/O errors automatically.
-impl From<std::io::Error> for ProcParserError {
-    fn from(err: std::io::Error) -> Self {
-        Self::unknown(err)
-    }
-}
-
-// impl From<basic_toml::Error> for ProcParserError {
-//     fn from(err: basic_toml::Error) -> Self {
+// impl From<std::io::Error> for ProcParserError {
+//     fn from(err: std::io::Error) -> Self {
 //         Self::unknown(err)
 //     }
 // }

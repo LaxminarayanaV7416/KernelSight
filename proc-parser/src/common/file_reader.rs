@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::error::Error;
+use super::parser_error::{ProcParserError, Result};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -18,8 +17,9 @@ pub struct ProcFileReader<const BUFFER_ARRAY_SIZE: usize> {
 }
 
 impl<const BUFFER_ARRAY_SIZE: usize> ProcFileReader<BUFFER_ARRAY_SIZE> {
-    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn Error>> {
-        let proc_file = File::open(path)?;
+    pub fn new(path: &PathBuf) -> Result<Self> {
+        let proc_file = File::open(path)
+            .map_err(|_| ProcParserError::FileReadError(path.to_string_lossy().into_owned()))?;
         Ok(Self {
             proc_file,
             buffer: [0u8; BUFFER_ARRAY_SIZE],
@@ -27,6 +27,7 @@ impl<const BUFFER_ARRAY_SIZE: usize> ProcFileReader<BUFFER_ARRAY_SIZE> {
         })
     }
 
+    #[inline(always)]
     pub fn read(&mut self) -> bool {
         // here we dont need to clear the buffer since its
         // an array and it will overwrite dont worry on that
@@ -45,12 +46,4 @@ impl<const BUFFER_ARRAY_SIZE: usize> ProcFileReader<BUFFER_ARRAY_SIZE> {
         let result = String::from_utf8(self.buffer.to_vec()).unwrap_or_default();
         result
     }
-}
-
-pub trait FileReaderTrait {
-    fn read_and_parse(
-        &mut self,
-        field_filter: Option<&HashMap<usize, bool>>,
-        string_field_filter: Option<&HashMap<&str, (usize, bool)>>,
-    ) -> bool;
 }

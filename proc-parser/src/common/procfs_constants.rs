@@ -32,61 +32,6 @@ pub const PROC_SYS_KERNEL_FOLDER_THREADS_MAX_FILE_SLUG: &str = "threads-max";
 
 // PROC file constants
 // =================================================
-// PROC root files used by the monitoring parser
-// =================================================
-
-pub const RequiredForParserProcFiles: &[&str; 9] = &[
-    "diskstats",  // done, Got this from /sys/block/<device>/stat (no sudo required)
-    "interrupts", // not too much important, lets see later on
-    "loadavg",    // done, working on this from /proc/loadavg (no sudo required)
-    "meminfo",    // done, working on this from /proc/meminfo (no sudo required)
-    "schedstat",  // currently working on this from /proc/schedstat (no sudo required)
-    "softirqs",   // currently working on this from /proc/softirqs (no sudo required)
-    "stat",       // currently working on this from /proc/stat (no sudo required)
-    "uptime",     // currently working on this from /proc/uptime (no sudo required)
-    "vmstat",     // currently working on this from /proc/vmstat (no sudo required)
-];
-
-pub const NotRequiredForParserProcFiles: &[&str; 36] = &[
-    "bootconfig",
-    "buddyinfo",
-    "cgroups",
-    "cmdline",
-    "consoles",
-    "cpuinfo",
-    "crypto",
-    "devices",
-    "dma",
-    "execdomains",
-    "fb",
-    "filesystems",
-    "iomem",
-    "ioports",
-    "kallsyms",
-    "kcore",
-    "key-users",
-    "keys",
-    "kmsg",
-    "kpagecgroup",
-    "kpagecount",
-    "kpageflags",
-    "locks",
-    "misc",
-    "modules",
-    "mtd",
-    "mtrr",
-    "pagetypeinfo",
-    "partitions",
-    "slabinfo",
-    "swaps",
-    "sysrq-trigger",
-    "timer_list",
-    "version",
-    "vmallocinfo",
-    "zoneinfo",
-];
-
-// =================================================
 // PROC root file constants
 // =================================================
 
@@ -147,56 +92,6 @@ pub const PROC_VMSTAT_FILE_SLUG: &str = "vmstat";
 // =================================================
 // PROC PID files used by the monitoring parser
 // =================================================
-
-pub const RequiredForParserPIDFiles: &[&str; 9] = &[
-    "cmdline",      // no sudo required
-    "comm",         // no sudo required
-    "cgroup",       // no sudo required
-    "io",           // sudo required
-    "schedstat",    // no sudo required
-    "smaps_rollup", // sudo required
-    "stat",         // no sudo required
-    "statm",        // no sudo required
-    "status",       // no sudo required
-];
-
-pub const NotRequiredForParserPIDFiles: &[&str; 35] = &[
-    "arch_status",
-    "autogroup",
-    "auxv",
-    "clear_refs",
-    "coredump_filter",
-    "cpu_resctrl_groups",
-    "environ",
-    "gid_map",
-    "ksm_merging_pages",
-    "ksm_stat",
-    "limits",
-    "loginuid",
-    "maps",
-    "mem",
-    "mountinfo",
-    "mounts",
-    "mountstats",
-    "numa_maps",
-    "oom_adj",
-    "oom_score",
-    "oom_score_adj",
-    "pagemap",
-    "personality",
-    "projid_map",
-    "sched",
-    "sessionid",
-    "setgroups",
-    "smaps",
-    "stack",
-    "syscall",
-    "timens_offsets",
-    "timers",
-    "timerslack_ns",
-    "uid_map",
-    "wchan",
-];
 
 // =================================================
 // PROC PID file constants

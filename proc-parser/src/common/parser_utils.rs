@@ -2,24 +2,6 @@ use super::cgroup_constants::CGROUP_V2_MOUNT_PATH;
 use std::collections::HashMap;
 use std::process::Command;
 
-#[repr(u8)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CharacterType {
-    NewLine = b'\n',
-    Space = b' ',
-    Tab = b'\t',
-    ParanthesisStart = b'(',
-    ParanthesisEnd = b')',
-    SquareParanthesisStart = b'[',
-    SquareParanthesisEnd = b']',
-    Colon = b':',
-    Comma = b',',
-    SemiColon = b';',
-    EndOfFile = b'\0',
-    Slash = b'/',
-    Equal = b'=',
-}
-
 #[inline(always)]
 fn parse_8_digits_swar(bytes: &[u8]) -> u64 {
     // Read 8 bytes as a single u64 native integer
@@ -74,106 +56,6 @@ pub fn parse_u64_swar(bytes: &[u8]) -> Option<u64> {
         result = result.checked_add(value)?;
         pos += 8;
     }
-    Some(result)
-}
-
-#[inline(always)]
-pub fn parse_bool(bytes: &u8) -> Option<bool> {
-    if *bytes == b'0' {
-        return Some(false);
-    } else if *bytes == b'1' {
-        return Some(true);
-    }
-    None
-}
-
-#[inline(always)]
-pub fn parse_i64_swar(bytes: &[u8]) -> Option<i64> {
-    if bytes.is_empty() {
-        return None;
-    }
-    if bytes[0] == b'-' {
-        let unsigned = parse_u64_swar(&bytes[1..])?;
-
-        if unsigned == (i64::MAX as u64) + 1 {
-            Some(i64::MIN)
-        } else if unsigned <= i64::MAX as u64 {
-            Some(-1 * (unsigned as i64))
-        } else {
-            None
-        }
-    } else if bytes[0] == b'+' {
-        let unsigned = parse_u64_swar(&bytes[1..])?;
-        if unsigned <= i64::MAX as u64 {
-            Some(unsigned as i64)
-        } else {
-            None
-        }
-    } else {
-        let unsigned = parse_u64_swar(bytes)?;
-        if unsigned <= i64::MAX as u64 {
-            Some(unsigned as i64)
-        } else {
-            None
-        }
-    }
-}
-
-#[inline(always)]
-pub fn parse_decimal_f64(bytes: &[u8]) -> Option<f64> {
-    if bytes.is_empty() {
-        return None;
-    }
-    let mut integer_part: u64 = 0;
-    let mut fractional_part: u64 = 0;
-    let mut fractional_divisor: f64 = 1.0;
-    let mut seen_dot = false;
-    for &byte in bytes {
-        match byte {
-            b'0'..=b'9' => {
-                let digit = (byte - b'0') as u64;
-                if seen_dot {
-                    fractional_part = fractional_part.checked_mul(10)?;
-                    fractional_part = fractional_part.checked_add(digit)?;
-                    fractional_divisor *= 10.0;
-                } else {
-                    integer_part = integer_part.checked_mul(10)?;
-                    integer_part = integer_part.checked_add(digit)?;
-                }
-            }
-            b'.' => {
-                if seen_dot {
-                    return None;
-                }
-                seen_dot = true;
-            }
-            _ => {
-                return None;
-            }
-        }
-    }
-    Some(integer_part as f64 + fractional_part as f64 / fractional_divisor)
-}
-
-pub fn parse_string(buffer: &[u8]) -> Option<String> {
-    let mut result = String::new();
-    if buffer[0] == b'\t' {
-        match str::from_utf8(&buffer[1..]) {
-            Ok(s) => result.push_str(s),
-            Err(_) => return None,
-        }
-    } else {
-        match str::from_utf8(buffer) {
-            Ok(s) => result.push_str(s),
-            Err(_) => return None,
-        }
-    }
-    // result = result.trim_matches('\t').to_string();
-    Some(result)
-}
-
-pub fn parse_char(buffer: &u8) -> Option<char> {
-    let result = char::from(*buffer);
     Some(result)
 }
 

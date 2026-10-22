@@ -22,7 +22,8 @@ fn main() -> Result<()> {
     let cgroup_type: CgroupType = cgroup_classifier();
     println!("cgroup_type: {:?}", cgroup_type);
 
-    let content = fs::read_to_string(PATH)?;
+    let content =
+        fs::read_to_string(PATH).map_err(|_| ProcParserError::FileReadError(PATH.to_string()))?;
     let config: &'static Config = Box::leak(Box::new(
         basic_toml::from_str(&content).map_err(|err| ProcParserError::unknown(err))?,
     ));

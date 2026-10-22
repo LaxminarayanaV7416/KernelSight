@@ -1,4 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
+use crate::common::parser_error::Result;
 use crate::common::parser_utils::parse_u64_swar;
 use crate::common::procfs_constants::PROC_FS_ROOT_PATH;
 use std::collections::HashMap;
@@ -190,9 +191,7 @@ pub struct ProcStatFields {
 }
 
 impl ProcFSStatReader {
-    pub fn new(
-        path: &PathBuf
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
             values: ProcStatFields::default(),
@@ -355,8 +354,7 @@ pub fn parse_procfs_stat(
     is_root: bool,
 ) -> JoinHandle<()> {
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("stat");
-    let load_avg_temp_reader =
-        ProcFSStatReader::new(&load_avg_path.to_str().unwrap());
+    let load_avg_temp_reader = ProcFSStatReader::new(&load_avg_path.to_str().unwrap());
     let mut load_avg_reader = match load_avg_temp_reader {
         Ok(reader) => Box::new(reader),
         Err(e) => panic!("Failed to create loadavg reader: {}", e),

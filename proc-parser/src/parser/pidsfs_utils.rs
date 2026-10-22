@@ -1,4 +1,5 @@
-use super::cgroups_v2_orchestrator::CgroupsV2Actions;
+use crate::common::parser_error::ProcParserError;
+use crate::common::parser_error::Result;
 use crate::common::procfs_constants::{
     PROC_FS_ROOT_PATH, PROC_PID_SCHEDSTAT_FILE_SLUG, PROC_PID_STAT_FILE_SLUG,
     PROC_PID_STATM_FILE_SLUG, PROC_PID_STATUS_FILE_SLUG,
@@ -66,7 +67,7 @@ impl ProcFSPIDReaders {
         pid: u64,
         config: &'static Config,
         transmitter_writer: &Sender<WriteDataMsg>,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self> {
         let time = monotonic();
 
         // Without a cgroup value there is nothing meaningful to send to the
@@ -75,7 +76,7 @@ impl ProcFSPIDReaders {
             Ok(cgroup) => cgroup,
             Err(error) => {
                 eprintln!("Failed to read cgroup information for PID {pid}: {error}");
-                return Err(error);
+                return ProcParserError::ParseError(error);
             }
         };
 

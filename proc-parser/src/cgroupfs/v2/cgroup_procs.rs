@@ -1,5 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use std::path::PathBuf;
+use crate::common::parser_error::Result;
 
 /*
 Contains the pids as single line in the cgroup.procs file
@@ -16,7 +17,7 @@ pub struct CgroupFSV2CgroupProcsFields {
 }
 
 impl CgroupFSV2CgroupProcsReader {
-    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
             values: Box::new(CgroupFSV2CgroupProcsFields::default()),

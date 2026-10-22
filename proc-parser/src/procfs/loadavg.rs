@@ -1,4 +1,5 @@
 use crate::common::file_reader::ProcFileReader;
+use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 /*
@@ -40,7 +41,7 @@ pub struct ProcLoadAvgFields {
 }
 
 impl ProcFSLoadAvgReader {
-    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
             values: Box::new(ProcLoadAvgFields::default()),
