@@ -1,6 +1,6 @@
 mod utils;
 use libc::{self};
-use proc_parser::common::parser_error::Result;
+use proc_parser::common::parser_error::{ProcParserError, Result};
 use proc_parser::common::parser_utils::CgroupType;
 use proc_parser::common::parser_utils::cgroup_classifier;
 use proc_parser::common::procfs_constants::AVAILABLE_LOGICAL_CPUS;
@@ -23,7 +23,9 @@ fn main() -> Result<()> {
     println!("cgroup_type: {:?}", cgroup_type);
 
     let content = fs::read_to_string(PATH)?;
-    let config: &'static Config = Box::leak(Box::new(basic_toml::from_str(&content)?));
+    let config: &'static Config = Box::leak(Box::new(
+        basic_toml::from_str(&content).map_err(|err| ProcParserError::unknown(err))?,
+    ));
     println!("Cgroup Patterns: {:?}", config.cgroup_patterns);
     let signaller: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     signal_handler(&signaller);

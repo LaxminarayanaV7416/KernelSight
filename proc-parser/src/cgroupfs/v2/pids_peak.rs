@@ -1,4 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
+use std::path::PathBuf;
+
 /*
 Contains the pids as single line in the cgroup.procs file
 */
@@ -14,13 +16,9 @@ pub struct CgroupFSV2PidsPeakFields {
 }
 
 impl CgroupFSV2PidsPeakReader {
-    pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: CgroupFSV2PidsPeakFields::default(),
         })
     }

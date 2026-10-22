@@ -102,24 +102,11 @@ impl ProcFSPIDReaders {
             let statm_path = pid_root.join(PROC_PID_STATM_FILE_SLUG);
             let status_path = pid_root.join(PROC_PID_STATUS_FILE_SLUG);
             let schedstat = if config.procfs.pid.schedstat.is_enabled() {
-                let path = schedstat_path.to_str().ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "schedstat path for PID {pid} is not valid UTF-8: {}",
-                            schedstat_path.display()
-                        ),
-                    )
-                })?;
-
                 Some(
-                    ProcFSPIDSchedStatReader::new(path, false, false).map_err(|error| {
+                    ProcFSPIDSchedStatReader::new(&schedstat_path).map_err(|error| {
                         io::Error::new(
                             io::ErrorKind::Other,
-                            format!(
-                                "failed to initialize schedstat reader \
-                                     for PID {pid}: {error}"
-                            ),
+                            format!("failed to initialize schedstat reader for PID {pid}: {error}"),
                         )
                     })?,
                 )
@@ -128,79 +115,40 @@ impl ProcFSPIDReaders {
             };
 
             let stat = if config.procfs.pid.stat.is_enabled() {
-                let path = stat_path.to_str().ok_or_else(|| {
+                Some(ProcFSPIDStatReader::new(&stat_path).map_err(|error| {
                     io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "stat path for PID {pid} is not valid UTF-8: {}",
-                            stat_path.display()
-                        ),
+                        io::ErrorKind::Other,
+                        format!("failed to initialize stat reader for PID {pid}: {error}"),
                     )
-                })?;
-
-                Some(
-                    ProcFSPIDStatReader::new(path, false, false).map_err(|error| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!(
-                                "failed to initialize stat reader \
-                                     for PID {pid}: {error}"
-                            ),
-                        )
-                    })?,
-                )
+                })?)
             } else {
                 None
             };
 
             let statm = if config.procfs.pid.statm.is_enabled() {
-                let path = statm_path.to_str().ok_or_else(|| {
+                Some(ProcFSPIDStatmReader::new(&statm_path).map_err(|error| {
                     io::Error::new(
-                        io::ErrorKind::InvalidData,
+                        io::ErrorKind::Other,
                         format!(
-                            "statm path for PID {pid} is not valid UTF-8: {}",
-                            statm_path.display()
+                            "failed to initialize statm reader \
+                                     for PID {pid}: {error}"
                         ),
                     )
-                })?;
-
-                Some(
-                    ProcFSPIDStatmReader::new(path, false, false).map_err(|error| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!(
-                                "failed to initialize statm reader \
-                                     for PID {pid}: {error}"
-                            ),
-                        )
-                    })?,
-                )
+                })?)
             } else {
                 None
             };
 
             let status = if config.procfs.pid.status.is_enabled() {
-                let path = status_path.to_str().ok_or_else(|| {
+                Some(ProcFSPIDStatusReader::new(&status_path).map_err(|error| {
                     io::Error::new(
-                        io::ErrorKind::InvalidData,
+                        io::ErrorKind::Other,
                         format!(
-                            "status path for PID {pid} is not valid UTF-8: {}",
-                            status_path.display()
+                            "failed to initialize status reader \
+                                     for PID {pid}: {error}"
                         ),
                     )
-                })?;
-
-                Some(
-                    ProcFSPIDStatusReader::new(path, false, false).map_err(|error| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!(
-                                "failed to initialize status reader \
-                                     for PID {pid}: {error}"
-                            ),
-                        )
-                    })?,
-                )
+                })?)
             } else {
                 None
             };

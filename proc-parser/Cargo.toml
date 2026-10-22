@@ -3,6 +3,17 @@ name = "proc-parser"
 version = "0.1.0"
 edition = "2024"
 
+[build]
+rustflags = ["-C", "target-cpu=native"]
+
+[profile.dev]
+debug = true
+opt-level = 3
+
+[profile.release]
+debug = true
+opt-level = 3
+
 [dependencies]
 serde = { workspace = true }
 basic-toml = { workspace = true }

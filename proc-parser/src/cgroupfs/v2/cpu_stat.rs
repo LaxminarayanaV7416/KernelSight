@@ -1,6 +1,7 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /*
 populated
@@ -31,12 +32,10 @@ pub struct CgroupFSV2CPUStatFields {
 
 impl CgroupFSV2CPUStatReader {
     pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
+        path: &PathBuf,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: CgroupFSV2CPUStatFields::default(),
             lines_map: None,
         })

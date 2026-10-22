@@ -1,6 +1,8 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
+use std::path::PathBuf;
+
 /*
 Both files contain the same 17 statistics. /sys/block/<device>/stat contains the fields for <device>.
 In /proc/diskstats the fields are prefixed with the major and minor device numbers and the device name.
@@ -94,13 +96,9 @@ pub struct DiskStatsFields {
 }
 
 impl DiskStatsReader {
-    pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: DiskStatsFields::default(),
         })
     }

@@ -59,137 +59,75 @@ pub struct CgroupsV2Readers {
 impl CgroupsV2Readers {
     pub fn new(path: &str) -> Self {
         let base_path = Path::new(CGROUP_V2_MOUNT_PATH).join(path);
-        let cgroup_events = match CgroupFSV2CgroupEventReader::new(
-            &base_path.join(CGROUP_EVENTS_FILE_SLUG).to_str().unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
-        let cgroup_procs = match CgroupFSV2CgroupProcsReader::new(
-            &base_path.join(CGROUP_PROCS_FILE_SLUG).to_str().unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => reader,
-            Err(_) => panic!("Somethign is wrong in Cgroups!"),
-        };
-        let cpu_pressure = match ProcProcessGeneralReader::new(
-            &base_path
-                .join(CGROUP_CPU_PRESSURE_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => reader,
-            Err(_) => panic!("Somethign is wrong in Cgroups!"),
-        };
-        let cpu_stat = match CgroupFSV2CPUStatReader::new(
-            &base_path.join(CGROUP_CPU_STAT_FILE_SLUG).to_str().unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => reader,
-            Err(_) => panic!("Somethign is wrong in Cgroups!"),
-        };
-        let io_pressure = match ProcProcessGeneralReader::new(
-            &base_path
-                .join(CGROUP_IO_PRESSURE_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => reader,
-            Err(_) => panic!("Somethign is wrong in Cgroups!"),
-        };
+        let cgroup_events =
+            match CgroupFSV2CgroupEventReader::new(&base_path.join(CGROUP_EVENTS_FILE_SLUG)) {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
+        let cgroup_procs =
+            match CgroupFSV2CgroupProcsReader::new(&base_path.join(CGROUP_PROCS_FILE_SLUG)) {
+                Ok(reader) => reader,
+                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+            };
+        let cpu_pressure =
+            match ProcProcessGeneralReader::new(&base_path.join(CGROUP_CPU_PRESSURE_FILE_SLUG)) {
+                Ok(reader) => reader,
+                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+            };
+        let cpu_stat =
+            match CgroupFSV2CPUStatReader::new(&base_path.join(CGROUP_CPU_STAT_FILE_SLUG)) {
+                Ok(reader) => reader,
+                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+            };
+        let io_pressure =
+            match ProcProcessGeneralReader::new(&base_path.join(CGROUP_IO_PRESSURE_FILE_SLUG)) {
+                Ok(reader) => reader,
+                Err(_) => panic!("Somethign is wrong in Cgroups!"),
+            };
         let memory_current = match CgroupFSV2MemoryCurrentReader::new(
-            &base_path
-                .join(CGROUP_MEMORY_CURRENT_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
+            &base_path.join(CGROUP_MEMORY_CURRENT_FILE_SLUG),
         ) {
             Ok(reader) => Some(reader),
             Err(_) => None,
         };
-        let memory_event = match CgroupFSV2MemoryEventReader::new(
-            &base_path
-                .join(CGROUP_MEMORY_EVENTS_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
+        let memory_event =
+            match CgroupFSV2MemoryEventReader::new(&base_path.join(CGROUP_MEMORY_EVENTS_FILE_SLUG))
+            {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
         let memory_pressure = match ProcProcessGeneralReader::new(
-            &base_path
-                .join(CGROUP_MEMORY_PRESSURE_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
+            &base_path.join(CGROUP_MEMORY_PRESSURE_FILE_SLUG),
         ) {
             Ok(reader) => reader,
             Err(err) => panic!("Somethign is wrong in Cgroups!"),
         };
-        let memory_peak = match CgroupFSV2MemoryPeakReader::new(
-            &base_path
-                .join(CGROUP_MEMORY_PEAK_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
-        let memory_stat = match CgroupFSV2MemoryStatReader::new(
-            &base_path
-                .join(CGROUP_MEMORY_STAT_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
+        let memory_peak =
+            match CgroupFSV2MemoryPeakReader::new(&base_path.join(CGROUP_MEMORY_PEAK_FILE_SLUG)) {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
+        let memory_stat =
+            match CgroupFSV2MemoryStatReader::new(&base_path.join(CGROUP_MEMORY_STAT_FILE_SLUG)) {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
         let pids_current = match CgroupFSV2PidsCurrentReader::new(
-            &base_path
-                .join(CGROUP_PIDS_CURRENT_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
+            &base_path.join(CGROUP_PIDS_CURRENT_FILE_SLUG),
         ) {
             Ok(reader) => Some(reader),
             Err(_) => None,
         };
-        let pids_event = match CgroupFSV2PidsEventReader::new(
-            &base_path
-                .join(CGROUP_PIDS_EVENTS_FILE_SLUG)
-                .to_str()
-                .unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
-        let pids_peak = match CgroupFSV2PidsPeakReader::new(
-            &base_path.join(CGROUP_PIDS_PEAK_FILE_SLUG).to_str().unwrap(),
-            false,
-            false,
-        ) {
-            Ok(reader) => Some(reader),
-            Err(_) => None,
-        };
+        let pids_event =
+            match CgroupFSV2PidsEventReader::new(&base_path.join(CGROUP_PIDS_EVENTS_FILE_SLUG)) {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
+        let pids_peak =
+            match CgroupFSV2PidsPeakReader::new(&base_path.join(CGROUP_PIDS_PEAK_FILE_SLUG)) {
+                Ok(reader) => Some(reader),
+                Err(_) => None,
+            };
 
         Self {
             cgroup_events: cgroup_events,

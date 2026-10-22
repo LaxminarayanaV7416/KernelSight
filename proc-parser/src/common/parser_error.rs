@@ -3,11 +3,9 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum ProcParserError {
-    ProcFileReadError,
-    ProcPIDFileReadError,
-    CgroupFileReadError,
+    FileReadError,
     GPUError,
-    UnKnownError(Box<dyn Error + Send + Sync + 'static>),
+    ParseError(Box<dyn Error + Send + Sync + 'static>),
 }
 
 impl ProcParserError {
@@ -16,18 +14,16 @@ impl ProcParserError {
     where
         E: Error + Send + Sync + 'static,
     {
-        Self::UnKnownError(Box::new(err))
+        Self::ParseError(Box::new(err))
     }
 }
 
 impl fmt::Display for ProcParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ProcFileReadError => write!(f, "failed to read proc file"),
-            Self::ProcPIDFileReadError => write!(f, "failed to read proc PID file"),
-            Self::CgroupFileReadError => write!(f, "failed to read cgroup file"),
+            Self::FileReadError => fmt::Display::fmt("Soemthing is wrong", f),
             Self::GPUError => write!(f, "GPU error"),
-            Self::UnKnownError(err) => write!(f, "{err}"),
+            Self::ParseError(err) => write!(f, "{err}"),
         }
     }
 }
@@ -35,7 +31,7 @@ impl fmt::Display for ProcParserError {
 impl Error for ProcParserError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::UnKnownError(err) => Some(err.as_ref()),
+            Self::ParseError(err) => Some(err.as_ref()),
             _ => None,
         }
     }
@@ -48,16 +44,16 @@ impl From<std::io::Error> for ProcParserError {
     }
 }
 
-impl From<basic_toml::Error> for ProcParserError {
-    fn from(err: basic_toml::Error) -> Self {
-        Self::unknown(err)
-    }
-}
+// impl From<basic_toml::Error> for ProcParserError {
+//     fn from(err: basic_toml::Error) -> Self {
+//         Self::unknown(err)
+//     }
+// }
 
 /// Allows an already boxed error to be converted automatically.
 impl From<Box<dyn Error + Send + Sync + 'static>> for ProcParserError {
     fn from(err: Box<dyn Error + Send + Sync + 'static>) -> Self {
-        Self::UnKnownError(err)
+        Self::ParseError(err)
     }
 }
 

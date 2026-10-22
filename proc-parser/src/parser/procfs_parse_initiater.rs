@@ -77,7 +77,7 @@ fn cgroup_file_parser(
                 }
             }
         })
-        .map_err(|_io_error| ProcParserError::UnKnownError("PID parser to Cgroup Thread Spawning Error".into()))
+        .map_err(|_io_error| ProcParserError::ParseError("PID parser to Cgroup Thread Spawning Error".into()))
 }
 
 pub fn initiate_procfs_parsing(

@@ -1,5 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use std::collections::HashMap;
+use std::path::PathBuf;
 /*
 schedstats also adds a new /proc/<pid>/schedstat file to include some of the same information on a per-process level.
 There are three fields in this file correlating for that process to:
@@ -22,13 +23,9 @@ pub struct ProcPIDSchedStatFields {
 }
 
 impl ProcFSPIDSchedStatReader {
-    pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: ProcPIDSchedStatFields::default(),
         })
     }

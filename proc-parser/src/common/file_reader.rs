@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 
 // TODO:
 // Need to handle the below error:
@@ -14,19 +15,15 @@ pub struct ProcFileReader<const BUFFER_ARRAY_SIZE: usize> {
     proc_file: File,                     // file read once and read many times
     pub buffer: [u8; BUFFER_ARRAY_SIZE], // stack allocated buffer, to read contents of the file
     pub buffer_len: usize,               // length of the buffer we read every time into
-    pub is_cachable: bool,               // if its cachable, we dont read the file every time
-    pub is_root: bool,                   // if its root, we read the file every time
 }
 
 impl<const BUFFER_ARRAY_SIZE: usize> ProcFileReader<BUFFER_ARRAY_SIZE> {
-    pub fn new(path: &str, is_cachable: bool, is_root: bool) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn Error>> {
         let proc_file = File::open(path)?;
         Ok(Self {
             proc_file,
             buffer: [0u8; BUFFER_ARRAY_SIZE],
             buffer_len: 0,
-            is_cachable,
-            is_root,
         })
     }
 

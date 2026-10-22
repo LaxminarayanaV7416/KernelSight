@@ -191,12 +191,10 @@ pub struct ProcStatFields {
 
 impl ProcFSStatReader {
     pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
+        path: &PathBuf
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: ProcStatFields::default(),
         })
     }
@@ -358,7 +356,7 @@ pub fn parse_procfs_stat(
 ) -> JoinHandle<()> {
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join("stat");
     let load_avg_temp_reader =
-        ProcFSStatReader::new(&load_avg_path.to_str().unwrap(), is_cachable, is_root);
+        ProcFSStatReader::new(&load_avg_path.to_str().unwrap());
     let mut load_avg_reader = match load_avg_temp_reader {
         Ok(reader) => Box::new(reader),
         Err(e) => panic!("Failed to create loadavg reader: {}", e),

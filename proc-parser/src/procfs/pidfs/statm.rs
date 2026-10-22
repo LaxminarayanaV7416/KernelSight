@@ -1,5 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /*
 /proc/pid/statm
@@ -43,13 +44,9 @@ pub struct ProcPIDStatmFields {
 }
 
 impl ProcFSPIDStatmReader {
-    pub fn new(
-        path: &str,
-        is_cachable: bool,
-        is_root: bool,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            reader: ProcFileReader::new(path, is_cachable, is_root)?,
+            reader: ProcFileReader::new(path)?,
             values: ProcPIDStatmFields::default(),
         })
     }

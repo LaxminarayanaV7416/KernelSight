@@ -20,27 +20,22 @@ use std::error::Error;
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-fn initialize_diskstats(
-    is_cachable: bool,
-    is_root: bool,
-) -> io::Result<Vec<(String, DiskStatsReader)>> {
+fn initialize_diskstats() -> io::Result<Vec<(PathBuf, DiskStatsReader)>> {
     let sys_block_path = Path::new(SYS_FS_ROOT_PATH).join(SYS_FS_BLOCK_SLUG);
     let entries = fs::read_dir(&sys_block_path)?;
     let mut diskstats = Vec::new();
     for entry in entries {
         let entry = entry?;
         let path = entry.path().join(PROC_STAT_FILE_SLUG);
-        let resolved_path = path
-            .to_str()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Non-UTF8 device path"))?;
-        match DiskStatsReader::new(resolved_path, is_cachable, is_root) {
-            Ok(reader) => diskstats.push((resolved_path.to_string(), reader)),
+        match DiskStatsReader::new(&path) {
+            Ok(reader) => diskstats.push((path, reader)),
             Err(err) => {
                 eprintln!("Failed to initialize {}: {:?}", path.display(), err);
             }
@@ -56,23 +51,18 @@ pub fn record_procfs(
     transmit_writer: Sender<WriteDataMsg>,
 ) -> Result<Vec<JoinHandle<()>>, Box<dyn Error>> {
     let mut threads: Vec<JoinHandle<()>> = vec![];
-    let (is_cachable, is_root) = (false, false);
     let global_heart_beat = Box::new(config.heart_beat.clone());
     let debug = Box::new(config.debug.clone()); //Box::new(false);
     let general_signaller = Arc::clone(&signaller);
     // /proc/loadavg
     let is_loadavg_allowed: Box<bool> = Box::new(config.procfs.loadavg.is_enabled());
     let load_avg_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_LOADAVG_FILE_SLUG);
-    let mut load_avg_temp_reader = Box::new(ProcFSLoadAvgReader::new(
-        &load_avg_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut load_avg_temp_reader = Box::new(ProcFSLoadAvgReader::new(&load_avg_path)?);
     let loadavg_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
 
     // /proc/diskstats or /sys/block/<device>/stat
     let is_diskstat_allowed: Box<bool> = Box::new(config.procfs.diskstats.is_enabled());
-    let mut diskstats_readers = initialize_diskstats(is_cachable, is_root)?;
+    let mut diskstats_readers = initialize_diskstats()?;
     let diskstats_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
 
     // /proc/pressure/cpu
@@ -80,11 +70,7 @@ pub fn record_procfs(
         .join(PROC_PRESSURE_FOLDER_SLUG)
         .join(PROC_PRESSURE_CPU_FILE_SLUG);
     let is_pressure_cpu_allowed: Box<bool> = Box::new(config.procfs.pressure.cpu.is_enabled());
-    let mut pressure_cpu_reader = Box::new(ProcProcessGeneralReader::new(
-        &pressure_cpu_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut pressure_cpu_reader = Box::new(ProcProcessGeneralReader::new(&pressure_cpu_path)?);
     let pressure_cpu_filter_map = Box::new(config.procfs.pressure.cpu.get_hashmap());
 
     // /proc/pressure/io
@@ -92,11 +78,7 @@ pub fn record_procfs(
         .join(PROC_PRESSURE_FOLDER_SLUG)
         .join(PROC_PRESSURE_IO_FILE_SLUG);
     let is_pressure_io_allowed: Box<bool> = Box::new(config.procfs.pressure.io.is_enabled());
-    let mut pressure_io_reader = Box::new(ProcProcessGeneralReader::new(
-        &pressure_io_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut pressure_io_reader = Box::new(ProcProcessGeneralReader::new(&pressure_io_path)?);
     let pressure_io_filter_map = Box::new(config.procfs.pressure.io.get_hashmap());
 
     // /proc/pressure/memory
@@ -105,11 +87,8 @@ pub fn record_procfs(
         .join(PROC_PRESSURE_MEMORY_FILE_SLUG);
     let is_pressure_memory_allowed: Box<bool> =
         Box::new(config.procfs.pressure.memory.is_enabled());
-    let mut pressure_memory_reader = Box::new(ProcProcessGeneralReader::new(
-        &pressure_memory_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut pressure_memory_reader =
+        Box::new(ProcProcessGeneralReader::new(&pressure_memory_path)?);
     let pressure_memory_filter_map = Box::new(config.procfs.pressure.memory.get_hashmap());
 
     // /proc/pressure/irq
@@ -117,21 +96,13 @@ pub fn record_procfs(
         .join(PROC_PRESSURE_FOLDER_SLUG)
         .join(PROC_PRESSURE_IRQ_FILE_SLUG);
     let is_pressure_irq_allowed: Box<bool> = Box::new(config.procfs.pressure.irq.is_enabled());
-    let mut pressure_irq_reader = Box::new(ProcProcessGeneralReader::new(
-        &pressure_irq_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut pressure_irq_reader = Box::new(ProcProcessGeneralReader::new(&pressure_irq_path)?);
     let pressure_irq_filter_map = Box::new(config.procfs.pressure.irq.get_hashmap());
 
     // /proc/uptime
     let proc_uptime_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_UPTIME_FILE_SLUG);
     let is_proc_uptime_allowed: Box<bool> = Box::new(config.procfs.uptime.is_enabled());
-    let mut proc_uptime_reader = Box::new(ProcFSUptimeReader::new(
-        &proc_uptime_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut proc_uptime_reader = Box::new(ProcFSUptimeReader::new(&proc_uptime_path)?);
     let proc_uptime_filter_map = Box::new(config.procfs.uptime.get_hashmap());
 
     let transmit_writer_clone = transmit_writer.clone();
@@ -265,11 +236,7 @@ pub fn record_procfs(
     let vmstat_signaller = Arc::clone(&signaller);
     let proc_vmstat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_VMSTAT_FILE_SLUG);
     let is_proc_vmstat_allowed: Box<bool> = Box::new(config.procfs.vmstat.allow.clone());
-    let mut proc_vmstat_reader = Box::new(ProcFSVmStatReader::new(
-        &proc_vmstat_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut proc_vmstat_reader = Box::new(ProcFSVmStatReader::new(&proc_vmstat_path)?);
     let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
     let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_vmstat_allowed {
@@ -304,11 +271,7 @@ pub fn record_procfs(
     let stat_signaller = Arc::clone(&signaller);
     let proc_stat_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_STAT_FILE_SLUG);
     let is_proc_stat_allowed: Box<bool> = Box::new(config.procfs.stat.allow.clone());
-    let mut proc_stat_reader = Box::new(ProcFSStatReader::new(
-        &proc_stat_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut proc_stat_reader = Box::new(ProcFSStatReader::new(&proc_stat_path)?);
     let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
     let transmit_writer_clone = transmit_writer.clone();
     if *is_proc_stat_allowed {
@@ -343,11 +306,7 @@ pub fn record_procfs(
     let meminfo_signaller = Arc::clone(&signaller);
     let proc_meminfo_path = Path::new(PROC_FS_ROOT_PATH).join(PROC_MEMINFO_FILE_SLUG);
     let is_proc_meminfo_allowed: Box<bool> = Box::new(config.procfs.meminfo.allow.clone());
-    let mut proc_meminfo_reader = Box::new(ProcFSMemInfoReader::new(
-        &proc_meminfo_path.to_str().unwrap(),
-        is_cachable,
-        is_root,
-    )?);
+    let mut proc_meminfo_reader = Box::new(ProcFSMemInfoReader::new(&proc_meminfo_path)?);
     let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
     if *is_proc_meminfo_allowed {
         let meminfo_thread_handle = thread::spawn(move || {
