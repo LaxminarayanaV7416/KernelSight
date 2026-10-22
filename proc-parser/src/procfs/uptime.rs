@@ -27,7 +27,7 @@ Field 5 - int32
 #[derive(Debug)]
 pub struct ProcFSUptimeReader {
     reader: ProcFileReader<128>,
-    values: ProcUptimeFields,
+    values: Box<ProcUptimeFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -40,7 +40,7 @@ impl ProcFSUptimeReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcUptimeFields::default(),
+            values: Box::new(ProcUptimeFields::default()),
         })
     }
 

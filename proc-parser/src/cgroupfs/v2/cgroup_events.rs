@@ -10,7 +10,7 @@ frozen
 
 pub struct CgroupFSV2CgroupEventReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2CgroupEventFields,
+    values: Box<CgroupFSV2CgroupEventFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -23,7 +23,7 @@ impl CgroupFSV2CgroupEventReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2CgroupEventFields::default(),
+            values: Box::new(CgroupFSV2CgroupEventFields::default()),
         })
     }
 

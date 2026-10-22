@@ -12,7 +12,7 @@ There are three fields in this file correlating for that process to:
 #[derive(Debug)]
 pub struct ProcFSPIDSchedStatReader {
     reader: ProcFileReader<64>,
-    values: ProcPIDSchedStatFields,
+    values: Box<ProcPIDSchedStatFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -26,7 +26,7 @@ impl ProcFSPIDSchedStatReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcPIDSchedStatFields::default(),
+            values: Box::new(ProcPIDSchedStatFields::default()),
         })
     }
 

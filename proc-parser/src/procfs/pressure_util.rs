@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct ProcProcessGeneralReader {
     reader: ProcFileReader<512>,
-    values: ProcProcessGeneralFields,
+    values: Box<ProcProcessGeneralFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -24,7 +24,7 @@ impl ProcProcessGeneralReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcProcessGeneralFields::default(),
+            values: Box::new(ProcProcessGeneralFields::default()),
         })
     }
 
@@ -78,9 +78,7 @@ impl ProcProcessGeneralReader {
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
         const SOME: u64 = 0x73_6f_6d_65;
         const FULL: u64 = 0x66_75_6c_6c;
-
-        self.values = ProcProcessGeneralFields::default();
-
+        // self.values = Box::new(ProcProcessGeneralFields::default());
         let mut field_base: Option<usize> = None;
         let mut token_code = 0u64;
         let mut token_length = 0usize;

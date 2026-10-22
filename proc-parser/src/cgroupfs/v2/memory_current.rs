@@ -7,7 +7,7 @@ Contains the pids as single line in the cgroup.procs file
 
 pub struct CgroupFSV2MemoryCurrentReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2MemoryCurrentFields,
+    values: Box<CgroupFSV2MemoryCurrentFields>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -19,7 +19,7 @@ impl CgroupFSV2MemoryCurrentReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2MemoryCurrentFields::default(),
+            values: Box::new(CgroupFSV2MemoryCurrentFields::default()),
         })
     }
 

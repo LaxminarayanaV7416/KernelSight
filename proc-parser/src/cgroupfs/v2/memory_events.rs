@@ -11,7 +11,7 @@ frozen
 
 pub struct CgroupFSV2MemoryEventReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2MemoryEventFields,
+    values: Box<CgroupFSV2MemoryEventFields>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -30,7 +30,7 @@ impl CgroupFSV2MemoryEventReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2MemoryEventFields::default(),
+            values: Box::new(CgroupFSV2MemoryEventFields::default()),
             lines_map: None,
         })
     }

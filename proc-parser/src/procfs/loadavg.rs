@@ -26,7 +26,7 @@ Field 5 - int32
 #[derive(Debug)]
 pub struct ProcFSLoadAvgReader {
     reader: ProcFileReader<512>,
-    values: ProcLoadAvgFields,
+    values: Box<ProcLoadAvgFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -43,7 +43,7 @@ impl ProcFSLoadAvgReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcLoadAvgFields::default(),
+            values: Box::new(ProcLoadAvgFields::default()),
         })
     }
 

@@ -284,7 +284,7 @@ Newline -> 10
 #[derive(Debug)]
 pub struct ProcFSMemInfoReader {
     reader: ProcFileReader<4096>,
-    values: ProcMemInfoFields,
+    values: Box<ProcMemInfoFields>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -370,7 +370,7 @@ impl ProcFSMemInfoReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcMemInfoFields::default(),
+            values: Box::new(ProcMemInfoFields::default()),
             lines_map: None,
         })
     }

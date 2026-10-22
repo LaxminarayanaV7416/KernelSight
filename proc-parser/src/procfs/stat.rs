@@ -191,7 +191,7 @@ impl ProcFSStatCPUFields {
 #[derive(Debug)]
 pub struct ProcFSStatReader {
     reader: ProcFileReader<6144>,
-    values: ProcStatFields,
+    values: Box<ProcStatFields>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -211,7 +211,7 @@ impl ProcFSStatReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcStatFields::default(),
+            values: Box::new(ProcStatFields::default()),
         })
     }
 

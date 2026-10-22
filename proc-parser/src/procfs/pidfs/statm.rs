@@ -29,7 +29,7 @@ detailed information.
 #[derive(Debug)]
 pub struct ProcFSPIDStatmReader {
     reader: ProcFileReader<512>,
-    values: ProcPIDStatmFields,
+    values: Box<ProcPIDStatmFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -47,7 +47,7 @@ impl ProcFSPIDStatmReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcPIDStatmFields::default(),
+            values: Box::new(ProcPIDStatmFields::default()),
         })
     }
 

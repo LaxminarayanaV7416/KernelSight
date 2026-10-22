@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct ProcFSPIDStatReader {
     reader: ProcFileReader<4096>,
-    values: ProcPIDStatFields,
+    values: Box<ProcPIDStatFields>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -68,7 +68,7 @@ impl ProcFSPIDStatReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcPIDStatFields::default(),
+            values: Box::new(ProcPIDStatFields::default()),
         })
     }
 

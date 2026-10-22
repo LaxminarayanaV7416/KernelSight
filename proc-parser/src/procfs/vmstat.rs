@@ -27,7 +27,7 @@ Field 5 - int32
 #[derive(Debug)]
 pub struct ProcFSVmStatReader {
     reader: ProcFileReader<16384>,
-    values: ProcVmStatFields,
+    values: Box<ProcVmStatFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -236,7 +236,7 @@ impl ProcFSVmStatReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcVmStatFields::default(),
+            values: Box::new(ProcVmStatFields::default()),
         })
     }
 

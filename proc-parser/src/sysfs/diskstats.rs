@@ -71,7 +71,7 @@ LAX Calculations for the memory
 
 pub struct DiskStatsReader {
     reader: ProcFileReader<512>,
-    values: DiskStatsFields,
+    values: Box<DiskStatsFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -99,7 +99,7 @@ impl DiskStatsReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: DiskStatsFields::default(),
+            values: Box::new(DiskStatsFields::default()),
         })
     }
 

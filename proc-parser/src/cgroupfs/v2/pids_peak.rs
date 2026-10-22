@@ -7,7 +7,7 @@ Contains the pids as single line in the cgroup.procs file
 
 pub struct CgroupFSV2PidsPeakReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2PidsPeakFields,
+    values: Box<CgroupFSV2PidsPeakFields>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -19,7 +19,7 @@ impl CgroupFSV2PidsPeakReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2PidsPeakFields::default(),
+            values: Box::new(CgroupFSV2PidsPeakFields::default()),
         })
     }
 

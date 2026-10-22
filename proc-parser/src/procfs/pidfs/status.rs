@@ -258,7 +258,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct ProcFSPIDStatusReader {
     reader: ProcFileReader<4096>,
-    values: ProcPIDStatusFields,
+    values: Box<ProcPIDStatusFields>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -331,7 +331,7 @@ impl ProcFSPIDStatusReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: ProcPIDStatusFields::default(),
+            values: Box::new(ProcPIDStatusFields::default()),
             lines_map: None,
         })
     }

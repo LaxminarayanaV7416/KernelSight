@@ -12,7 +12,7 @@ frozen
 
 pub struct CgroupFSV2CPUStatReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2CPUStatFields,
+    values: Box<CgroupFSV2CPUStatFields>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -31,12 +31,10 @@ pub struct CgroupFSV2CPUStatFields {
 }
 
 impl CgroupFSV2CPUStatReader {
-    pub fn new(
-        path: &PathBuf,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2CPUStatFields::default(),
+            values: Box::new(CgroupFSV2CPUStatFields::default()),
             lines_map: None,
         })
     }

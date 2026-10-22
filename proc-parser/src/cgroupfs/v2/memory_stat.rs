@@ -12,7 +12,7 @@ frozen
 
 pub struct CgroupFSV2MemoryStatReader {
     reader: ProcFileReader<256>,
-    values: CgroupFSV2MemoryStatFields,
+    values: Box<CgroupFSV2MemoryStatFields>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -96,7 +96,7 @@ impl CgroupFSV2MemoryStatReader {
     pub fn new(path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: CgroupFSV2MemoryStatFields::default(),
+            values: Box::new(CgroupFSV2MemoryStatFields::default()),
             lines_map: None,
         })
     }
