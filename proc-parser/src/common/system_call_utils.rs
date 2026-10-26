@@ -1,8 +1,8 @@
 use libc::{CPU_COUNT, CPU_ZERO};
 use libc::{cpu_set_t, sched_getaffinity};
 use rustix::time::{ClockId, clock_gettime};
+// use libc::{CLOCK_MONOTONIC_COARSE, clock_gettime, timespec};
 use std::mem;
-// use libc::{clock_gettime, timespec, CLOCK_MONOTONIC_COARSE};
 
 pub fn available_logical_cpus() -> Result<usize, Box<dyn std::error::Error>> {
     // we use sched_getaffinity to get the number of logical CPUs

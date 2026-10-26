@@ -4,7 +4,6 @@ use crate::common::parser_error::{ProcParserError, Result};
 use crate::configs::config::{Config, ProcFSConfigTrait};
 use crate::writer::writer_utils::WriteDataMsg;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
@@ -116,8 +115,7 @@ fn start_tracking_pids(
             match data.add(pid, config, transmitter_writer) {
                 Ok(true) => {}  // Reader was initialized and inserted.
                 Ok(false) => {} // PID was already present.
-                Err(error) => {
-                    eprintln!("Unable to begin tracking PID {pid}: {error}");
+                Err(_) => {
                     let mut round_robin_writing = match round_robin.write() {
                         Ok(round_robin) => round_robin,
                         Err(error) => {
@@ -125,17 +123,12 @@ fn start_tracking_pids(
                             continue;
                         }
                     };
-
                     match round_robin_writing.remove(pid) {
                         Some(removed_pid) => {
-                            if config.debug {
-                                println!("Removing PID {:?}", removed_pid);
-                            }
+                            println!("Removing PID {:?}", removed_pid);
                         }
                         None => {
-                            if config.debug {
-                                eprintln!("PID {pid} was not assigned to any worker");
-                            }
+                            eprintln!("PID {pid} was not assigned to any worker");
                         }
                     }
                     continue;

@@ -50,7 +50,7 @@ pub fn start_writer(
                             // println!("comm {:?}", msg);
                         }
                         WriteDataMsg::PIDCmdline(msg) => {
-                            println!("cmdline {:?}", msg);
+                            // println!("cmdline {:?}", msg);
                         }
                         WriteDataMsg::PIDSchedStat(msg) => {
                             // println!("Schedstat {:?}", msg);
@@ -85,16 +85,34 @@ pub fn start_gpu_writer(
     receiver: Receiver<WriteGPUDataMsg>,
 ) -> Result<JoinHandle<()>> {
     let thread_builder = thread::Builder::new().name("GPUWriterThread".to_string());
+
     thread_builder
         .spawn(move || {
             while !signaller.load(Ordering::Relaxed) {
                 match receiver.recv_timeout(Duration::from_secs(1)) {
-                    Ok(data) => match data {
-                        WriteGPUDataMsg::NvidiaDeviceInfo(msg) => {
-                            // println!("NVIDIA DeviceInfo {:?}", msg);
+                    Ok(WriteGPUDataMsg::NvidiaDeviceInfo(msg)) => match msg.data.lock() {
+                        Ok(device_info) => {
+                            println!("NVIDIA DeviceInfo: {:?}", &*device_info);
                         }
-                        WriteGPUDataMsg::NvidiaProcs(msg) => {
-                            // println!("NVIDIA GPU-DATA {:?}", msg);
+
+                        Err(error) => {
+                            eprintln!(
+                                "Failed to lock NVIDIA device-info \
+                                     message: {error}"
+                            );
+                        }
+                    },
+
+                    Ok(WriteGPUDataMsg::NvidiaProcs(msg)) => match msg.data.lock() {
+                        Ok(process_info) => {
+                            println!("NVIDIA GPU-DATA: {:?}", &*process_info);
+                        }
+
+                        Err(error) => {
+                            eprintln!(
+                                "Failed to lock NVIDIA process \
+                                     message: {error}"
+                            );
                         }
                     },
 
@@ -109,7 +127,7 @@ pub fn start_gpu_writer(
             }
 
             if config.debug {
-                println!("Writer thread stopped");
+                println!("GPU writer thread stopped");
             }
         })
         .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()))

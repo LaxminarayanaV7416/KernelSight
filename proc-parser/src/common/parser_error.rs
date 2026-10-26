@@ -22,7 +22,7 @@ impl ProcParserError {
 impl Display for ProcParserError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FileReadError(path) => write!(f, "Something is wrong {}", path),
+            Self::FileReadError(path) => write!(f, "FileReadError: {}", path),
             Self::GPUError => write!(f, "GPU error"),
             Self::ThreadSpawningError(thread_info) => {
                 write!(f, "ThreadSpawning Error for {}", thread_info)

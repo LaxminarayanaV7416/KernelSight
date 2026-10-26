@@ -14,6 +14,7 @@ use crate::writer::writer_utils::WriteDataMsg;
 use crate::writer::writer_utils::WriteGPUDataMsg;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;

@@ -1,6 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
-use std::path::PathBuf;
 use crate::common::parser_error::Result;
+use std::path::PathBuf;
 
 /*
 Contains the pids as single line in the cgroup.procs file
