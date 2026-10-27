@@ -126,7 +126,7 @@ pub fn start_gpu_writer(
                 match receiver.recv_timeout(Duration::from_secs(1)) {
                     Ok(WriteGPUDataMsg::NvidiaDeviceInfo(msg)) => match msg.data.lock() {
                         Ok(device_info) => {
-                            println!("NVIDIA DeviceInfo: {:?}", &*device_info);
+                            // println!("NVIDIA DeviceInfo: {:?}", &*device_info);
                         }
 
                         Err(error) => {
@@ -139,7 +139,7 @@ pub fn start_gpu_writer(
 
                     Ok(WriteGPUDataMsg::NvidiaProcs(msg)) => match msg.data.lock() {
                         Ok(process_info) => {
-                            println!("NVIDIA GPU-DATA: {:?}", &*process_info);
+                            // println!("NVIDIA GPU-DATA: {:?}", &*process_info);
                         }
 
                         Err(error) => {
