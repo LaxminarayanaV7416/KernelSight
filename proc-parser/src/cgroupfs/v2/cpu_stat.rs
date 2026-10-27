@@ -3,6 +3,7 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 populated
@@ -13,7 +14,7 @@ frozen
 
 pub struct CgroupFSV2CPUStatReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2CPUStatFields>,
+    values: Arc<Mutex<CgroupFSV2CPUStatFields>>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
@@ -35,7 +36,7 @@ impl CgroupFSV2CPUStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2CPUStatFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2CPUStatFields::default())),
             lines_map: None,
         })
     }
@@ -43,45 +44,51 @@ impl CgroupFSV2CPUStatReader {
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            // Build the line-to-field mapping once. CPU stat fields may vary by
+            // kernel and controller configuration, so name-based discovery is
+            // preferable to assuming fixed line positions.
+            if self.lines_map.is_none() {
+                self.lines_map = Some(line_tracker(
+                    &self.reader.buffer[..self.reader.buffer_len],
+                    field_filter,
+                    b' ',
+                ));
+            }
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2CPUStatFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2CPUStatFields>> {
         &self.values
     }
 
     #[inline]
-    fn set_field(&mut self, field: usize, value: u64) {
+    fn set_field(&self, values: &mut CgroupFSV2CPUStatFields, field: usize, value: u64) {
         match field {
-            1 => self.values.usage_usec = value,
-            2 => self.values.user_usec = value,
-            3 => self.values.system_usec = value,
-            4 => self.values.nice_usec = value,
-            5 => self.values.core_sched_force_idle_usec = value,
-            6 => self.values.nr_periods = value,
-            7 => self.values.nr_throttled = value,
-            8 => self.values.throttled_usec = value,
-            9 => self.values.nr_bursts = value,
-            10 => self.values.burst_usec = value,
+            1 => values.usage_usec = value,
+            2 => values.user_usec = value,
+            3 => values.system_usec = value,
+            4 => values.nice_usec = value,
+            5 => values.core_sched_force_idle_usec = value,
+            6 => values.nr_periods = value,
+            7 => values.nr_throttled = value,
+            8 => values.throttled_usec = value,
+            9 => values.nr_bursts = value,
+            10 => values.burst_usec = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
+    fn parse_buffer(
+        &self,
+        values: &mut CgroupFSV2CPUStatFields,
+        field_filter: &HashMap<&str, (usize, bool)>,
+    ) {
         if field_filter.is_empty() {
             return;
-        }
-        // Build the line-to-field mapping once. CPU stat fields may vary by
-        // kernel and controller configuration, so name-based discovery is
-        // preferable to assuming fixed line positions.
-        if self.lines_map.is_none() {
-            self.lines_map = Some(line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
-                b' ',
-            ));
         }
         let mut line_number = 1usize;
         let mut line_started = false;
@@ -106,7 +113,7 @@ impl CgroupFSV2CPUStatReader {
                     if field > 0 && value_started {
                         let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-                        self.set_field(field, parsed_value);
+                        self.set_field(&mut *values, field, parsed_value);
                     }
                     line_number += 1;
                 }
@@ -181,7 +188,7 @@ impl CgroupFSV2CPUStatReader {
         if line_started && field > 0 && value_started {
             let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-            self.set_field(field, parsed_value);
+            self.set_field(&mut *values, field, parsed_value);
         }
     }
 }

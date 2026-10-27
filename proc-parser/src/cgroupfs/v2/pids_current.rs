@@ -1,6 +1,7 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 Contains the pids as single line in the cgroup.procs file
@@ -8,7 +9,7 @@ Contains the pids as single line in the cgroup.procs file
 
 pub struct CgroupFSV2PidsCurrentReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2PidsCurrentFields>,
+    values: Arc<Mutex<CgroupFSV2PidsCurrentFields>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -20,23 +21,25 @@ impl CgroupFSV2PidsCurrentReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2PidsCurrentFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2PidsCurrentFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer();
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2PidsCurrentFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2PidsCurrentFields>> {
         &self.values
     }
 
-    fn parse_buffer(&mut self) {
+    fn parse_buffer(&self, values: &mut CgroupFSV2PidsCurrentFields) {
         let mut value = 0u64;
         let mut digit_count = 0usize;
         let mut started = false;
@@ -78,6 +81,6 @@ impl CgroupFSV2PidsCurrentReader {
                 }
             }
         }
-        self.values.pids = if valid && digit_count > 0 { value } else { 0 };
+        values.pids = if valid && digit_count > 0 { value } else { 0 };
     }
 }

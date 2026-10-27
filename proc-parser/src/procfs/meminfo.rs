@@ -3,6 +3,7 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 MemTotal %lu
@@ -285,11 +286,11 @@ Newline -> 10
 #[derive(Debug)]
 pub struct ProcFSMemInfoReader {
     reader: ProcFileReader<4096>,
-    values: Box<ProcMemInfoFields>,
+    values: Arc<Mutex<ProcMemInfoFields>>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct ProcMemInfoFields {
     pub mem_total: u64,
     pub mem_free: u64,
@@ -371,105 +372,13 @@ impl ProcFSMemInfoReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcMemInfoFields::default()),
+            values: Arc::new(Mutex::new(ProcMemInfoFields::default())),
             lines_map: None,
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
-        if read_status {
-            self.parse_buffer(&field_filter);
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &ProcMemInfoFields {
-        &self.values
-    }
-
-    fn set_field(&mut self, field: usize, value: u64) {
-        match field {
-            1 => self.values.mem_total = value,
-            2 => self.values.mem_free = value,
-            3 => self.values.mem_available = value,
-            4 => self.values.mem_buffers = value,
-            5 => self.values.mem_cached = value,
-            6 => self.values.mem_swap_cached = value,
-
-            7 => self.values.mem_active = value,
-            8 => self.values.mem_inactive = value,
-            9 => self.values.mem_active_anon = value,
-            10 => self.values.mem_inactive_anon = value,
-            11 => self.values.mem_active_file = value,
-            12 => self.values.mem_inactive_file = value,
-            13 => self.values.mem_unevictable = value,
-            14 => self.values.mem_mlocked = value,
-
-            15 => self.values.mem_swap_total = value,
-            16 => self.values.mem_swap_free = value,
-            17 => self.values.mem_zswap = value,
-            18 => self.values.mem_zswapped = value,
-
-            19 => self.values.mem_dirty = value,
-            20 => self.values.mem_write_back = value,
-            21 => self.values.mem_anon_pages = value,
-            22 => self.values.mem_mapped = value,
-            23 => self.values.mem_shmem = value,
-
-            24 => self.values.mem_k_reclaimable = value,
-            25 => self.values.mem_slab = value,
-            26 => self.values.mem_s_reclaimable = value,
-            27 => self.values.mem_s_unreclaim = value,
-
-            28 => self.values.mem_kernel_stack = value,
-            29 => self.values.mem_page_tables = value,
-            30 => self.values.mem_sec_page_tables = value,
-
-            31 => self.values.mem_nfs_unstable = value,
-            32 => self.values.mem_bounce = value,
-            33 => self.values.mem_write_back_tmp = value,
-
-            34 => self.values.mem_commit_limit = value,
-            35 => self.values.mem_committed_as = value,
-
-            36 => self.values.mem_vmalloc_total = value,
-            37 => self.values.mem_vmalloc_used = value,
-            38 => self.values.mem_vmalloc_chunk = value,
-
-            39 => self.values.mem_percpu = value,
-            40 => self.values.mem_hardware_corrupted = value,
-
-            41 => self.values.mem_anon_huge_pages = value,
-            42 => self.values.mem_shmem_huge_pages = value,
-            43 => self.values.mem_shmem_pmd_mapped = value,
-            44 => self.values.mem_file_huge_pages = value,
-            45 => self.values.mem_file_pmd_mapped = value,
-
-            46 => self.values.mem_cma_total = value,
-            47 => self.values.mem_cma_free = value,
-
-            48 => self.values.mem_unaccepted = value,
-            49 => self.values.mem_balloon = value,
-            50 => self.values.mem_gpu_active = value,
-            51 => self.values.mem_gpu_reclaim = value,
-
-            52 => self.values.mem_huge_pages_total = value,
-            53 => self.values.mem_huge_pages_free = value,
-            54 => self.values.mem_huge_pages_reserved = value,
-            55 => self.values.mem_huge_pages_surp = value,
-            56 => self.values.mem_huge_page_size = value,
-            57 => self.values.mem_hugetlb = value,
-
-            58 => self.values.mem_direct_map_4k = value,
-            59 => self.values.mem_direct_map_2m = value,
-            60 => self.values.mem_direct_map_1g = value,
-
-            _ => {}
-        }
-    }
-
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
         // Build the line-to-field mapping once. Subsequent reads reuse it.
         if self.lines_map.is_none() {
             self.lines_map = Some(line_tracker(
@@ -478,7 +387,100 @@ impl ProcFSMemInfoReader {
                 b':',
             ));
         }
+        if read_status {
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values);
+            }
+        }
+        read_status
+    }
 
+    pub fn values(&self) -> &Arc<Mutex<ProcMemInfoFields>> {
+        &self.values
+    }
+
+    fn set_field(&self, values: &mut ProcMemInfoFields, field: usize, value: u64) {
+        match field {
+            1 => values.mem_total = value,
+            2 => values.mem_free = value,
+            3 => values.mem_available = value,
+            4 => values.mem_buffers = value,
+            5 => values.mem_cached = value,
+            6 => values.mem_swap_cached = value,
+
+            7 => values.mem_active = value,
+            8 => values.mem_inactive = value,
+            9 => values.mem_active_anon = value,
+            10 => values.mem_inactive_anon = value,
+            11 => values.mem_active_file = value,
+            12 => values.mem_inactive_file = value,
+            13 => values.mem_unevictable = value,
+            14 => values.mem_mlocked = value,
+
+            15 => values.mem_swap_total = value,
+            16 => values.mem_swap_free = value,
+            17 => values.mem_zswap = value,
+            18 => values.mem_zswapped = value,
+
+            19 => values.mem_dirty = value,
+            20 => values.mem_write_back = value,
+            21 => values.mem_anon_pages = value,
+            22 => values.mem_mapped = value,
+            23 => values.mem_shmem = value,
+
+            24 => values.mem_k_reclaimable = value,
+            25 => values.mem_slab = value,
+            26 => values.mem_s_reclaimable = value,
+            27 => values.mem_s_unreclaim = value,
+
+            28 => values.mem_kernel_stack = value,
+            29 => values.mem_page_tables = value,
+            30 => values.mem_sec_page_tables = value,
+
+            31 => values.mem_nfs_unstable = value,
+            32 => values.mem_bounce = value,
+            33 => values.mem_write_back_tmp = value,
+
+            34 => values.mem_commit_limit = value,
+            35 => values.mem_committed_as = value,
+
+            36 => values.mem_vmalloc_total = value,
+            37 => values.mem_vmalloc_used = value,
+            38 => values.mem_vmalloc_chunk = value,
+
+            39 => values.mem_percpu = value,
+            40 => values.mem_hardware_corrupted = value,
+
+            41 => values.mem_anon_huge_pages = value,
+            42 => values.mem_shmem_huge_pages = value,
+            43 => values.mem_shmem_pmd_mapped = value,
+            44 => values.mem_file_huge_pages = value,
+            45 => values.mem_file_pmd_mapped = value,
+
+            46 => values.mem_cma_total = value,
+            47 => values.mem_cma_free = value,
+
+            48 => values.mem_unaccepted = value,
+            49 => values.mem_balloon = value,
+            50 => values.mem_gpu_active = value,
+            51 => values.mem_gpu_reclaim = value,
+
+            52 => values.mem_huge_pages_total = value,
+            53 => values.mem_huge_pages_free = value,
+            54 => values.mem_huge_pages_reserved = value,
+            55 => values.mem_huge_pages_surp = value,
+            56 => values.mem_huge_page_size = value,
+            57 => values.mem_hugetlb = value,
+
+            58 => values.mem_direct_map_4k = value,
+            59 => values.mem_direct_map_2m = value,
+            60 => values.mem_direct_map_1g = value,
+
+            _ => {}
+        }
+    }
+
+    fn parse_buffer(&self, values: &mut ProcMemInfoFields) {
         let mut parser_line_number = 0usize;
         let mut line_started = false;
         let mut field_number = 0usize;
@@ -492,7 +494,7 @@ impl ProcFSMemInfoReader {
 
             if byte == b'\n' || byte == b'\0' {
                 if line_started && field_number > 0 && digit_count > 0 {
-                    self.set_field(field_number, value.unwrap_or_default());
+                    self.set_field(&mut *values, field_number, value.unwrap_or_default());
                 }
 
                 line_started = false;
@@ -555,7 +557,7 @@ impl ProcFSMemInfoReader {
 
         // The final line may not have a trailing newline.
         if line_started && field_number > 0 && digit_count > 0 {
-            self.set_field(field_number, value.unwrap_or_default());
+            self.set_field(&mut *values, field_number, value.unwrap_or_default());
         }
     }
 }

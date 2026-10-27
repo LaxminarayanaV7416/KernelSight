@@ -3,6 +3,7 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 /proc/pid/status
@@ -259,11 +260,11 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct ProcFSPIDStatusReader {
     reader: ProcFileReader<4096>,
-    values: Box<ProcPIDStatusFields>,
+    values: Arc<Mutex<ProcPIDStatusFields>>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct ProcPIDStatusFields {
     pub name: String,
     pub umask: String,
@@ -332,20 +333,30 @@ impl ProcFSPIDStatusReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcPIDStatusFields::default()),
+            values: Arc::new(Mutex::new(ProcPIDStatusFields::default())),
             lines_map: None,
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
+
         if read_status {
-            self.parse_buffer(&field_filter);
+            if self.lines_map.is_none() {
+                self.lines_map = Some(line_tracker(
+                    &self.reader.buffer[..self.reader.buffer_len],
+                    field_filter,
+                    b':',
+                ));
+            }
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcPIDStatusFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcPIDStatusFields>> {
         &self.values
     }
 
@@ -377,58 +388,64 @@ impl ProcFSPIDStatusReader {
         )
     }
 
-    fn set_numeric_field(&mut self, field: usize, value: u64) {
+    fn set_numeric_field(&self, values: &mut ProcPIDStatusFields, field: usize, value: u64) {
         match field {
-            4 => self.values.tgid = value,
-            5 => self.values.ngid = value,
-            6 => self.values.pid = value,
-            7 => self.values.ppid = value,
-            8 => self.values.tracer_pid = value,
-            9 => self.values.uid = value,
-            10 => self.values.gid = value,
-            11 => self.values.fd_size = value,
-            13 => self.values.nstgid = value,
-            14 => self.values.nspid = value,
-            15 => self.values.nspgid = value,
-            16 => self.values.nssid = value,
-            17 => self.values.kthread = value,
-            18 => self.values.vm_peak = value,
-            19 => self.values.vm_size = value,
-            20 => self.values.vm_lck = value,
-            21 => self.values.vm_pin = value,
-            22 => self.values.vm_hwm = value,
-            23 => self.values.vm_rss = value,
-            24 => self.values.rss_anon = value,
-            25 => self.values.rss_file = value,
-            26 => self.values.rss_shmem = value,
-            27 => self.values.vm_data = value,
-            28 => self.values.vm_stk = value,
-            29 => self.values.vm_exe = value,
-            30 => self.values.vm_lib = value,
-            31 => self.values.vm_pte = value,
-            32 => self.values.vm_swap = value,
-            33 => self.values.hugetlb_pages = value,
-            34 => self.values.core_dumping = value,
-            35 => self.values.thp_enabled = value,
-            37 => self.values.threads = value,
-            49 => self.values.nonewprivs = value,
-            50 => self.values.seccomp = value,
-            51 => self.values.seccomp_filters = value,
-            58 => self.values.voluntary_ctxt_switches = value,
-            59 => self.values.nonvoluntary_ctxt_switches = value,
-            60 => self.values.x86_thread_features = value,
-            61 => self.values.x86_thread_features_locked = value,
+            4 => values.tgid = value,
+            5 => values.ngid = value,
+            6 => values.pid = value,
+            7 => values.ppid = value,
+            8 => values.tracer_pid = value,
+            9 => values.uid = value,
+            10 => values.gid = value,
+            11 => values.fd_size = value,
+            13 => values.nstgid = value,
+            14 => values.nspid = value,
+            15 => values.nspgid = value,
+            16 => values.nssid = value,
+            17 => values.kthread = value,
+            18 => values.vm_peak = value,
+            19 => values.vm_size = value,
+            20 => values.vm_lck = value,
+            21 => values.vm_pin = value,
+            22 => values.vm_hwm = value,
+            23 => values.vm_rss = value,
+            24 => values.rss_anon = value,
+            25 => values.rss_file = value,
+            26 => values.rss_shmem = value,
+            27 => values.vm_data = value,
+            28 => values.vm_stk = value,
+            29 => values.vm_exe = value,
+            30 => values.vm_lib = value,
+            31 => values.vm_pte = value,
+            32 => values.vm_swap = value,
+            33 => values.hugetlb_pages = value,
+            34 => values.core_dumping = value,
+            35 => values.thp_enabled = value,
+            37 => values.threads = value,
+            49 => values.nonewprivs = value,
+            50 => values.seccomp = value,
+            51 => values.seccomp_filters = value,
+            58 => values.voluntary_ctxt_switches = value,
+            59 => values.nonvoluntary_ctxt_switches = value,
+            60 => values.x86_thread_features = value,
+            61 => values.x86_thread_features_locked = value,
             _ => {}
         }
     }
 
-    fn finish_string_field(&mut self, field: usize, start: Option<usize>, end: usize) {
+    fn finish_string_field(
+        &self,
+        values: &mut ProcPIDStatusFields,
+        field: usize,
+        start: Option<usize>,
+        end: usize,
+    ) {
         let Some(start) = start else {
             return;
         };
 
         if start >= end {
-            self.set_string_field(field, String::new());
+            self.set_string_field(&mut *values, field, String::new());
             return;
         }
 
@@ -441,45 +458,38 @@ impl ProcFSPIDStatusReader {
             }
         };
 
-        self.set_string_field(field, value);
+        self.set_string_field(&mut *values, field, value);
     }
 
-    fn set_string_field(&mut self, field: usize, value: String) {
+    fn set_string_field(&self, values: &mut ProcPIDStatusFields, field: usize, value: String) {
         match field {
-            1 => self.values.name = value,
-            2 => self.values.umask = value,
-            3 => self.values.state = value,
-            12 => self.values.groups = value,
-            36 => self.values.untag_mask = value,
-            38 => self.values.sigq = value,
-            39 => self.values.sigpnd = value,
-            40 => self.values.shdpnd = value,
-            41 => self.values.sigblk = value,
-            42 => self.values.sigign = value,
-            43 => self.values.sigcgt = value,
-            44 => self.values.capinh = value,
-            45 => self.values.capprm = value,
-            46 => self.values.capeff = value,
-            47 => self.values.capbnd = value,
-            48 => self.values.capamb = value,
-            52 => self.values.speculation_store_bypass = value,
-            53 => self.values.speculationindirectbranch = value,
-            54 => self.values.cpus_allowed = value,
-            55 => self.values.cpus_allowed_list = value,
-            56 => self.values.mems_allowed = value,
-            57 => self.values.mems_allowed_list = value,
+            1 => values.name = value,
+            2 => values.umask = value,
+            3 => values.state = value,
+            12 => values.groups = value,
+            36 => values.untag_mask = value,
+            38 => values.sigq = value,
+            39 => values.sigpnd = value,
+            40 => values.shdpnd = value,
+            41 => values.sigblk = value,
+            42 => values.sigign = value,
+            43 => values.sigcgt = value,
+            44 => values.capinh = value,
+            45 => values.capprm = value,
+            46 => values.capeff = value,
+            47 => values.capbnd = value,
+            48 => values.capamb = value,
+            52 => values.speculation_store_bypass = value,
+            53 => values.speculationindirectbranch = value,
+            54 => values.cpus_allowed = value,
+            55 => values.cpus_allowed_list = value,
+            56 => values.mems_allowed = value,
+            57 => values.mems_allowed_list = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
-        if self.lines_map.is_none() {
-            self.lines_map = Some(line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
-                b':',
-            ));
-        }
+    fn parse_buffer(&self, values: &mut ProcPIDStatusFields) {
         let mut line_number = 1usize;
         let mut field = self
             .lines_map
@@ -501,14 +511,14 @@ impl ProcFSPIDStatusReader {
             if matches!(byte, b'\n' | b'\0') {
                 if field > 0 {
                     if is_string {
-                        self.finish_string_field(field, string_start, index);
+                        self.finish_string_field(&mut *values, field, string_start, index);
                     } else if number_started {
                         let value = if number_valid && digit_count > 0 {
                             number
                         } else {
                             0
                         };
-                        self.set_numeric_field(field, value);
+                        self.set_numeric_field(&mut *values, field, value);
                     }
                 }
                 line_number += 1;
@@ -591,7 +601,7 @@ impl ProcFSPIDStatusReader {
         // Handle the final line if it has no trailing newline or NUL.
         if field > 0 {
             if is_string {
-                self.finish_string_field(field, string_start, self.reader.buffer_len);
+                self.finish_string_field(&mut *values, field, string_start, self.reader.buffer_len);
             } else if number_started {
                 let value = if number_valid && digit_count > 0 {
                     number
@@ -599,7 +609,7 @@ impl ProcFSPIDStatusReader {
                     0
                 };
 
-                self.set_numeric_field(field, value);
+                self.set_numeric_field(&mut *values, field, value);
             }
         }
     }

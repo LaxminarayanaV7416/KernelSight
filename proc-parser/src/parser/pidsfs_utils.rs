@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 /*
  * This struct holds the pid
@@ -107,7 +108,7 @@ impl ProcFSPIDReaders {
         // Reader setup succeeded. Only now publish metadata.
         match transmitter_writer.send(WriteDataMsg::PIDCgroup(WriteData::new(
             time,
-            pid_cgroup.clone(),
+            Arc::new(Mutex::new(pid_cgroup.clone())),
             Some(pid),
             None,
         ))) {
@@ -122,7 +123,7 @@ impl ProcFSPIDReaders {
 
         match transmitter_writer.send(WriteDataMsg::PIDComm(WriteData::new(
             time,
-            pid_comm.clone(),
+            Arc::new(Mutex::new(pid_comm.clone())),
             Some(pid),
             None,
         ))) {
@@ -137,7 +138,7 @@ impl ProcFSPIDReaders {
 
         match transmitter_writer.send(WriteDataMsg::PIDCmdline(WriteData::new(
             time,
-            pid_cmdline.clone(),
+            Arc::new(Mutex::new(pid_cmdline.clone())),
             Some(pid),
             None,
         ))) {
@@ -186,7 +187,7 @@ impl ProcFSPIDReaders {
             }
             match transmitter_writer.send(WriteDataMsg::PIDSchedStat(WriteData::new(
                 time,
-                *reader.values(),
+                reader.values().clone(),
                 Some(self.pid),
                 None,
             ))) {
@@ -233,7 +234,7 @@ impl ProcFSPIDReaders {
             }
             match transmitter_writer.send(WriteDataMsg::PIDStatm(WriteData::new(
                 time,
-                *reader.values(),
+                reader.values().clone(),
                 Some(self.pid),
                 None,
             ))) {

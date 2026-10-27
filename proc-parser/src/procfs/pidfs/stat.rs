@@ -2,14 +2,15 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct ProcFSPIDStatReader {
     reader: ProcFileReader<4096>,
-    values: Box<ProcPIDStatFields>,
+    values: Arc<Mutex<ProcPIDStatFields>>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct ProcPIDStatFields {
     pub pid: i64,
     pub comm: String,
@@ -69,80 +70,82 @@ impl ProcFSPIDStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcPIDStatFields::default()),
+            values: Arc::new(Mutex::new(ProcPIDStatFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcPIDStatFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcPIDStatFields>> {
         &self.values
     }
 
-    fn set_unsigned_field(&mut self, field: usize, value: u64) {
+    fn set_unsigned_field(&self, values: &mut ProcPIDStatFields, field: usize, value: u64) {
         match field {
-            9 => self.values.flags = value,
-            10 => self.values.minflt = value,
-            11 => self.values.cminflt = value,
-            12 => self.values.majflt = value,
-            13 => self.values.cmajflt = value,
-            14 => self.values.utime = value,
-            15 => self.values.stime = value,
-            22 => self.values.starttime = value,
-            23 => self.values.vsize = value,
-            25 => self.values.rsslim = value,
-            26 => self.values.startcode = value,
-            27 => self.values.endcode = value,
-            28 => self.values.startstack = value,
-            29 => self.values.kstkesp = value,
-            30 => self.values.kstkeip = value,
-            31 => self.values.signal = value,
-            32 => self.values.blocked = value,
-            33 => self.values.sigignore = value,
-            34 => self.values.sigcatch = value,
-            35 => self.values.wchan = value,
-            36 => self.values.nswap = value,
-            37 => self.values.cnswap = value,
-            40 => self.values.rt_priority = value,
-            41 => self.values.policy = value,
-            42 => self.values.delayacct_blkio_ticks = value,
-            43 => self.values.guest_time = value,
-            45 => self.values.start_data = value,
-            46 => self.values.end_data = value,
-            47 => self.values.start_brk = value,
-            48 => self.values.arg_start = value,
-            49 => self.values.arg_end = value,
-            50 => self.values.env_start = value,
-            51 => self.values.env_end = value,
+            9 => values.flags = value,
+            10 => values.minflt = value,
+            11 => values.cminflt = value,
+            12 => values.majflt = value,
+            13 => values.cmajflt = value,
+            14 => values.utime = value,
+            15 => values.stime = value,
+            22 => values.starttime = value,
+            23 => values.vsize = value,
+            25 => values.rsslim = value,
+            26 => values.startcode = value,
+            27 => values.endcode = value,
+            28 => values.startstack = value,
+            29 => values.kstkesp = value,
+            30 => values.kstkeip = value,
+            31 => values.signal = value,
+            32 => values.blocked = value,
+            33 => values.sigignore = value,
+            34 => values.sigcatch = value,
+            35 => values.wchan = value,
+            36 => values.nswap = value,
+            37 => values.cnswap = value,
+            40 => values.rt_priority = value,
+            41 => values.policy = value,
+            42 => values.delayacct_blkio_ticks = value,
+            43 => values.guest_time = value,
+            45 => values.start_data = value,
+            46 => values.end_data = value,
+            47 => values.start_brk = value,
+            48 => values.arg_start = value,
+            49 => values.arg_end = value,
+            50 => values.env_start = value,
+            51 => values.env_end = value,
             _ => {}
         }
     }
 
-    fn set_signed_field(&mut self, field: usize, value: i64) {
+    fn set_signed_field(&self, values: &mut ProcPIDStatFields, field: usize, value: i64) {
         match field {
-            1 => self.values.pid = value,
-            4 => self.values.ppid = value,
-            5 => self.values.pgrp = value,
-            6 => self.values.session = value,
-            7 => self.values.tty_nr = value,
-            8 => self.values.tpgid = value,
-            16 => self.values.cutime = value,
-            17 => self.values.cstime = value,
-            18 => self.values.priority = value,
-            19 => self.values.nice = value,
-            20 => self.values.num_threads = value,
-            21 => self.values.itrealvalue = value,
-            24 => self.values.rss = value,
-            38 => self.values.exit_signal = value,
-            39 => self.values.processor = value,
-            44 => self.values.cguest_time = value,
-            52 => self.values.exit_code = value,
+            1 => values.pid = value,
+            4 => values.ppid = value,
+            5 => values.pgrp = value,
+            6 => values.session = value,
+            7 => values.tty_nr = value,
+            8 => values.tpgid = value,
+            16 => values.cutime = value,
+            17 => values.cstime = value,
+            18 => values.priority = value,
+            19 => values.nice = value,
+            20 => values.num_threads = value,
+            21 => values.itrealvalue = value,
+            24 => values.rss = value,
+            38 => values.exit_signal = value,
+            39 => values.processor = value,
+            44 => values.cguest_time = value,
+            52 => values.exit_code = value,
             _ => {}
         }
     }
@@ -156,7 +159,8 @@ impl ProcFSPIDStatReader {
     }
 
     fn finish_numeric_field(
-        &mut self,
+        &self,
+        values: &mut ProcPIDStatFields,
         field: usize,
         magnitude: u64,
         negative: bool,
@@ -182,13 +186,17 @@ impl ProcFSPIDStatReader {
             } else {
                 0
             };
-            self.set_signed_field(field, value);
+            self.set_signed_field(&mut *values, field, value);
         } else {
-            self.set_unsigned_field(field, if valid && !negative { magnitude } else { 0 });
+            self.set_unsigned_field(
+                &mut *values,
+                field,
+                if valid && !negative { magnitude } else { 0 },
+            );
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut ProcPIDStatFields, field_filter: &HashMap<usize, bool>) {
         let buffer_len = self.reader.buffer_len;
 
         if buffer_len == 0 || field_filter.is_empty() {
@@ -282,7 +290,7 @@ impl ProcFSPIDStatReader {
                 }
             }
 
-            self.finish_numeric_field(1, magnitude, negative, valid, digit_count);
+            self.finish_numeric_field(&mut *values, 1, magnitude, negative, valid, digit_count);
         }
 
         // ---------------------------------------------------------------------
@@ -291,8 +299,8 @@ impl ProcFSPIDStatReader {
 
         if let Some(comm) = comm {
             // Reuse the String's existing allocation where possible.
-            self.values.comm.clear();
-            self.values.comm.push_str(&comm);
+            values.comm.clear();
+            values.comm.push_str(&comm);
         }
 
         // ---------------------------------------------------------------------
@@ -310,7 +318,7 @@ impl ProcFSPIDStatReader {
         }
 
         if field_filter.get(&3).copied().unwrap_or(false) {
-            self.values.state = char::from(self.reader.buffer[index]);
+            values.state = char::from(self.reader.buffer[index]);
         }
 
         index += 1;
@@ -332,7 +340,14 @@ impl ProcFSPIDStatReader {
             if matches!(byte, b' ' | b'\t' | b'\n' | b'\0') {
                 if token_started {
                     if selected {
-                        self.finish_numeric_field(field, magnitude, negative, valid, digit_count);
+                        self.finish_numeric_field(
+                            &mut *values,
+                            field,
+                            magnitude,
+                            negative,
+                            valid,
+                            digit_count,
+                        );
                     }
                     field += 1;
                     if field > 52 {
@@ -392,7 +407,7 @@ impl ProcFSPIDStatReader {
         }
         // Handle field 52 when the file lacks a trailing newline or NUL.
         if token_started && field <= 52 && selected {
-            self.finish_numeric_field(field, magnitude, negative, valid, digit_count);
+            self.finish_numeric_field(&mut *values, field, magnitude, negative, valid, digit_count);
         }
     }
 }

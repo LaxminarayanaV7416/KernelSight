@@ -187,12 +187,13 @@ impl CgroupsV2Readers {
             return false;
         };
         if reader_procs.read_and_parse() {
-            let values = reader_procs.values();
-            // println!("PIDS Cgroups: {:?}", values.pids);
-            for pid in values.pids.iter() {
-                transmit_cgroup_procs_to_pids
-                    .send(PIDActions::Add(ProcFSPID::new(*pid)))
-                    .unwrap();
+            if let Ok(values) = reader_procs.values().lock() {
+                // println!("PIDS Cgroups: {:?}", values.pids);
+                for pid in values.pids.iter() {
+                    transmit_cgroup_procs_to_pids
+                        .send(PIDActions::Add(ProcFSPID::new(*pid)))
+                        .unwrap();
+                }
             }
         } else {
             return false;
@@ -208,7 +209,7 @@ impl CgroupsV2Readers {
             transmit_cgroup_writer
                 .send(WriteCgroupsDataMsg::CgroupEvent(WriteCgroupsData::new(
                     time,
-                    *reader.values(),
+                    reader.values().clone(),
                     self.cgroup_path.clone(),
                 )))
                 .unwrap();
@@ -221,7 +222,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::CpuPressure(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -242,7 +243,7 @@ impl CgroupsV2Readers {
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::CpuStat(WriteCgroupsData::new(
                 time,
-                *reader.values(),
+                reader.values().clone(),
                 self.cgroup_path.clone(),
             ))) {
                 Ok(_) => (),
@@ -263,7 +264,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::IoPressure(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -303,7 +304,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryEvent(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -323,7 +324,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryPressure(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -363,7 +364,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryStat(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -403,7 +404,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsEvent(
-                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {

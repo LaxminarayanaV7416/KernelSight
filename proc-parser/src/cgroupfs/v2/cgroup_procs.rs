@@ -1,6 +1,7 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 Contains the pids as single line in the cgroup.procs file
@@ -8,7 +9,7 @@ Contains the pids as single line in the cgroup.procs file
 
 pub struct CgroupFSV2CgroupProcsReader {
     reader: ProcFileReader<4192>,
-    values: Box<CgroupFSV2CgroupProcsFields>,
+    values: Arc<Mutex<CgroupFSV2CgroupProcsFields>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -20,25 +21,27 @@ impl CgroupFSV2CgroupProcsReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2CgroupProcsFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2CgroupProcsFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            // clear the pids vector and parse the buffer
-            self.values.pids.clear();
-            self.parse_buffer();
+            if let Ok(mut values) = self.values.lock() {
+                // clear the pids vector and parse the buffer
+                values.pids.clear();
+                self.parse_buffer(&mut *values);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2CgroupProcsFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2CgroupProcsFields>> {
         &self.values
     }
 
-    fn parse_buffer(&mut self) {
+    fn parse_buffer(&self, values: &mut CgroupFSV2CgroupProcsFields) {
         let mut pid_started = false;
         let mut pid = 0u64;
         let mut digit_count = 0usize;
@@ -48,7 +51,7 @@ impl CgroupFSV2CgroupProcsReader {
             let byte = self.reader.buffer[index];
             if matches!(byte, b'\n' | b'\0') {
                 if pid_started && valid && digit_count > 0 {
-                    self.values.pids.push(pid);
+                    values.pids.push(pid);
                 }
                 pid_started = false;
                 pid = 0;
@@ -93,7 +96,7 @@ impl CgroupFSV2CgroupProcsReader {
         }
 
         if pid_started && valid && digit_count > 0 {
-            self.values.pids.push(pid);
+            values.pids.push(pid);
         }
     }
 }

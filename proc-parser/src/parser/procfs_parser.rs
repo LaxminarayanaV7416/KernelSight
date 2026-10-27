@@ -113,7 +113,7 @@ pub fn record_procfs(
                 let read_status = load_avg_temp_reader.read_and_parse(&loadavg_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::LoadAvg(WriteData::new(
                     time,
-                    *load_avg_temp_reader.values(),
+                    load_avg_temp_reader.values().clone(),
                     None,
                     None,
                 ))) {
@@ -138,7 +138,7 @@ pub fn record_procfs(
                     let read_status = disk_reader.read_and_parse(&diskstats_filter_map);
                     match transmit_writer_clone.send(WriteDataMsg::DiskStats(WriteData::new(
                         time,
-                        *disk_reader.values(),
+                        disk_reader.values().clone(),
                         None,
                         None,
                     ))) {
@@ -163,7 +163,7 @@ pub fn record_procfs(
                 let read_status = pressure_cpu_reader.read_and_parse(&pressure_cpu_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
                     time,
-                    *pressure_cpu_reader.values(),
+                    pressure_cpu_reader.values().clone(),
                     None,
                     Some(PROC_PRESSURE_CPU_FILE_SLUG),
                 ))) {
@@ -188,7 +188,7 @@ pub fn record_procfs(
                 let read_status = pressure_io_reader.read_and_parse(&pressure_io_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
                     time,
-                    *pressure_io_reader.values(),
+                    pressure_io_reader.values().clone(),
                     None,
                     Some(PROC_PRESSURE_IO_FILE_SLUG),
                 ))) {
@@ -214,7 +214,7 @@ pub fn record_procfs(
                     pressure_memory_reader.read_and_parse(&pressure_memory_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
                     time,
-                    *pressure_memory_reader.values(),
+                    pressure_memory_reader.values().clone(),
                     None,
                     Some(PROC_PRESSURE_MEMORY_FILE_SLUG),
                 ))) {
@@ -239,7 +239,7 @@ pub fn record_procfs(
                 let read_status = pressure_irq_reader.read_and_parse(&pressure_irq_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::Pressure(WriteData::new(
                     time,
-                    *pressure_irq_reader.values(),
+                    pressure_irq_reader.values().clone(),
                     None,
                     Some(PROC_PRESSURE_IRQ_FILE_SLUG),
                 ))) {
@@ -264,7 +264,7 @@ pub fn record_procfs(
                 let read_status = proc_uptime_reader.read_and_parse(&proc_uptime_filter_map);
                 match transmit_writer_clone.send(WriteDataMsg::Uptime(WriteData::new(
                     time,
-                    *proc_uptime_reader.values(),
+                    proc_uptime_reader.values().clone(),
                     None,
                     None,
                 ))) {
@@ -308,7 +308,7 @@ pub fn record_procfs(
                     let read_status = proc_vmstat_reader.read_and_parse(&proc_vmstat_filter_map);
                     match transmit_writer_clone.send(WriteDataMsg::VmStat(WriteData::new(
                         time,
-                        *proc_vmstat_reader.values(),
+                        proc_vmstat_reader.values().clone(),
                         None,
                         None,
                     ))) {
@@ -393,7 +393,7 @@ pub fn record_procfs(
                     let read_status = proc_meminfo_reader.read_and_parse(&proc_meminfo_filter_map);
                     match transmit_writer.send(WriteDataMsg::MemInfo(WriteData::new(
                         time,
-                        *proc_meminfo_reader.values(),
+                        proc_meminfo_reader.values().clone(),
                         None,
                         None,
                     ))) {

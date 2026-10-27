@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 /proc/stat
@@ -192,10 +193,10 @@ impl ProcFSStatCPUFields {
 #[derive(Debug)]
 pub struct ProcFSStatReader {
     reader: ProcFileReader<6144>,
-    values: Box<ProcStatFields>,
+    values: Arc<Mutex<ProcStatFields>>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct ProcStatFields {
     pub cpu: ProcFSStatCPUFields,
     pub cpu_cores: Vec<ProcFSStatCPUFields>,
@@ -212,31 +213,35 @@ impl ProcFSStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcStatFields::default()),
+            values: Arc::new(Mutex::new(ProcStatFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                // Reuse the allocation between samples.
+                values.cpu_cores.clear();
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcStatFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcStatFields>> {
         &self.values
     }
 
-    fn set_non_cpu_field(&mut self, field: usize, value: u64) {
+    fn set_non_cpu_field(&self, values: &mut ProcStatFields, field: usize, value: u64) {
         match field {
-            3 => self.values.intr = value,
-            4 => self.values.ctxt = value,
-            5 => self.values.btime = value,
-            6 => self.values.processes = value,
-            7 => self.values.processes_running = value,
-            8 => self.values.processes_blocked = value,
-            9 => self.values.softirq = value,
+            3 => values.intr = value,
+            4 => values.ctxt = value,
+            5 => values.btime = value,
+            6 => values.processes = value,
+            7 => values.processes_running = value,
+            8 => values.processes_blocked = value,
+            9 => values.softirq = value,
             _ => {}
         }
     }
@@ -262,13 +267,10 @@ impl ProcFSStatReader {
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut ProcStatFields, field_filter: &HashMap<usize, bool>) {
         if field_filter.is_empty() {
             return;
         }
-
-        // Reuse the allocation between samples.
-        self.values.cpu_cores.clear();
 
         let mut parsing_key = true;
         let mut key_hash = FNV_OFFSET_BASIS;
@@ -385,17 +387,21 @@ impl ProcFSStatReader {
                 if selected {
                     match field {
                         1 => {
-                            self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
+                            values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
                         }
 
                         2 => {
-                            self.values
+                            values
                                 .cpu_cores
                                 .push(ProcFSStatCPUFields::from_values(cpu_values));
                         }
 
                         3..=9 => {
-                            self.set_non_cpu_field(field, first_value.unwrap_or_default());
+                            self.set_non_cpu_field(
+                                &mut *values,
+                                field,
+                                first_value.unwrap_or_default(),
+                            );
                         }
 
                         _ => {}
@@ -443,17 +449,21 @@ impl ProcFSStatReader {
             if selected {
                 match field {
                     1 => {
-                        self.values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
+                        values.cpu = ProcFSStatCPUFields::from_values(cpu_values);
                     }
 
                     2 => {
-                        self.values
+                        values
                             .cpu_cores
                             .push(ProcFSStatCPUFields::from_values(cpu_values));
                     }
 
                     3..=9 => {
-                        self.set_non_cpu_field(field, first_value.unwrap_or_default());
+                        self.set_non_cpu_field(
+                            &mut *values,
+                            field,
+                            first_value.unwrap_or_default(),
+                        );
                     }
 
                     _ => {}

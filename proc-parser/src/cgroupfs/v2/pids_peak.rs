@@ -1,6 +1,7 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 Contains the pids as single line in the cgroup.procs file
@@ -8,7 +9,7 @@ Contains the pids as single line in the cgroup.procs file
 
 pub struct CgroupFSV2PidsPeakReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2PidsPeakFields>,
+    values: Arc<Mutex<CgroupFSV2PidsPeakFields>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -20,23 +21,25 @@ impl CgroupFSV2PidsPeakReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2PidsPeakFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2PidsPeakFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer();
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2PidsPeakFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2PidsPeakFields>> {
         &self.values
     }
 
-    fn parse_buffer(&mut self) {
+    fn parse_buffer(&self, values: &mut CgroupFSV2PidsPeakFields) {
         let mut value = 0u64;
         let mut digit_count = 0usize;
         let mut value_started = false;
@@ -78,7 +81,7 @@ impl CgroupFSV2PidsPeakReader {
             }
         }
 
-        self.values.pids = if valid && value_started && digit_count > 0 {
+        values.pids = if valid && value_started && digit_count > 0 {
             value
         } else {
             0

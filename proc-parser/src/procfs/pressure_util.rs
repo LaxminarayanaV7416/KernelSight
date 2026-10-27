@@ -2,14 +2,15 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct ProcProcessGeneralReader {
     reader: ProcFileReader<512>,
-    values: Box<ProcProcessGeneralFields>,
+    values: Arc<Mutex<ProcProcessGeneralFields>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct ProcProcessGeneralFields {
     pub some_avg_10: f64,
     pub some_avg_60: f64,
@@ -25,38 +26,40 @@ impl ProcProcessGeneralReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcProcessGeneralFields::default()),
+            values: Arc::new(Mutex::new(ProcProcessGeneralFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcProcessGeneralFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcProcessGeneralFields>> {
         &self.values
     }
 
-    fn set_float_field(&mut self, field: usize, value: f64) {
+    fn set_float_field(&self, values: &mut ProcProcessGeneralFields, field: usize, value: f64) {
         match field {
-            1 => self.values.some_avg_10 = value,
-            2 => self.values.some_avg_60 = value,
-            3 => self.values.some_avg_300 = value,
-            5 => self.values.full_avg_10 = value,
-            6 => self.values.full_avg_60 = value,
-            7 => self.values.full_avg_300 = value,
+            1 => values.some_avg_10 = value,
+            2 => values.some_avg_60 = value,
+            3 => values.some_avg_300 = value,
+            5 => values.full_avg_10 = value,
+            6 => values.full_avg_60 = value,
+            7 => values.full_avg_300 = value,
             _ => {}
         }
     }
 
-    fn set_integer_field(&mut self, field: usize, value: u64) {
+    fn set_integer_field(&self, values: &mut ProcProcessGeneralFields, field: usize, value: u64) {
         match field {
-            4 => self.values.some_total = value,
-            8 => self.values.full_total = value,
+            4 => values.some_total = value,
+            8 => values.full_total = value,
             _ => {}
         }
     }
@@ -76,7 +79,11 @@ impl ProcProcessGeneralReader {
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(
+        &self,
+        values: &mut ProcProcessGeneralFields,
+        field_filter: &HashMap<usize, bool>,
+    ) {
         const SOME: u64 = 0x73_6f_6d_65;
         const FULL: u64 = 0x66_75_6c_6c;
         // self.values = Box::new(ProcProcessGeneralFields::default());
@@ -127,7 +134,7 @@ impl ProcProcessGeneralReader {
                                     0
                                 };
 
-                                self.set_integer_field(field, value);
+                                self.set_integer_field(&mut *values, field, value);
                             } else {
                                 let value = if valid && digit_count > 0 {
                                     integer_part as f64
@@ -136,7 +143,7 @@ impl ProcProcessGeneralReader {
                                     0.0
                                 };
 
-                                self.set_float_field(field, value);
+                                self.set_float_field(&mut *values, field, value);
                             }
                         }
                     } else if field_base.is_none() {
@@ -243,7 +250,7 @@ impl ProcProcessGeneralReader {
                     0
                 };
 
-                self.set_integer_field(field, value);
+                self.set_integer_field(&mut *values, field, value);
             } else {
                 let value = if valid && digit_count > 0 {
                     integer_part as f64 + fractional_part as f64 / fractional_divisor
@@ -251,7 +258,7 @@ impl ProcProcessGeneralReader {
                     0.0
                 };
 
-                self.set_float_field(field, value);
+                self.set_float_field(&mut *values, field, value);
             }
         }
     }

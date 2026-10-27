@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 Field Number
@@ -28,10 +29,10 @@ Field 5 - int32
 #[derive(Debug)]
 pub struct ProcFSUptimeReader {
     reader: ProcFileReader<128>,
-    values: Box<ProcUptimeFields>,
+    values: Arc<Mutex<ProcUptimeFields>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct ProcUptimeFields {
     pub suspended_time: f64,
     pub idle_time: f64,
@@ -41,31 +42,33 @@ impl ProcFSUptimeReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcUptimeFields::default()),
+            values: Arc::new(Mutex::new(ProcUptimeFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcUptimeFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcUptimeFields>> {
         &self.values
     }
 
-    fn set_field(&mut self, field: usize, value: f64) {
+    fn set_field(&self, values: &mut ProcUptimeFields, field: usize, value: f64) {
         match field {
-            1 => self.values.suspended_time = value,
-            2 => self.values.idle_time = value,
+            1 => values.suspended_time = value,
+            2 => values.idle_time = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut ProcUptimeFields, field_filter: &HashMap<usize, bool>) {
         let mut field = 1usize;
         let mut selected = field_filter.get(&field).copied().unwrap_or(false);
         let mut token_started = false;
@@ -89,7 +92,7 @@ impl ProcFSUptimeReader {
                             0.0
                         };
 
-                        self.set_field(field, value);
+                        self.set_field(&mut *values, field, value);
                     }
 
                     field += 1;
@@ -172,7 +175,7 @@ impl ProcFSUptimeReader {
                 0.0
             };
 
-            self.set_field(field, value);
+            self.set_field(&mut *values, field, value);
         }
     }
 }

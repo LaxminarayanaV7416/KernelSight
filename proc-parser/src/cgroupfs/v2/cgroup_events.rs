@@ -2,6 +2,8 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
 /*
 populated
     1 if the cgroup or its descendants contains any live processes; otherwise, 0.
@@ -11,7 +13,7 @@ frozen
 
 pub struct CgroupFSV2CgroupEventReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2CgroupEventFields>,
+    values: Arc<Mutex<CgroupFSV2CgroupEventFields>>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -24,32 +26,38 @@ impl CgroupFSV2CgroupEventReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2CgroupEventFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2CgroupEventFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2CgroupEventFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2CgroupEventFields>> {
         &self.values
     }
 
     #[inline]
-    fn set_field(&mut self, field: usize, value: bool) {
+    fn set_field(&self, values: &mut CgroupFSV2CgroupEventFields, field: usize, value: bool) {
         match field {
-            1 => self.values.populated = value,
-            2 => self.values.frozen = value,
+            1 => values.populated = value,
+            2 => values.frozen = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(
+        &self,
+        values: &mut CgroupFSV2CgroupEventFields,
+        field_filter: &HashMap<usize, bool>,
+    ) {
         if field_filter.is_empty() {
             return;
         }
@@ -103,7 +111,7 @@ impl CgroupFSV2CgroupEventReader {
             };
 
             if field_filter.get(&line_number).copied().unwrap_or(false) {
-                self.set_field(line_number, value);
+                self.set_field(&mut *values, line_number, value);
             }
 
             value_parsed = true;

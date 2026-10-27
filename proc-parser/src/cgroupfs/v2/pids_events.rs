@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 populated
@@ -12,7 +13,7 @@ frozen
 
 pub struct CgroupFSV2PidsEventReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2PidsEventFields>,
+    values: Arc<Mutex<CgroupFSV2PidsEventFields>>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -24,23 +25,29 @@ impl CgroupFSV2PidsEventReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2PidsEventFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2PidsEventFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2PidsEventFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2PidsEventFields>> {
         &self.values
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
+    fn parse_buffer(
+        &self,
+        values: &mut CgroupFSV2PidsEventFields,
+        field_filter: &HashMap<&str, (usize, bool)>,
+    ) {
         let max_enabled = field_filter
             .get("max")
             .map(|(_, enabled)| *enabled)
@@ -63,7 +70,7 @@ impl CgroupFSV2PidsEventReader {
             let byte = self.reader.buffer[index];
             if matches!(byte, b'\n' | b'\0') {
                 if is_max_line {
-                    self.values.max = if value_started && valid && digit_count > 0 {
+                    values.max = if value_started && valid && digit_count > 0 {
                         value
                     } else {
                         0
@@ -135,7 +142,7 @@ impl CgroupFSV2PidsEventReader {
         }
         // Handle a max line without trailing newline/NUL.
         if is_max_line {
-            self.values.max = if value_started && valid && digit_count > 0 {
+            values.max = if value_started && valid && digit_count > 0 {
                 value
             } else {
                 0

@@ -3,6 +3,7 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 populated
@@ -13,11 +14,11 @@ frozen
 
 pub struct CgroupFSV2MemoryStatReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2MemoryStatFields>,
+    values: Arc<Mutex<CgroupFSV2MemoryStatFields>>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct CgroupFSV2MemoryStatFields {
     pub anon: u64,
     pub file: u64,
@@ -97,7 +98,7 @@ impl CgroupFSV2MemoryStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2MemoryStatFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2MemoryStatFields::default())),
             lines_map: None,
         })
     }
@@ -105,106 +106,112 @@ impl CgroupFSV2MemoryStatReader {
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            // Fields vary between kernel versions. Build a name-based line map
+            // once, then reuse it for subsequent samples.
+            if self.lines_map.is_none() {
+                self.lines_map = Some(line_tracker(
+                    &self.reader.buffer[..self.reader.buffer_len],
+                    field_filter,
+                    b' ',
+                ));
+            }
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2MemoryStatFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2MemoryStatFields>> {
         &self.values
     }
 
     #[inline]
-    fn set_field(&mut self, field: usize, value: u64) {
+    fn set_field(&self, values: &mut CgroupFSV2MemoryStatFields, field: usize, value: u64) {
         match field {
-            1 => self.values.anon = value,
-            2 => self.values.file = value,
-            3 => self.values.kernel = value,
-            4 => self.values.kernel_stack = value,
-            5 => self.values.pagetables = value,
-            6 => self.values.sec_pagetables = value,
-            7 => self.values.percpu = value,
-            8 => self.values.sock = value,
-            9 => self.values.vmalloc = value,
-            10 => self.values.shmem = value,
-            11 => self.values.zswap = value,
-            12 => self.values.zswapped = value,
-            13 => self.values.zswap_incomp = value,
-            14 => self.values.file_mapped = value,
-            15 => self.values.file_dirty = value,
-            16 => self.values.file_writeback = value,
-            17 => self.values.swapcached = value,
-            18 => self.values.anon_thp = value,
-            19 => self.values.file_thp = value,
-            20 => self.values.shmem_thp = value,
-            21 => self.values.inactive_anon = value,
-            22 => self.values.active_anon = value,
-            23 => self.values.inactive_file = value,
-            24 => self.values.active_file = value,
-            25 => self.values.unevictable = value,
-            26 => self.values.slab_reclaimable = value,
-            27 => self.values.slab_unreclaimable = value,
-            28 => self.values.slab = value,
-            29 => self.values.hugetlb = value,
-            30 => self.values.workingset_refault_anon = value,
-            31 => self.values.workingset_refault_file = value,
-            32 => self.values.workingset_activate_anon = value,
-            33 => self.values.workingset_activate_file = value,
-            34 => self.values.workingset_restore_anon = value,
-            35 => self.values.workingset_restore_file = value,
-            36 => self.values.workingset_nodereclaim = value,
-            37 => self.values.pgdemote_kswapd = value,
-            38 => self.values.pgdemote_direct = value,
-            39 => self.values.pgdemote_khugepaged = value,
-            40 => self.values.pgdemote_proactive = value,
-            41 => self.values.pgsteal_kswapd = value,
-            42 => self.values.pgsteal_direct = value,
-            43 => self.values.pgsteal_khugepaged = value,
-            44 => self.values.pgsteal_proactive = value,
-            45 => self.values.pgscan_kswapd = value,
-            46 => self.values.pgscan_direct = value,
-            47 => self.values.pgscan_khugepaged = value,
-            48 => self.values.pgscan_proactive = value,
-            49 => self.values.pgrefill = value,
-            50 => self.values.pgpromote_success = value,
-            51 => self.values.pgscan = value,
-            52 => self.values.pgsteal = value,
-            53 => self.values.pswpin = value,
-            54 => self.values.pswpout = value,
-            55 => self.values.pgfault = value,
-            56 => self.values.pgmajfault = value,
-            57 => self.values.pgactivate = value,
-            58 => self.values.pgdeactivate = value,
-            59 => self.values.pglazyfree = value,
-            60 => self.values.pglazyfreed = value,
-            61 => self.values.swpin_zero = value,
-            62 => self.values.swpout_zero = value,
-            63 => self.values.zswpin = value,
-            64 => self.values.zswpout = value,
-            65 => self.values.zswpwb = value,
-            66 => self.values.thp_fault_alloc = value,
-            67 => self.values.thp_collapse_alloc = value,
-            68 => self.values.thp_swpout = value,
-            69 => self.values.thp_swpout_fallback = value,
-            70 => self.values.numa_pages_migrated = value,
-            71 => self.values.numa_pte_updates = value,
-            72 => self.values.numa_hint_faults = value,
+            1 => values.anon = value,
+            2 => values.file = value,
+            3 => values.kernel = value,
+            4 => values.kernel_stack = value,
+            5 => values.pagetables = value,
+            6 => values.sec_pagetables = value,
+            7 => values.percpu = value,
+            8 => values.sock = value,
+            9 => values.vmalloc = value,
+            10 => values.shmem = value,
+            11 => values.zswap = value,
+            12 => values.zswapped = value,
+            13 => values.zswap_incomp = value,
+            14 => values.file_mapped = value,
+            15 => values.file_dirty = value,
+            16 => values.file_writeback = value,
+            17 => values.swapcached = value,
+            18 => values.anon_thp = value,
+            19 => values.file_thp = value,
+            20 => values.shmem_thp = value,
+            21 => values.inactive_anon = value,
+            22 => values.active_anon = value,
+            23 => values.inactive_file = value,
+            24 => values.active_file = value,
+            25 => values.unevictable = value,
+            26 => values.slab_reclaimable = value,
+            27 => values.slab_unreclaimable = value,
+            28 => values.slab = value,
+            29 => values.hugetlb = value,
+            30 => values.workingset_refault_anon = value,
+            31 => values.workingset_refault_file = value,
+            32 => values.workingset_activate_anon = value,
+            33 => values.workingset_activate_file = value,
+            34 => values.workingset_restore_anon = value,
+            35 => values.workingset_restore_file = value,
+            36 => values.workingset_nodereclaim = value,
+            37 => values.pgdemote_kswapd = value,
+            38 => values.pgdemote_direct = value,
+            39 => values.pgdemote_khugepaged = value,
+            40 => values.pgdemote_proactive = value,
+            41 => values.pgsteal_kswapd = value,
+            42 => values.pgsteal_direct = value,
+            43 => values.pgsteal_khugepaged = value,
+            44 => values.pgsteal_proactive = value,
+            45 => values.pgscan_kswapd = value,
+            46 => values.pgscan_direct = value,
+            47 => values.pgscan_khugepaged = value,
+            48 => values.pgscan_proactive = value,
+            49 => values.pgrefill = value,
+            50 => values.pgpromote_success = value,
+            51 => values.pgscan = value,
+            52 => values.pgsteal = value,
+            53 => values.pswpin = value,
+            54 => values.pswpout = value,
+            55 => values.pgfault = value,
+            56 => values.pgmajfault = value,
+            57 => values.pgactivate = value,
+            58 => values.pgdeactivate = value,
+            59 => values.pglazyfree = value,
+            60 => values.pglazyfreed = value,
+            61 => values.swpin_zero = value,
+            62 => values.swpout_zero = value,
+            63 => values.zswpin = value,
+            64 => values.zswpout = value,
+            65 => values.zswpwb = value,
+            66 => values.thp_fault_alloc = value,
+            67 => values.thp_collapse_alloc = value,
+            68 => values.thp_swpout = value,
+            69 => values.thp_swpout_fallback = value,
+            70 => values.numa_pages_migrated = value,
+            71 => values.numa_pte_updates = value,
+            72 => values.numa_hint_faults = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
+    fn parse_buffer(
+        &self,
+        values: &mut CgroupFSV2MemoryStatFields,
+        field_filter: &HashMap<&str, (usize, bool)>,
+    ) {
         if field_filter.is_empty() {
             return;
-        }
-        // Fields vary between kernel versions. Build a name-based line map
-        // once, then reuse it for subsequent samples.
-        if self.lines_map.is_none() {
-            self.lines_map = Some(line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
-                b' ',
-            ));
         }
         let mut line_number = 1usize;
         let mut line_started = false;
@@ -228,7 +235,7 @@ impl CgroupFSV2MemoryStatReader {
                     if field > 0 && value_started {
                         let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-                        self.set_field(field, parsed_value);
+                        self.set_field(&mut *values, field, parsed_value);
                     }
                     line_number += 1;
                 }
@@ -298,7 +305,7 @@ impl CgroupFSV2MemoryStatReader {
         if line_started && field > 0 && value_started {
             let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-            self.set_field(field, parsed_value);
+            self.set_field(&mut *values, field, parsed_value);
         }
     }
 }

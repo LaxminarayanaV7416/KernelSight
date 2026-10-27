@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 /proc/pid/statm
@@ -30,10 +31,10 @@ detailed information.
 #[derive(Debug)]
 pub struct ProcFSPIDStatmReader {
     reader: ProcFileReader<512>,
-    values: Box<ProcPIDStatmFields>,
+    values: Arc<Mutex<ProcPIDStatmFields>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct ProcPIDStatmFields {
     pub size: u64,
     pub resident: u64,
@@ -48,37 +49,39 @@ impl ProcFSPIDStatmReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcPIDStatmFields::default()),
+            values: Arc::new(Mutex::new(ProcPIDStatmFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcPIDStatmFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcPIDStatmFields>> {
         &self.values
     }
 
     #[inline]
-    fn set_field(&mut self, field: usize, value: u64) {
+    fn set_field(&self, values: &mut ProcPIDStatmFields, field: usize, value: u64) {
         match field {
-            1 => self.values.size = value,
-            2 => self.values.resident = value,
-            3 => self.values.shared = value,
-            4 => self.values.text = value,
-            5 => self.values.lib = value,
-            6 => self.values.data = value,
-            7 => self.values.dirty = value,
+            1 => values.size = value,
+            2 => values.resident = value,
+            3 => values.shared = value,
+            4 => values.text = value,
+            5 => values.lib = value,
+            6 => values.data = value,
+            7 => values.dirty = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut ProcPIDStatmFields, field_filter: &HashMap<usize, bool>) {
         if field_filter.is_empty() {
             return;
         }
@@ -97,7 +100,7 @@ impl ProcFSPIDStatmReader {
                 if token_started {
                     if selected {
                         let parsed_value = if valid && digit_count > 0 { value } else { 0 };
-                        self.set_field(field, parsed_value);
+                        self.set_field(&mut *values, field, parsed_value);
                     }
                     field += 1;
                     // /proc/<pid>/statm contains exactly seven fields.
@@ -147,7 +150,7 @@ impl ProcFSPIDStatmReader {
         if token_started && field <= 7 && selected {
             let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-            self.set_field(field, parsed_value);
+            self.set_field(&mut *values, field, parsed_value);
         }
     }
 }

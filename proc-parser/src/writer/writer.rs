@@ -11,69 +11,103 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use std::fmt::Debug;
+use std::sync::Mutex;
+
+fn print_locked<T>(label: &str, data: &Arc<Mutex<T>>)
+where
+    T: Debug,
+{
+    match data.lock() {
+        Ok(guard) => {
+            println!("{label}: {:?}", &*guard);
+        }
+
+        Err(error) => {
+            eprintln!("Failed to lock {label} message: {error}");
+        }
+    }
+}
+
 pub fn start_writer(
     config: &'static Config,
     signaller: Arc<AtomicBool>,
     receiver: Receiver<WriteDataMsg>,
 ) -> Result<JoinHandle<()>> {
     let thread_builder = thread::Builder::new().name("ProcParserWriterThread".to_string());
+
     thread_builder
         .spawn(move || {
             while !signaller.load(Ordering::Relaxed) {
                 match receiver.recv_timeout(Duration::from_secs(1)) {
-                    Ok(data) => match data {
-                        WriteDataMsg::LoadAvg(msg) => {
-                            // println!("LoadAvg {:?}", msg);
-                        }
-                        WriteDataMsg::MemInfo(msg) => {
-                            // println!("MemInfo {:?}", msg);
-                        }
-                        WriteDataMsg::Stat(msg) => {
-                            // println!("Stat {:?}", msg);
-                        }
-                        WriteDataMsg::Uptime(msg) => {
-                            // println!("Uptime {:?}", msg);
-                        }
-                        WriteDataMsg::VmStat(msg) => {
-                            // println!("VmStat {:?}", msg);
-                        }
-                        WriteDataMsg::DiskStats(msg) => {
-                            // println!("Diskstats {:?}", msg);
-                        }
-                        WriteDataMsg::Pressure(msg) => {
-                            // println!("Pressure {:?}", msg);
-                        }
-                        WriteDataMsg::PIDCgroup(msg) => {
-                            // println!("Cgroup {:?}", msg);
-                        }
-                        WriteDataMsg::PIDComm(msg) => {
-                            // println!("comm {:?}", msg);
-                        }
-                        WriteDataMsg::PIDCmdline(msg) => {
-                            // println!("cmdline {:?}", msg);
-                        }
-                        WriteDataMsg::PIDSchedStat(msg) => {
-                            // println!("Schedstat {:?}", msg);
-                        }
-                        WriteDataMsg::PIDStat(msg) => {
-                            // println!("PID Stat {:?}", msg);
-                        }
-                        WriteDataMsg::PIDStatm(msg) => {
-                            // println!("Statm {:?}", msg);
-                        }
-                        WriteDataMsg::PIDStatus(msg) => {
-                            // println!("Status {:?}", msg);
-                        }
-                    },
+                    Ok(WriteDataMsg::LoadAvg(msg)) => {
+                        // print_locked("LoadAvg", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::MemInfo(msg)) => {
+                        // print_locked("MemInfo", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::Stat(msg)) => {
+                        // print_locked("Stat", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::Uptime(msg)) => {
+                        // print_locked("Uptime", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::VmStat(msg)) => {
+                        // print_locked("VmStat", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::DiskStats(msg)) => {
+                        // print_locked("DiskStats", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::Pressure(msg)) => {
+                        // print_locked("Pressure", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDCgroup(msg)) => {
+                        // print_locked("PID Cgroup", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDComm(msg)) => {
+                        // print_locked("PID Comm", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDCmdline(msg)) => {
+                        // print_locked("PID Cmdline", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDSchedStat(msg)) => {
+                        // print_locked("PID SchedStat", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDStat(msg)) => {
+                        // print_locked("PID Stat", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDStatm(msg)) => {
+                        // print_locked("PID Statm", &msg.data);
+                    }
+
+                    Ok(WriteDataMsg::PIDStatus(msg)) => {
+                        // print_locked("PID Status", &msg.data);
+                    }
 
                     Err(RecvTimeoutError::Timeout) => {
-                        // Normal: no message arrived during this interval.
+                        // Normal: no message arrived.
                     }
 
                     Err(RecvTimeoutError::Disconnected) => {
                         break;
                     }
                 }
+            }
+
+            if config.debug {
+                println!("Procfs writer thread stopped");
             }
         })
         .map_err(|io_error| ProcParserError::ThreadSpawningError(io_error.to_string()))

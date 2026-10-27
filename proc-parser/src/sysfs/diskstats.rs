@@ -3,6 +3,7 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::parse_u64_swar;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /*
 Both files contain the same 17 statistics. /sys/block/<device>/stat contains the fields for <device>.
@@ -72,10 +73,10 @@ LAX Calculations for the memory
 
 pub struct DiskStatsReader {
     reader: ProcFileReader<512>,
-    values: Box<DiskStatsFields>,
+    values: Arc<Mutex<DiskStatsFields>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct DiskStatsFields {
     pub reads_completed: u64,
     pub reads_merged: u64,
@@ -100,19 +101,21 @@ impl DiskStatsReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(DiskStatsFields::default()),
+            values: Arc::new(Mutex::new(DiskStatsFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut DiskStatsFields, field_filter: &HashMap<usize, bool>) {
         let mut field = 0usize;
         let mut start: Option<usize> = None;
 
@@ -123,7 +126,7 @@ impl DiskStatsReader {
                 if let Some(s) = start.take() {
                     field += 1;
                     if field_filter.get(&field).copied().unwrap_or(false) {
-                        self.set_field(field, s, i);
+                        self.set_field(&mut *values, field, s, i);
                     }
                 }
             } else if start.is_none() {
@@ -134,38 +137,38 @@ impl DiskStatsReader {
         if let Some(s) = start {
             field += 1;
             if field_filter.get(&field).copied().unwrap_or(false) {
-                self.set_field(field, s, self.reader.buffer_len);
+                self.set_field(&mut *values, field, s, self.reader.buffer_len);
             }
         }
     }
 
-    fn set_field(&mut self, field: usize, start: usize, end: usize) {
+    fn set_field(&self, values: &mut DiskStatsFields, field: usize, start: usize, end: usize) {
         let bytes = &self.reader.buffer[start..end];
         let value = parse_u64_swar(bytes).unwrap_or(0);
 
         match field {
-            1 => self.values.reads_completed = value,
-            2 => self.values.reads_merged = value,
-            3 => self.values.sectors_read = value,
-            4 => self.values.time_spent_reading = value as u32,
-            5 => self.values.writes_completed = value,
-            6 => self.values.writes_merged = value,
-            7 => self.values.sectors_written = value,
-            8 => self.values.time_spent_writing = value as u32,
-            9 => self.values.ios_in_progress = value as u32,
-            10 => self.values.time_spent_doing_io = value as u32,
-            11 => self.values.weighted_time_spent_doing_io = value as u32,
-            12 => self.values.discards_completed = value,
-            13 => self.values.discards_merged = value,
-            14 => self.values.sectors_discarded = value,
-            15 => self.values.time_spent_discarding = value as u32,
-            16 => self.values.flushes_completed = value,
-            17 => self.values.time_spent_flushing = value as u32,
+            1 => values.reads_completed = value,
+            2 => values.reads_merged = value,
+            3 => values.sectors_read = value,
+            4 => values.time_spent_reading = value as u32,
+            5 => values.writes_completed = value,
+            6 => values.writes_merged = value,
+            7 => values.sectors_written = value,
+            8 => values.time_spent_writing = value as u32,
+            9 => values.ios_in_progress = value as u32,
+            10 => values.time_spent_doing_io = value as u32,
+            11 => values.weighted_time_spent_doing_io = value as u32,
+            12 => values.discards_completed = value,
+            13 => values.discards_merged = value,
+            14 => values.sectors_discarded = value,
+            15 => values.time_spent_discarding = value as u32,
+            16 => values.flushes_completed = value,
+            17 => values.time_spent_flushing = value as u32,
             _ => {}
         }
     }
 
-    pub fn values(&self) -> &DiskStatsFields {
+    pub fn values(&self) -> &Arc<Mutex<DiskStatsFields>> {
         &self.values
     }
 }

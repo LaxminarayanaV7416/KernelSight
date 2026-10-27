@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 /*
 Field Number
 Field 1 - Float
@@ -27,10 +28,10 @@ Field 5 - int32
 #[derive(Debug)]
 pub struct ProcFSLoadAvgReader {
     reader: ProcFileReader<512>,
-    values: Box<ProcLoadAvgFields>,
+    values: Arc<Mutex<ProcLoadAvgFields>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct ProcLoadAvgFields {
     pub load_avg_1m: f64,
     pub load_avg_5m: f64,
@@ -44,41 +45,43 @@ impl ProcFSLoadAvgReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(ProcLoadAvgFields::default()),
+            values: Arc::new(Mutex::new(ProcLoadAvgFields::default())),
         })
     }
 
     pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &ProcLoadAvgFields {
+    pub fn values(&self) -> &Arc<Mutex<ProcLoadAvgFields>> {
         &self.values
     }
 
-    fn set_float_field(&mut self, field: usize, value: f64) {
+    fn set_float_field(&self, values: &mut ProcLoadAvgFields, field: usize, value: f64) {
         match field {
-            1 => self.values.load_avg_1m = value,
-            2 => self.values.load_avg_5m = value,
-            3 => self.values.load_avg_15m = value,
+            1 => values.load_avg_1m = value,
+            2 => values.load_avg_5m = value,
+            3 => values.load_avg_15m = value,
             _ => {}
         }
     }
 
-    fn set_integer_field(&mut self, field: usize, value: u64) {
+    fn set_integer_field(&self, values: &mut ProcLoadAvgFields, field: usize, value: u64) {
         match field {
-            4 => self.values.num_runnable = value,
-            5 => self.values.num_total = value,
-            6 => self.values.last_pid = value,
+            4 => values.num_runnable = value,
+            5 => values.num_total = value,
+            6 => values.last_pid = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
+    fn parse_buffer(&self, values: &mut ProcLoadAvgFields, field_filter: &HashMap<usize, bool>) {
         let mut field = 1usize;
         let mut selected = field_filter.get(&field).copied().unwrap_or(false);
         let mut token_started = false;
@@ -109,7 +112,7 @@ impl ProcFSLoadAvgReader {
                                 0.0
                             };
 
-                            self.set_float_field(field, value);
+                            self.set_float_field(&mut *values, field, value);
                         } else {
                             let value = if valid && integer_digit_count > 0 {
                                 integer_value
@@ -117,7 +120,7 @@ impl ProcFSLoadAvgReader {
                                 0
                             };
 
-                            self.set_integer_field(field, value);
+                            self.set_integer_field(&mut *values, field, value);
                         }
                     }
 
@@ -223,14 +226,14 @@ impl ProcFSLoadAvgReader {
                 } else {
                     0.0
                 };
-                self.set_float_field(field, value);
+                self.set_float_field(&mut *values, field, value);
             } else {
                 let value = if valid && integer_digit_count > 0 {
                     integer_value
                 } else {
                     0
                 };
-                self.set_integer_field(field, value);
+                self.set_integer_field(&mut *values, field, value);
             }
         }
     }

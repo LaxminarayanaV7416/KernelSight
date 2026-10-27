@@ -23,26 +23,6 @@ use crate::sysfs::diskstats::DiskStatsFields;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-pub enum WriteDataMsg {
-    // ProcFS main files
-    LoadAvg(WriteData<ProcLoadAvgFields>),
-    MemInfo(WriteData<ProcMemInfoFields>),
-    Stat(WriteData<ProcStatFields>),
-    Uptime(WriteData<ProcUptimeFields>),
-    VmStat(WriteData<ProcVmStatFields>),
-    DiskStats(WriteData<DiskStatsFields>),
-    Pressure(WriteData<ProcProcessGeneralFields>),
-    // ProcFS PID files
-    PIDCgroup(WriteData<String>),
-    PIDComm(WriteData<String>),
-    PIDCmdline(WriteData<String>),
-    PIDSchedStat(WriteData<ProcPIDSchedStatFields>),
-    PIDStat(WriteData<ProcPIDStatFields>),
-    PIDStatm(WriteData<ProcPIDStatmFields>),
-    PIDStatus(WriteData<ProcPIDStatusFields>),
-}
-
-#[derive(Debug)]
 pub struct WriteData<T> {
     pub time: f64,
     pub data: T,
@@ -61,6 +41,26 @@ impl<T> WriteData<T> {
             variant: variant,
         }
     }
+}
+
+#[derive(Debug)]
+pub enum WriteDataMsg {
+    // ProcFS main files
+    LoadAvg(WriteData<Arc<Mutex<ProcLoadAvgFields>>>),
+    MemInfo(WriteData<Arc<Mutex<ProcMemInfoFields>>>),
+    Stat(WriteData<Arc<Mutex<ProcStatFields>>>),
+    Uptime(WriteData<Arc<Mutex<ProcUptimeFields>>>),
+    VmStat(WriteData<Arc<Mutex<ProcVmStatFields>>>),
+    DiskStats(WriteData<Arc<Mutex<DiskStatsFields>>>),
+    Pressure(WriteData<Arc<Mutex<ProcProcessGeneralFields>>>),
+    // ProcFS PID files
+    PIDCgroup(WriteData<Arc<Mutex<String>>>),
+    PIDComm(WriteData<Arc<Mutex<String>>>),
+    PIDCmdline(WriteData<Arc<Mutex<String>>>),
+    PIDSchedStat(WriteData<Arc<Mutex<ProcPIDSchedStatFields>>>),
+    PIDStat(WriteData<Arc<Mutex<ProcPIDStatFields>>>),
+    PIDStatm(WriteData<Arc<Mutex<ProcPIDStatmFields>>>),
+    PIDStatus(WriteData<Arc<Mutex<ProcPIDStatusFields>>>),
 }
 
 // -------------------------------------------------
@@ -102,17 +102,17 @@ impl<T> WriteCgroupsData<T> {
 }
 
 pub enum WriteCgroupsDataMsg {
-    CgroupEvent(WriteCgroupsData<CgroupFSV2CgroupEventFields>),
-    CgroupProcs(WriteCgroupsData<CgroupFSV2CgroupProcsFields>),
-    CpuPressure(WriteCgroupsData<ProcProcessGeneralFields>),
-    CpuStat(WriteCgroupsData<CgroupFSV2CPUStatFields>),
-    IoPressure(WriteCgroupsData<ProcProcessGeneralFields>),
-    MemoryCurrent(WriteCgroupsData<CgroupFSV2MemoryCurrentFields>),
-    MemoryEvent(WriteCgroupsData<CgroupFSV2MemoryEventFields>),
-    MemoryPeak(WriteCgroupsData<CgroupFSV2MemoryPeakFields>),
-    MemoryPressure(WriteCgroupsData<ProcProcessGeneralFields>),
-    MemoryStat(WriteCgroupsData<CgroupFSV2MemoryStatFields>),
-    PidsCurrent(WriteCgroupsData<CgroupFSV2PidsCurrentFields>),
-    PidsEvent(WriteCgroupsData<CgroupFSV2PidsEventFields>),
-    PidsPeak(WriteCgroupsData<CgroupFSV2PidsPeakFields>),
+    CgroupEvent(WriteCgroupsData<Arc<Mutex<CgroupFSV2CgroupEventFields>>>),
+    CgroupProcs(WriteCgroupsData<Arc<Mutex<CgroupFSV2CgroupProcsFields>>>),
+    CpuPressure(WriteCgroupsData<Arc<Mutex<ProcProcessGeneralFields>>>),
+    CpuStat(WriteCgroupsData<Arc<Mutex<CgroupFSV2CPUStatFields>>>),
+    IoPressure(WriteCgroupsData<Arc<Mutex<ProcProcessGeneralFields>>>),
+    MemoryCurrent(WriteCgroupsData<Arc<Mutex<CgroupFSV2MemoryCurrentFields>>>),
+    MemoryEvent(WriteCgroupsData<Arc<Mutex<CgroupFSV2MemoryEventFields>>>),
+    MemoryPeak(WriteCgroupsData<Arc<Mutex<CgroupFSV2MemoryPeakFields>>>),
+    MemoryPressure(WriteCgroupsData<Arc<Mutex<ProcProcessGeneralFields>>>),
+    MemoryStat(WriteCgroupsData<Arc<Mutex<CgroupFSV2MemoryStatFields>>>),
+    PidsCurrent(WriteCgroupsData<Arc<Mutex<CgroupFSV2PidsCurrentFields>>>),
+    PidsEvent(WriteCgroupsData<Arc<Mutex<CgroupFSV2PidsEventFields>>>),
+    PidsPeak(WriteCgroupsData<Arc<Mutex<CgroupFSV2PidsPeakFields>>>),
 }

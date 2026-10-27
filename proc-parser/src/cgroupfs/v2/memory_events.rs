@@ -3,6 +3,8 @@ use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
 /*
 populated
     1 if the cgroup or its descendants contains any live processes; otherwise, 0.
@@ -12,11 +14,11 @@ frozen
 
 pub struct CgroupFSV2MemoryEventReader {
     reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2MemoryEventFields>,
+    values: Arc<Mutex<CgroupFSV2MemoryEventFields>>,
     lines_map: Option<HashMap<usize, usize>>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default)]
 pub struct CgroupFSV2MemoryEventFields {
     pub low: u64,
     pub high: u64,
@@ -31,7 +33,7 @@ impl CgroupFSV2MemoryEventReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
             reader: ProcFileReader::new(path)?,
-            values: Box::new(CgroupFSV2MemoryEventFields::default()),
+            values: Arc::new(Mutex::new(CgroupFSV2MemoryEventFields::default())),
             lines_map: None,
         })
     }
@@ -39,41 +41,47 @@ impl CgroupFSV2MemoryEventReader {
     pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer(&field_filter);
+            // Build the line-to-field mapping once and reuse it for subsequent
+            // samples. Available memory.events fields can vary by kernel.
+            if self.lines_map.is_none() {
+                self.lines_map = Some(line_tracker(
+                    &self.reader.buffer[..self.reader.buffer_len],
+                    field_filter,
+                    b' ',
+                ));
+            }
+            if let Ok(mut values) = self.values.lock() {
+                self.parse_buffer(&mut *values, &field_filter);
+            }
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2MemoryEventFields {
+    pub fn values(&self) -> &Arc<Mutex<CgroupFSV2MemoryEventFields>> {
         &self.values
     }
 
     #[inline]
-    fn set_field(&mut self, field: usize, value: u64) {
+    fn set_field(&self, values: &mut CgroupFSV2MemoryEventFields, field: usize, value: u64) {
         match field {
-            1 => self.values.low = value,
-            2 => self.values.high = value,
-            3 => self.values.max = value,
-            4 => self.values.oom = value,
-            5 => self.values.oom_kill = value,
-            6 => self.values.oom_group_kill = value,
-            7 => self.values.sock_throttled = value,
+            1 => values.low = value,
+            2 => values.high = value,
+            3 => values.max = value,
+            4 => values.oom = value,
+            5 => values.oom_kill = value,
+            6 => values.oom_group_kill = value,
+            7 => values.sock_throttled = value,
             _ => {}
         }
     }
 
-    fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
+    fn parse_buffer(
+        &self,
+        values: &mut CgroupFSV2MemoryEventFields,
+        field_filter: &HashMap<&str, (usize, bool)>,
+    ) {
         if field_filter.is_empty() {
             return;
-        }
-        // Build the line-to-field mapping once and reuse it for subsequent
-        // samples. Available memory.events fields can vary by kernel.
-        if self.lines_map.is_none() {
-            self.lines_map = Some(line_tracker(
-                &self.reader.buffer[..self.reader.buffer_len],
-                field_filter,
-                b' ',
-            ));
         }
         let mut line_number = 1usize;
         let mut line_started = false;
@@ -100,7 +108,7 @@ impl CgroupFSV2MemoryEventReader {
                     if field > 0 && value_started {
                         let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-                        self.set_field(field, parsed_value);
+                        self.set_field(&mut *values, field, parsed_value);
                     }
                     line_number += 1;
                 }
@@ -169,7 +177,7 @@ impl CgroupFSV2MemoryEventReader {
         if line_started && field > 0 && value_started {
             let parsed_value = if valid && digit_count > 0 { value } else { 0 };
 
-            self.set_field(field, parsed_value);
+            self.set_field(&mut *values, field, parsed_value);
         }
     }
 }
