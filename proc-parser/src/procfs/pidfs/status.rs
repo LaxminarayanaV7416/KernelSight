@@ -2,6 +2,7 @@ use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use crate::common::parser_utils::line_tracker;
 use std::collections::HashMap;
+use std::mem::take;
 use std::path::PathBuf;
 
 /*
@@ -347,6 +348,12 @@ impl ProcFSPIDStatusReader {
 
     pub fn values(&self) -> &ProcPIDStatusFields {
         &self.values
+    }
+
+    pub fn take_values(&mut self) -> ProcPIDStatusFields {
+        // move out the value and this makes the self.values as default
+        // make sure its working!
+        take(&mut *self.values)
     }
 
     #[inline]

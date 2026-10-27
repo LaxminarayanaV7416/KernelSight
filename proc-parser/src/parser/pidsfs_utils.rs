@@ -209,7 +209,7 @@ impl ProcFSPIDReaders {
             }
             match transmitter_writer.send(WriteDataMsg::PIDStat(WriteData::new(
                 time,
-                reader.values().clone(),
+                reader.take_values(),
                 Some(self.pid),
                 None,
             ))) {
@@ -256,7 +256,7 @@ impl ProcFSPIDReaders {
             }
             match transmitter_writer.send(WriteDataMsg::PIDStatus(WriteData::new(
                 time,
-                reader.values().clone(),
+                reader.take_values(),
                 Some(self.pid),
                 None,
             ))) {

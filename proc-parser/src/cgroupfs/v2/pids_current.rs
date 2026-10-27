@@ -11,7 +11,7 @@ pub struct CgroupFSV2PidsCurrentReader {
     values: Box<CgroupFSV2PidsCurrentFields>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2PidsCurrentFields {
     pub pids: u64,
 }

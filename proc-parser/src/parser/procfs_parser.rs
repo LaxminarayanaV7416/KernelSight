@@ -351,7 +351,7 @@ pub fn record_procfs(
                     let read_status = proc_stat_reader.read_and_parse(&proc_stat_filter_map);
                     match transmit_writer_clone.send(WriteDataMsg::Stat(WriteData::new(
                         time,
-                        proc_stat_reader.values().clone(),
+                        proc_stat_reader.take_values(),
                         None,
                         None,
                     ))) {

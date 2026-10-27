@@ -1,5 +1,6 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
+use std::mem::take;
 use std::path::PathBuf;
 
 /*
@@ -36,6 +37,12 @@ impl CgroupFSV2CgroupProcsReader {
 
     pub fn values(&self) -> &CgroupFSV2CgroupProcsFields {
         &self.values
+    }
+
+    pub fn take_values(&mut self) -> CgroupFSV2CgroupProcsFields {
+        // move out the value and this makes the self.values as default
+        // make sure its working!
+        take(&mut *self.values)
     }
 
     fn parse_buffer(&mut self) {

@@ -11,7 +11,7 @@ pub struct CgroupFSV2PidsPeakReader {
     values: Box<CgroupFSV2PidsPeakFields>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2PidsPeakFields {
     pub pids: u64,
 }

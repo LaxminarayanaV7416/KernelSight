@@ -1,6 +1,7 @@
 use crate::common::file_reader::ProcFileReader;
 use crate::common::parser_error::Result;
 use std::collections::HashMap;
+use std::mem::take;
 use std::path::PathBuf;
 
 /*
@@ -226,6 +227,12 @@ impl ProcFSStatReader {
 
     pub fn values(&self) -> &ProcStatFields {
         &self.values
+    }
+
+    pub fn take_values(&mut self) -> ProcStatFields {
+        // move out the value and this makes the self.values as default
+        // make sure its working!
+        take(&mut *self.values)
     }
 
     fn set_non_cpu_field(&mut self, field: usize, value: u64) {

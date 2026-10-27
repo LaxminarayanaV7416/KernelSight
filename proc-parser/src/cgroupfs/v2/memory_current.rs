@@ -11,7 +11,7 @@ pub struct CgroupFSV2MemoryCurrentReader {
     values: Box<CgroupFSV2MemoryCurrentFields>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2MemoryCurrentFields {
     pub memory: u64,
 }

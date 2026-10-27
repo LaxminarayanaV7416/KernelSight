@@ -283,7 +283,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryCurrent(
-                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -343,7 +343,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::MemoryPeak(
-                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -383,7 +383,7 @@ impl CgroupsV2Readers {
                 return false;
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsCurrent(
-                WriteCgroupsData::new(time, reader.values().clone(), self.cgroup_path.clone()),
+                WriteCgroupsData::new(time, *reader.values(), self.cgroup_path.clone()),
             )) {
                 Ok(_) => (),
                 Err(_) => {
@@ -424,7 +424,7 @@ impl CgroupsV2Readers {
             }
             match transmit_cgroup_writer.send(WriteCgroupsDataMsg::PidsPeak(WriteCgroupsData::new(
                 time,
-                reader.values().clone(),
+                *reader.values(),
                 self.cgroup_path.clone(),
             ))) {
                 Ok(_) => (),

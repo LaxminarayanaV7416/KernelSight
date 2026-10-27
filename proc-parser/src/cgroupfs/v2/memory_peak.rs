@@ -11,7 +11,7 @@ pub struct CgroupFSV2MemoryPeakReader {
     values: Box<CgroupFSV2MemoryPeakFields>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2MemoryPeakFields {
     pub memory: u64,
 }
