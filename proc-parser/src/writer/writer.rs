@@ -90,36 +90,18 @@ pub fn start_gpu_writer(
         .spawn(move || {
             while !signaller.load(Ordering::Relaxed) {
                 match receiver.recv_timeout(Duration::from_secs(1)) {
-                    Ok(WriteGPUDataMsg::NvidiaDeviceInfo(msg)) => match msg.data.lock() {
-                        Ok(device_info) => {
-                            println!("NVIDIA DeviceInfo: {:?}", &*device_info);
+                    Ok(data) => match data {
+                        WriteGPUDataMsg::NvidiaDeviceInfo(msg) => {
+                            println!("NVIDIA DeviceInfo: {:?}", msg);
                         }
 
-                        Err(error) => {
-                            eprintln!(
-                                "Failed to lock NVIDIA device-info \
-                                     message: {error}"
-                            );
+                        WriteGPUDataMsg::NvidiaProcs(msg) => {
+                            println!("NVIDIA GPU-DATA: {:?}", msg);
                         }
                     },
-
-                    Ok(WriteGPUDataMsg::NvidiaProcs(msg)) => match msg.data.lock() {
-                        Ok(process_info) => {
-                            println!("NVIDIA GPU-DATA: {:?}", &*process_info);
-                        }
-
-                        Err(error) => {
-                            eprintln!(
-                                "Failed to lock NVIDIA process \
-                                     message: {error}"
-                            );
-                        }
-                    },
-
                     Err(RecvTimeoutError::Timeout) => {
                         // Normal: no message arrived during this interval.
                     }
-
                     Err(RecvTimeoutError::Disconnected) => {
                         break;
                     }

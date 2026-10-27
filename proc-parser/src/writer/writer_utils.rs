@@ -20,7 +20,6 @@ use crate::procfs::stat::ProcStatFields;
 use crate::procfs::uptime::ProcUptimeFields;
 use crate::procfs::vmstat::ProcVmStatFields;
 use crate::sysfs::diskstats::DiskStatsFields;
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub enum WriteDataMsg {
@@ -78,8 +77,8 @@ impl<T> WriteGPUData<T> {
 
 #[derive(Debug)]
 pub enum WriteGPUDataMsg {
-    NvidiaDeviceInfo(WriteGPUData<Arc<Mutex<GpuDeviceInfo>>>),
-    NvidiaProcs(WriteGPUData<Arc<Mutex<GpuDeviceMessage>>>),
+    NvidiaDeviceInfo(WriteGPUData<GpuDeviceInfo>),
+    NvidiaProcs(WriteGPUData<GpuDeviceMessage>),
 }
 
 // -------------------------------------------------
