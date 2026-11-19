@@ -3,9 +3,11 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum ProcParserError {
+    FileDoesntExistError(String),
     FileReadError(String),
-    GPUError,
+    GPUError(String),
     ThreadSpawningError(String),
+    SysCallError(String),
     ParseError(Box<dyn Error + Send + Sync + 'static>),
 }
 
@@ -22,12 +24,14 @@ impl ProcParserError {
 impl Display for ProcParserError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FileReadError(path) => write!(f, "FileReadError: {}", path),
-            Self::GPUError => write!(f, "GPU error"),
+            Self::FileDoesntExistError(path) => write!(f, "FileDoesntExistError::: {}", path),
+            Self::FileReadError(path) => write!(f, "FileReadError::: {}", path),
+            Self::GPUError(gpu_error) => write!(f, "GPUError::: {}", gpu_error),
+            Self::SysCallError(error_details) => write!(f, "SysCallError::: {}", error_details),
             Self::ThreadSpawningError(thread_info) => {
-                write!(f, "ThreadSpawning Error for {}", thread_info)
+                write!(f, "ThreadSpawningError::: {}", thread_info)
             }
-            Self::ParseError(err) => write!(f, "{err}"),
+            Self::ParseError(err) => write!(f, "UnknownError::: {}", err),
         }
     }
 }

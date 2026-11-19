@@ -1,6 +1,20 @@
-use super::cgroup_constants::CGROUP_V2_MOUNT_PATH;
+use signal_hook::consts::{SIGINT, SIGTERM};
+use signal_hook::flag;
 use std::collections::HashMap;
-use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::mpsc::{Receiver, Sender, channel};
+
+pub fn initiate_mpsc_channel<T>() -> (Sender<T>, Receiver<T>) {
+    let (transmitter, receiver): (Sender<T>, Receiver<T>) = channel::<T>();
+    (transmitter, receiver)
+}
+
+pub fn signal_handler(signaller: &Arc<AtomicBool>) {
+    // register for SIGTERM and SIGINT
+    flag::register(SIGTERM, Arc::clone(signaller)).unwrap();
+    flag::register(SIGINT, Arc::clone(signaller)).unwrap();
+}
 
 #[inline(always)]
 fn parse_8_digits_swar(bytes: &[u8]) -> u64 {
@@ -116,28 +130,4 @@ pub fn line_tracker(
         }
     }
     result
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CgroupType {
-    V1,
-    V2,
-}
-
-// TODO: Work around here, you can figure out from the mount path
-// that is /proc/mounts search for cgroup2 line it will help
-// you determine if the cgroup version is V1 or V2
-pub fn cgroup_classifier() -> CgroupType {
-    let output = Command::new("stat")
-        .arg("-fc")
-        .arg("%T")
-        .arg(CGROUP_V2_MOUNT_PATH)
-        .output()
-        .expect("failed to execute cgroup command");
-    let result = String::from_utf8_lossy(&output.stdout).to_string();
-    if result == "cgroup2fs\n" {
-        CgroupType::V2
-    } else {
-        CgroupType::V1
-    }
 }

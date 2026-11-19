@@ -1,15 +1,3 @@
-use super::parser_utils::CgroupType;
-use super::parser_utils::cgroup_classifier;
-use super::system_call_utils::available_logical_cpus;
-use std::sync::LazyLock;
-
-// run once and determine during runtime
-// you have access these using dereferncing as of C style
-// eg., *AVAILABLE_LOGICAL_CPUS gives you the number of available logical CPUs
-pub static AVAILABLE_LOGICAL_CPUS: LazyLock<usize> =
-    LazyLock::new(|| available_logical_cpus().unwrap_or(1));
-pub static CGROUP_TYPE: LazyLock<CgroupType> = LazyLock::new(|| cgroup_classifier());
-
 pub const PROC_FS_ROOT_PATH: &str = "/proc";
 pub const SYS_FS_ROOT_PATH: &str = "/sys";
 

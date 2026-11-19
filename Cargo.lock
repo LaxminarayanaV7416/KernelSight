@@ -96,7 +96,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "kernelSight"
+version = "0.1.0"
+dependencies = [
+ "basic-toml",
+ "libc",
+ "proc-parser",
+ "serde",
+ "signal-hook",
+]
+
+[[package]]
+name = "kinsight-cgroups"
+version = "0.1.0"
+
+[[package]]
 name = "kinsight-common"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+ "signal-hook",
+]
+
+[[package]]
+name = "kinsight-ebpf"
 version = "0.1.0"
 
 [[package]]
@@ -105,6 +128,10 @@ version = "0.1.0"
 dependencies = [
  "nvml-wrapper",
 ]
+
+[[package]]
+name = "kinsight-proc-parser"
+version = "0.1.0"
 
 [[package]]
 name = "libc"
@@ -168,17 +195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "perf_insight_lite"
-version = "0.1.0"
-dependencies = [
- "basic-toml",
- "libc",
- "proc-parser",
- "serde",
- "signal-hook",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -211,9 +227,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891efababe418670775f199f0d233d84843c227a0949a883ce15b37c78d6629d"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags",
  "errno",
@@ -264,9 +280,9 @@ dependencies = [
 
 [[package]]
 name = "signal-hook"
-version = "0.4.4"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2a0c28ca5908dbdbcd52e6fdaa00358ab88637f8ab33e1f188dd510eb44b53d"
+checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
