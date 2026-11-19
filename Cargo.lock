@@ -68,6 +68,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "equivalent"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -88,6 +94,17 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
+name = "kinsight-common"
+version = "0.1.0"
+
+[[package]]
+name = "kinsight-gpu-parser"
+version = "0.1.0"
+dependencies = [
+ "nvml-wrapper",
+]
 
 [[package]]
 name = "libc"
@@ -141,6 +158,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "papaya"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da2442474a9404698c42509b8967f437249dbc7b50493e83020333d3943ec0ae"
+dependencies = [
+ "equivalent",
+ "seize",
+]
+
+[[package]]
 name = "perf_insight_lite"
 version = "0.1.0"
 dependencies = [
@@ -168,6 +195,7 @@ dependencies = [
  "basic-toml",
  "libc",
  "nvml-wrapper",
+ "papaya",
  "rustix",
  "serde",
 ]
@@ -191,6 +219,16 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
+ "windows-sys",
+]
+
+[[package]]
+name = "seize"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
+dependencies = [
+ "libc",
  "windows-sys",
 ]
 

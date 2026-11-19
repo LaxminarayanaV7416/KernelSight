@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["proc-parser"]
+members = ["kinsight-gpu-parser", "kinsight-common","proc-parser", "kinsight-proc-parser", "kinsight-cgroups", "kinsight-ebpf"]
 
 [package]
-name = "perf_insight_lite"
+name = "kernelSight"
 version = "0.1.0"
 edition = "2024"
 
