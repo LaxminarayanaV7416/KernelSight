@@ -6,7 +6,7 @@ mod reader;
 mod sys_call_utils;
 pub mod utils;
 
-pub use enums::{AVAILABLE_LOGICAL_CPUS, CGROUP_TYPE, CgroupType};
+pub use enums::{CGROUP_TYPE, CPU_CORES, CgroupType};
 pub use errors::{ProcParserError, Result};
-pub use reader::KinsightReader;
+pub use reader::{KinsightDataParserTrait, KinsightReader};
 pub use sys_call_utils::{get_available_core_count, monotonic};

@@ -29,7 +29,7 @@ pub fn cgroup_classifier() -> CgroupType {
 
 // run once and determine during runtime
 // you have access these using dereferncing as of C style
-// eg., *AVAILABLE_LOGICAL_CPUS gives you the number of available logical CPUs
-pub static AVAILABLE_LOGICAL_CPUS: LazyLock<usize> =
+// eg., *CPU_CORES gives you the number of available logical CPUs
+pub static CPU_CORES: LazyLock<usize> =
     LazyLock::new(|| get_available_core_count().unwrap_or(1));
 pub static CGROUP_TYPE: LazyLock<CgroupType> = LazyLock::new(cgroup_classifier);

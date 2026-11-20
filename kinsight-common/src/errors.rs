@@ -1,5 +1,9 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+
+// TODO: Make sure to convert the messages generted by the error message to be
+// cow driven apart from String which is heap allocated!
 
 #[derive(Debug)]
 pub enum ProcParserError {

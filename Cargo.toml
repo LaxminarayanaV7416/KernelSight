@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["kinsight-gpu-parser", "kinsight-common","proc-parser", "kinsight-proc-parser", "kinsight-cgroups", "kinsight-ebpf"]
+members = ["kinsight-gpu-parser", "kinsight-common", "kinsight-proc-parser", "kinsight-cgroups", "kinsight-ebpf"]
+# "proc-parser"
 
 [package]
 name = "kernelSight"
@@ -24,7 +25,8 @@ debug = true
 opt-level = 3
 
 [dependencies]
-proc-parser = { path = "./proc-parser" }
+# proc-parser = { path = "./proc-parser" }
+kinsight-common = { path = "./kinsight-common" }
 serde = { workspace = true }
 basic-toml = { workspace = true }
 libc = { workspace = true }

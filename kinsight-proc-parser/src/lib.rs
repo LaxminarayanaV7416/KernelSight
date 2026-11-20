@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+mod loadavg;
+mod meminfo;
+mod pressure_util;
+// mod schedstat;
+// mod softirqs;
+mod stat;
+mod uptime;
+mod vmstat;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use loadavg::{ProcFSLoadAvgReader, ProcLoadAvgFields};
+pub use meminfo::{ProcFSMemInfoReader, ProcMemInfoFields};
+pub use pressure_util::{ProcProcessGeneralFields, ProcProcessGeneralReader};
+pub use stat::{ProcFSStatReader, ProcStatFields};

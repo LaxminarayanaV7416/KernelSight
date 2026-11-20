@@ -44,3 +44,10 @@ impl<const BUFFER_ARRAY_SIZE: usize> KinsightReader<BUFFER_ARRAY_SIZE> {
         result
     }
 }
+
+pub trait KinsightDataParserTrait<T: Clone, FF> {
+    fn values(&self) -> &T;
+    fn prev_values(&self) -> &T;
+    fn read_and_parse(&mut self, field_filter: &FF) -> bool;
+    fn parse_buffer(&mut self, field_filter: &FF);
+}

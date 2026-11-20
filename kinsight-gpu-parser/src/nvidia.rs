@@ -1,10 +1,8 @@
-use crate::common::parser_error::{ProcParserError, Result};
-use crate::common::system_call_utils::monotonic;
 use crate::configs::config::Config;
 use crate::writer::writer_utils::{WriteGPUData, WriteGPUDataMsg};
+use kinsight_common::{ProcParserError, Result, monotonic};
 use nvml_wrapper::Nvml;
 use nvml_wrapper::enums::device::UsedGpuMemory;
-use nvml_wrapper::error::NvmlError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -109,8 +107,9 @@ impl NvidiaGPUMetrics {
         let nvml = match self.nvml.take() {
             Some(nvml) => nvml,
             None => {
-                eprintln!("Failed to take the NVML instance!!");
-                return Err(ProcParserError::GPUError);
+                return Err(ProcParserError::GPUError(
+                    "Failed to take the NVML instance!!".to_string(),
+                ));
             }
         };
         let gpu_count = self.gpu_count;
