@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kinsight-gpu-parser", "kinsight-common", "kinsight-proc-parser", "kinsight-cgroups", "kinsight-ebpf", "kinsight-proc-pid-parser"]
+members = ["kinsight-gpu-parser", "kinsight-common", "kinsight-proc-parser", "kinsight-cgroups-v1", "kinsight-cgroups-v2", "kinsight-ebpf", "kinsight-proc-pid-parser"]
 # "proc-parser"
 
 [package]

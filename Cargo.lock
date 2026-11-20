@@ -92,7 +92,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinsight-cgroups"
+name = "kinsight-cgroups-v1"
+version = "0.1.0"
+
+[[package]]
+name = "kinsight-cgroups-v2"
 version = "0.1.0"
 
 [[package]]
