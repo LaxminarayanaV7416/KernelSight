@@ -1,6 +1,6 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
 use std::collections::HashMap;
+use std::mem::swap;
 use std::path::PathBuf;
 
 /*
@@ -10,34 +10,45 @@ frozen
     1 if the cgroup is frozen; otherwise, 0.
  */
 
-pub struct CgroupFSV2PidsEventReader {
-    reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2PidsEventFields>,
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2PidsEventFields {
     pub max: u64,
 }
 
+pub struct CgroupFSV2PidsEventReader {
+    reader: KinsightReader<256>,
+    values: Box<CgroupFSV2PidsEventFields>,
+    previous_values: Box<CgroupFSV2PidsEventFields>,
+}
+
 impl CgroupFSV2PidsEventReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(CgroupFSV2PidsEventFields::default()),
+            previous_values: Box::new(CgroupFSV2PidsEventFields::default()),
         })
     }
+}
 
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
+impl KinsightDataParserTrait<CgroupFSV2PidsEventFields, HashMap<&str, (usize, bool)>>
+    for CgroupFSV2PidsEventReader
+{
+    fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
         let read_status = self.reader.read();
         if read_status {
+            swap(&mut self.values, &mut self.previous_values);
             self.parse_buffer(&field_filter);
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2PidsEventFields {
+    fn values(&self) -> &CgroupFSV2PidsEventFields {
         &self.values
+    }
+
+    fn prev_values(&self) -> &CgroupFSV2PidsEventFields {
+        &self.previous_values
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {

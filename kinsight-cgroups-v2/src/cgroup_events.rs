@@ -1,6 +1,6 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
 use std::collections::HashMap;
+use std::mem::swap;
 use std::path::PathBuf;
 /*
 populated
@@ -9,35 +9,25 @@ frozen
     1 if the cgroup is frozen; otherwise, 0.
  */
 
-pub struct CgroupFSV2CgroupEventReader {
-    reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2CgroupEventFields>,
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2CgroupEventFields {
     pub populated: bool,
     pub frozen: bool,
 }
 
+pub struct CgroupFSV2CgroupEventReader {
+    reader: KinsightReader<256>,
+    values: Box<CgroupFSV2CgroupEventFields>,
+    previous_values: Box<CgroupFSV2CgroupEventFields>,
+}
+
 impl CgroupFSV2CgroupEventReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(CgroupFSV2CgroupEventFields::default()),
+            previous_values: Box::new(CgroupFSV2CgroupEventFields::default()),
         })
-    }
-
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
-        let read_status = self.reader.read();
-        if read_status {
-            self.parse_buffer(&field_filter);
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &CgroupFSV2CgroupEventFields {
-        &self.values
     }
 
     #[inline]
@@ -47,6 +37,27 @@ impl CgroupFSV2CgroupEventReader {
             2 => self.values.frozen = value,
             _ => {}
         }
+    }
+}
+
+impl KinsightDataParserTrait<CgroupFSV2CgroupEventFields, HashMap<usize, bool>>
+    for CgroupFSV2CgroupEventReader
+{
+    fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            swap(&mut self.values, &mut self.previous_values);
+            self.parse_buffer(&field_filter);
+        }
+        read_status
+    }
+
+    fn values(&self) -> &CgroupFSV2CgroupEventFields {
+        &self.values
+    }
+
+    fn prev_values(&self) -> &CgroupFSV2CgroupEventFields {
+        &self.previous_values
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {

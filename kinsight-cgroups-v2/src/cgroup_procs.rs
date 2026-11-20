@@ -1,42 +1,30 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
-use std::mem::take;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
+use std::collections::HashMap;
+use std::mem::{swap, take};
 use std::path::PathBuf;
 
 /*
 Contains the pids as single line in the cgroup.procs file
  */
 
-pub struct CgroupFSV2CgroupProcsReader {
-    reader: ProcFileReader<4192>,
-    values: Box<CgroupFSV2CgroupProcsFields>,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct CgroupFSV2CgroupProcsFields {
     pub pids: Vec<u64>,
 }
 
+pub struct CgroupFSV2CgroupProcsReader {
+    reader: KinsightReader<4192>,
+    values: Box<CgroupFSV2CgroupProcsFields>,
+    previous_values: Box<CgroupFSV2CgroupProcsFields>,
+}
+
 impl CgroupFSV2CgroupProcsReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(CgroupFSV2CgroupProcsFields::default()),
+            previous_values: Box::new(CgroupFSV2CgroupProcsFields::default()),
         })
-    }
-
-    pub fn read_and_parse(&mut self) -> bool {
-        let read_status = self.reader.read();
-        if read_status {
-            // clear the pids vector and parse the buffer
-            self.values.pids.clear();
-            self.parse_buffer();
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &CgroupFSV2CgroupProcsFields {
-        &self.values
     }
 
     pub fn take_values(&mut self) -> CgroupFSV2CgroupProcsFields {
@@ -44,8 +32,31 @@ impl CgroupFSV2CgroupProcsReader {
         // make sure its working!
         take(&mut *self.values)
     }
+}
 
-    fn parse_buffer(&mut self) {
+impl KinsightDataParserTrait<CgroupFSV2CgroupProcsFields, HashMap<usize, bool>>
+    for CgroupFSV2CgroupProcsReader
+{
+    fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            swap(&mut self.values, &mut self.previous_values);
+            // clear the pids vector and parse the buffer
+            self.values.pids.clear();
+            self.parse_buffer(&field_filter);
+        }
+        read_status
+    }
+
+    fn values(&self) -> &CgroupFSV2CgroupProcsFields {
+        &self.values
+    }
+
+    fn prev_values(&self) -> &CgroupFSV2CgroupProcsFields {
+        &self.previous_values
+    }
+
+    fn parse_buffer(&mut self, _: &HashMap<usize, bool>) {
         let mut pid_started = false;
         let mut pid = 0u64;
         let mut digit_count = 0usize;

@@ -1,42 +1,53 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
+use std::mem::swap;
 use std::path::PathBuf;
 
 /*
 Contains the pids as single line in the cgroup.procs file
  */
 
-pub struct CgroupFSV2MemoryCurrentReader {
-    reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2MemoryCurrentFields>,
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2MemoryCurrentFields {
     pub memory: u64,
 }
 
+pub struct CgroupFSV2MemoryCurrentReader {
+    reader: KinsightReader<256>,
+    values: Box<CgroupFSV2MemoryCurrentFields>,
+    previous_values: Box<CgroupFSV2MemoryCurrentFields>,
+}
+
 impl CgroupFSV2MemoryCurrentReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(CgroupFSV2MemoryCurrentFields::default()),
+            previous_values: Box::new(CgroupFSV2MemoryCurrentFields::default()),
         })
     }
+}
 
-    pub fn read_and_parse(&mut self) -> bool {
+impl KinsightDataParserTrait<CgroupFSV2MemoryCurrentFields, usize>
+    for CgroupFSV2MemoryCurrentReader
+{
+    fn read_and_parse(&mut self, nothing: &usize) -> bool {
         let read_status = self.reader.read();
         if read_status {
-            self.parse_buffer();
+            swap(&mut self.values, &mut self.previous_values);
+            self.parse_buffer(&nothing);
         }
         read_status
     }
 
-    pub fn values(&self) -> &CgroupFSV2MemoryCurrentFields {
+    fn values(&self) -> &CgroupFSV2MemoryCurrentFields {
         &self.values
     }
 
-    fn parse_buffer(&mut self) {
+    fn prev_values(&self) -> &CgroupFSV2MemoryCurrentFields {
+        &self.previous_values
+    }
+
+    fn parse_buffer(&mut self, _: &usize) {
         let mut value = 0u64;
         let mut digit_count = 0usize;
         let mut started = false;

@@ -1,7 +1,7 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
-use crate::common::parser_utils::line_tracker;
+use kinsight_common::utils::line_tracker;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
 use std::collections::HashMap;
+use std::mem::swap;
 use std::path::PathBuf;
 
 /*
@@ -10,12 +10,6 @@ populated
 frozen
     1 if the cgroup is frozen; otherwise, 0.
  */
-
-pub struct CgroupFSV2MemoryStatReader {
-    reader: ProcFileReader<256>,
-    values: Box<CgroupFSV2MemoryStatFields>,
-    lines_map: Option<HashMap<usize, usize>>,
-}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CgroupFSV2MemoryStatFields {
@@ -93,25 +87,21 @@ pub struct CgroupFSV2MemoryStatFields {
     pub numa_hint_faults: u64,
 }
 
+pub struct CgroupFSV2MemoryStatReader {
+    reader: KinsightReader<256>,
+    values: Box<CgroupFSV2MemoryStatFields>,
+    previous_values: Box<CgroupFSV2MemoryStatFields>,
+    lines_map: Option<HashMap<usize, usize>>,
+}
+
 impl CgroupFSV2MemoryStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(CgroupFSV2MemoryStatFields::default()),
+            previous_values: Box::new(CgroupFSV2MemoryStatFields::default()),
             lines_map: None,
         })
-    }
-
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
-        let read_status = self.reader.read();
-        if read_status {
-            self.parse_buffer(&field_filter);
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &CgroupFSV2MemoryStatFields {
-        &self.values
     }
 
     #[inline]
@@ -191,6 +181,27 @@ impl CgroupFSV2MemoryStatReader {
             72 => self.values.numa_hint_faults = value,
             _ => {}
         }
+    }
+}
+
+impl KinsightDataParserTrait<CgroupFSV2MemoryStatFields, HashMap<&str, (usize, bool)>>
+    for CgroupFSV2MemoryStatReader
+{
+    fn read_and_parse(&mut self, field_filter: &HashMap<&str, (usize, bool)>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            swap(&mut self.values, &mut self.previous_values);
+            self.parse_buffer(&field_filter);
+        }
+        read_status
+    }
+
+    fn values(&self) -> &CgroupFSV2MemoryStatFields {
+        &self.values
+    }
+
+    fn prev_values(&self) -> &CgroupFSV2MemoryStatFields {
+        &self.previous_values
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<&str, (usize, bool)>) {
