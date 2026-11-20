@@ -194,7 +194,6 @@ pub struct ProcFSStatReader {
     reader: KinsightReader<6144>,
     values: Box<ProcStatFields>,
     previous_values: Box<ProcStatFields>,
-    lines_map: Option<HashMap<usize, usize>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -216,7 +215,6 @@ impl ProcFSStatReader {
             reader: KinsightReader::new(path)?,
             values: Box::new(ProcStatFields::default()),
             previous_values: Box::new(ProcStatFields::default()),
-            lines_map: None,
         })
     }
 
@@ -265,6 +263,7 @@ impl KinsightDataParserTrait<ProcStatFields, HashMap<usize, bool>> for ProcFSSta
     fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
         let read_status = self.reader.read();
         if read_status {
+            swap(&mut self.values, &mut self.previous_values);
             self.parse_buffer(&field_filter);
         }
         read_status

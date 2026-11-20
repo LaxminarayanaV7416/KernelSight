@@ -1,6 +1,6 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
 use std::collections::HashMap;
+use std::mem::swap;
 use std::path::PathBuf;
 
 /*
@@ -24,12 +24,6 @@ Field 5 - int32
     Last Created PID
     The Process ID (PID) of the most recently allocated process or thread on the system.
  */
-
-#[derive(Debug)]
-pub struct ProcFSVmStatReader {
-    reader: ProcFileReader<16384>,
-    values: Box<ProcVmStatFields>,
-}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ProcVmStatFields {
@@ -233,24 +227,20 @@ pub struct ProcVmStatFields {
     pub nr_unstable: u64,
 }
 
+#[derive(Debug)]
+pub struct ProcFSVmStatReader {
+    reader: KinsightReader<16384>,
+    values: Box<ProcVmStatFields>,
+    previous_values: Box<ProcVmStatFields>,
+}
+
 impl ProcFSVmStatReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(ProcVmStatFields::default()),
+            previous_values: Box::new(ProcVmStatFields::default()),
         })
-    }
-
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
-        let read_status = self.reader.read();
-        if read_status {
-            self.parse_buffer(&field_filter);
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &ProcVmStatFields {
-        &self.values
     }
 
     fn set_field(&mut self, field: usize, value: u64) {
@@ -455,6 +445,25 @@ impl ProcFSVmStatReader {
             198 => self.values.nr_unstable = value,
             _ => {}
         }
+    }
+}
+
+impl KinsightDataParserTrait<ProcVmStatFields, HashMap<usize, bool>> for ProcFSVmStatReader {
+    fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            swap(&mut self.values, &mut self.previous_values);
+            self.parse_buffer(&field_filter);
+        }
+        read_status
+    }
+
+    fn values(&self) -> &ProcVmStatFields {
+        &self.values
+    }
+
+    fn prev_values(&self) -> &ProcVmStatFields {
+        &self.previous_values
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {

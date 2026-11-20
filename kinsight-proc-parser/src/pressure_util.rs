@@ -20,7 +20,6 @@ pub struct ProcProcessGeneralReader {
     reader: KinsightReader<512>,
     values: Box<ProcProcessGeneralFields>,
     previous_values: Box<ProcProcessGeneralFields>,
-    lines_map: Option<HashMap<usize, usize>>,
 }
 
 impl ProcProcessGeneralReader {
@@ -29,7 +28,6 @@ impl ProcProcessGeneralReader {
             reader: KinsightReader::new(path)?,
             values: Box::new(ProcProcessGeneralFields::default()),
             previous_values: Box::new(ProcProcessGeneralFields::default()),
-            lines_map: None,
         })
     }
 

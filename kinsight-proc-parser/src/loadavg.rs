@@ -41,7 +41,6 @@ pub struct ProcFSLoadAvgReader {
     reader: KinsightReader<512>,
     values: Box<ProcLoadAvgFields>,
     previous_values: Box<ProcLoadAvgFields>,
-    lines_map: Option<HashMap<usize, usize>>,
 }
 
 impl ProcFSLoadAvgReader {
@@ -50,7 +49,6 @@ impl ProcFSLoadAvgReader {
             reader: KinsightReader::new(path)?,
             values: Box::new(ProcLoadAvgFields::default()),
             previous_values: Box::new(ProcLoadAvgFields::default()),
-            lines_map: None,
         })
     }
 

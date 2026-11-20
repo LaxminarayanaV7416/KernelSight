@@ -1,6 +1,6 @@
-use crate::common::file_reader::ProcFileReader;
-use crate::common::parser_error::Result;
+use kinsight_common::{KinsightDataParserTrait, KinsightReader, Result};
 use std::collections::HashMap;
+use std::mem::swap;
 use std::path::PathBuf;
 
 /*
@@ -27,8 +27,9 @@ Field 5 - int32
 
 #[derive(Debug)]
 pub struct ProcFSUptimeReader {
-    reader: ProcFileReader<128>,
+    reader: KinsightReader<128>,
     values: Box<ProcUptimeFields>,
+    previous_values: Box<ProcUptimeFields>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -40,21 +41,10 @@ pub struct ProcUptimeFields {
 impl ProcFSUptimeReader {
     pub fn new(path: &PathBuf) -> Result<Self> {
         Ok(Self {
-            reader: ProcFileReader::new(path)?,
+            reader: KinsightReader::new(path)?,
             values: Box::new(ProcUptimeFields::default()),
+            previous_values: Box::new(ProcUptimeFields::default()),
         })
-    }
-
-    pub fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
-        let read_status = self.reader.read();
-        if read_status {
-            self.parse_buffer(&field_filter);
-        }
-        read_status
-    }
-
-    pub fn values(&self) -> &ProcUptimeFields {
-        &self.values
     }
 
     fn set_field(&mut self, field: usize, value: f64) {
@@ -63,6 +53,25 @@ impl ProcFSUptimeReader {
             2 => self.values.idle_time = value,
             _ => {}
         }
+    }
+}
+
+impl KinsightDataParserTrait<ProcUptimeFields, HashMap<usize, bool>> for ProcFSUptimeReader {
+    fn read_and_parse(&mut self, field_filter: &HashMap<usize, bool>) -> bool {
+        let read_status = self.reader.read();
+        if read_status {
+            swap(&mut self.values, &mut self.previous_values);
+            self.parse_buffer(&field_filter);
+        }
+        read_status
+    }
+
+    fn values(&self) -> &ProcUptimeFields {
+        &self.values
+    }
+
+    fn prev_values(&self) -> &ProcUptimeFields {
+        &self.previous_values
     }
 
     fn parse_buffer(&mut self, field_filter: &HashMap<usize, bool>) {
