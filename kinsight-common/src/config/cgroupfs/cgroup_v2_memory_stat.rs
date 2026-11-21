@@ -1,0 +1,414 @@
+use super::super::config::ProcFSConfig;
+use super::super::config::ProcFSConfigTrait;
+use serde::Deserialize;
+use std::collections::HashMap;
+
+#[derive(Debug, Deserialize)]
+pub struct CgroupV2MemoryStatConfigFields {
+    pub anon: bool,
+    pub file: bool,
+    pub kernel: bool,
+    pub kernel_stack: bool,
+    pub pagetables: bool,
+    pub sec_pagetables: bool,
+    pub percpu: bool,
+    pub sock: bool,
+    pub vmalloc: bool,
+    pub shmem: bool,
+    pub zswap: bool,
+    pub zswapped: bool,
+    pub zswap_incomp: bool,
+    pub file_mapped: bool,
+    pub file_dirty: bool,
+    pub file_writeback: bool,
+    pub swapcached: bool,
+    pub anon_thp: bool,
+    pub file_thp: bool,
+    pub shmem_thp: bool,
+    pub inactive_anon: bool,
+    pub active_anon: bool,
+    pub inactive_file: bool,
+    pub active_file: bool,
+    pub unevictable: bool,
+    pub slab_reclaimable: bool,
+    pub slab_unreclaimable: bool,
+    pub slab: bool,
+    pub hugetlb: bool,
+    pub workingset_refault_anon: bool,
+    pub workingset_refault_file: bool,
+    pub workingset_activate_anon: bool,
+    pub workingset_activate_file: bool,
+    pub workingset_restore_anon: bool,
+    pub workingset_restore_file: bool,
+    pub workingset_nodereclaim: bool,
+    pub pgdemote_kswapd: bool,
+    pub pgdemote_direct: bool,
+    pub pgdemote_khugepaged: bool,
+    pub pgdemote_proactive: bool,
+    pub pgsteal_kswapd: bool,
+    pub pgsteal_direct: bool,
+    pub pgsteal_khugepaged: bool,
+    pub pgsteal_proactive: bool,
+    pub pgscan_kswapd: bool,
+    pub pgscan_direct: bool,
+    pub pgscan_khugepaged: bool,
+    pub pgscan_proactive: bool,
+    pub pgrefill: bool,
+    pub pgpromote_success: bool,
+    pub pgscan: bool,
+    pub pgsteal: bool,
+    pub pswpin: bool,
+    pub pswpout: bool,
+    pub pgfault: bool,
+    pub pgmajfault: bool,
+    pub pgactivate: bool,
+    pub pgdeactivate: bool,
+    pub pglazyfree: bool,
+    pub pglazyfreed: bool,
+    pub swpin_zero: bool,
+    pub swpout_zero: bool,
+    pub zswpin: bool,
+    pub zswpout: bool,
+    pub zswpwb: bool,
+    pub thp_fault_alloc: bool,
+    pub thp_collapse_alloc: bool,
+    pub thp_swpout: bool,
+    pub thp_swpout_fallback: bool,
+    pub numa_pages_migrated: bool,
+    pub numa_pte_updates: bool,
+    pub numa_hint_faults: bool,
+}
+
+pub type CgroupV2MemoryStatConfig = ProcFSConfig<CgroupV2MemoryStatConfigFields>;
+
+impl ProcFSConfigTrait for CgroupV2MemoryStatConfig {
+    fn get_hashmap(&self) -> HashMap<usize, bool> {
+        HashMap::from([
+            (1, self.fields.anon),
+            (2, self.fields.file),
+            (3, self.fields.kernel),
+            (4, self.fields.kernel_stack),
+            (5, self.fields.pagetables),
+            (6, self.fields.sec_pagetables),
+            (7, self.fields.percpu),
+            (8, self.fields.sock),
+            (9, self.fields.vmalloc),
+            (10, self.fields.shmem),
+            (11, self.fields.zswap),
+            (12, self.fields.zswapped),
+            (13, self.fields.zswap_incomp),
+            (14, self.fields.file_mapped),
+            (15, self.fields.file_dirty),
+            (16, self.fields.file_writeback),
+            (17, self.fields.swapcached),
+            (18, self.fields.anon_thp),
+            (19, self.fields.file_thp),
+            (20, self.fields.shmem_thp),
+            (21, self.fields.inactive_anon),
+            (22, self.fields.active_anon),
+            (23, self.fields.inactive_file),
+            (24, self.fields.active_file),
+            (25, self.fields.unevictable),
+            (26, self.fields.slab_reclaimable),
+            (27, self.fields.slab_unreclaimable),
+            (28, self.fields.slab),
+            (29, self.fields.hugetlb),
+            (30, self.fields.workingset_refault_anon),
+            (31, self.fields.workingset_refault_file),
+            (32, self.fields.workingset_activate_anon),
+            (33, self.fields.workingset_activate_file),
+            (34, self.fields.workingset_restore_anon),
+            (35, self.fields.workingset_restore_file),
+            (36, self.fields.workingset_nodereclaim),
+            (37, self.fields.pgdemote_kswapd),
+            (38, self.fields.pgdemote_direct),
+            (39, self.fields.pgdemote_khugepaged),
+            (40, self.fields.pgdemote_proactive),
+            (41, self.fields.pgsteal_kswapd),
+            (42, self.fields.pgsteal_direct),
+            (43, self.fields.pgsteal_khugepaged),
+            (44, self.fields.pgsteal_proactive),
+            (45, self.fields.pgscan_kswapd),
+            (46, self.fields.pgscan_direct),
+            (47, self.fields.pgscan_khugepaged),
+            (48, self.fields.pgscan_proactive),
+            (49, self.fields.pgrefill),
+            (50, self.fields.pgpromote_success),
+            (51, self.fields.pgscan),
+            (52, self.fields.pgsteal),
+            (53, self.fields.pswpin),
+            (54, self.fields.pswpout),
+            (55, self.fields.pgfault),
+            (56, self.fields.pgmajfault),
+            (57, self.fields.pgactivate),
+            (58, self.fields.pgdeactivate),
+            (59, self.fields.pglazyfree),
+            (60, self.fields.pglazyfreed),
+            (61, self.fields.swpin_zero),
+            (62, self.fields.swpout_zero),
+            (63, self.fields.zswpin),
+            (64, self.fields.zswpout),
+            (65, self.fields.zswpwb),
+            (66, self.fields.thp_fault_alloc),
+            (67, self.fields.thp_collapse_alloc),
+            (68, self.fields.thp_swpout),
+            (69, self.fields.thp_swpout_fallback),
+            (70, self.fields.numa_pages_migrated),
+            (71, self.fields.numa_pte_updates),
+            (72, self.fields.numa_hint_faults),
+        ])
+    }
+
+    fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
+        HashMap::from([
+            ("anon", (1, self.fields.anon)),
+            ("file", (2, self.fields.file)),
+            ("kernel", (3, self.fields.kernel)),
+            ("kernel_stack", (4, self.fields.kernel_stack)),
+            ("pagetables", (5, self.fields.pagetables)),
+            ("sec_pagetables", (6, self.fields.sec_pagetables)),
+            ("percpu", (7, self.fields.percpu)),
+            ("sock", (8, self.fields.sock)),
+            ("vmalloc", (9, self.fields.vmalloc)),
+            ("shmem", (10, self.fields.shmem)),
+            ("zswap", (11, self.fields.zswap)),
+            ("zswapped", (12, self.fields.zswapped)),
+            ("zswap_incomp", (13, self.fields.zswap_incomp)),
+            ("file_mapped", (14, self.fields.file_mapped)),
+            ("file_dirty", (15, self.fields.file_dirty)),
+            ("file_writeback", (16, self.fields.file_writeback)),
+            ("swapcached", (17, self.fields.swapcached)),
+            ("anon_thp", (18, self.fields.anon_thp)),
+            ("file_thp", (19, self.fields.file_thp)),
+            ("shmem_thp", (20, self.fields.shmem_thp)),
+            ("inactive_anon", (21, self.fields.inactive_anon)),
+            ("active_anon", (22, self.fields.active_anon)),
+            ("inactive_file", (23, self.fields.inactive_file)),
+            ("active_file", (24, self.fields.active_file)),
+            ("unevictable", (25, self.fields.unevictable)),
+            ("slab_reclaimable", (26, self.fields.slab_reclaimable)),
+            ("slab_unreclaimable", (27, self.fields.slab_unreclaimable)),
+            ("slab", (28, self.fields.slab)),
+            ("hugetlb", (29, self.fields.hugetlb)),
+            (
+                "workingset_refault_anon",
+                (30, self.fields.workingset_refault_anon),
+            ),
+            (
+                "workingset_refault_file",
+                (31, self.fields.workingset_refault_file),
+            ),
+            (
+                "workingset_activate_anon",
+                (32, self.fields.workingset_activate_anon),
+            ),
+            (
+                "workingset_activate_file",
+                (33, self.fields.workingset_activate_file),
+            ),
+            (
+                "workingset_restore_anon",
+                (34, self.fields.workingset_restore_anon),
+            ),
+            (
+                "workingset_restore_file",
+                (35, self.fields.workingset_restore_file),
+            ),
+            (
+                "workingset_nodereclaim",
+                (36, self.fields.workingset_nodereclaim),
+            ),
+            ("pgdemote_kswapd", (37, self.fields.pgdemote_kswapd)),
+            ("pgdemote_direct", (38, self.fields.pgdemote_direct)),
+            ("pgdemote_khugepaged", (39, self.fields.pgdemote_khugepaged)),
+            ("pgdemote_proactive", (40, self.fields.pgdemote_proactive)),
+            ("pgsteal_kswapd", (41, self.fields.pgsteal_kswapd)),
+            ("pgsteal_direct", (42, self.fields.pgsteal_direct)),
+            ("pgsteal_khugepaged", (43, self.fields.pgsteal_khugepaged)),
+            ("pgsteal_proactive", (44, self.fields.pgsteal_proactive)),
+            ("pgscan_kswapd", (45, self.fields.pgscan_kswapd)),
+            ("pgscan_direct", (46, self.fields.pgscan_direct)),
+            ("pgscan_khugepaged", (47, self.fields.pgscan_khugepaged)),
+            ("pgscan_proactive", (48, self.fields.pgscan_proactive)),
+            ("pgrefill", (49, self.fields.pgrefill)),
+            ("pgpromote_success", (50, self.fields.pgpromote_success)),
+            ("pgscan", (51, self.fields.pgscan)),
+            ("pgsteal", (52, self.fields.pgsteal)),
+            ("pswpin", (53, self.fields.pswpin)),
+            ("pswpout", (54, self.fields.pswpout)),
+            ("pgfault", (55, self.fields.pgfault)),
+            ("pgmajfault", (56, self.fields.pgmajfault)),
+            ("pgactivate", (57, self.fields.pgactivate)),
+            ("pgdeactivate", (58, self.fields.pgdeactivate)),
+            ("pglazyfree", (59, self.fields.pglazyfree)),
+            ("pglazyfreed", (60, self.fields.pglazyfreed)),
+            ("swpin_zero", (61, self.fields.swpin_zero)),
+            ("swpout_zero", (62, self.fields.swpout_zero)),
+            ("zswpin", (63, self.fields.zswpin)),
+            ("zswpout", (64, self.fields.zswpout)),
+            ("zswpwb", (65, self.fields.zswpwb)),
+            ("thp_fault_alloc", (66, self.fields.thp_fault_alloc)),
+            ("thp_collapse_alloc", (67, self.fields.thp_collapse_alloc)),
+            ("thp_swpout", (68, self.fields.thp_swpout)),
+            ("thp_swpout_fallback", (69, self.fields.thp_swpout_fallback)),
+            ("numa_pages_migrated", (70, self.fields.numa_pages_migrated)),
+            ("numa_pte_updates", (71, self.fields.numa_pte_updates)),
+            ("numa_hint_faults", (72, self.fields.numa_hint_faults)),
+        ])
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.allow
+            & self.fields.anon
+            & self.fields.file
+            & self.fields.kernel
+            & self.fields.kernel_stack
+            & self.fields.pagetables
+            & self.fields.sec_pagetables
+            & self.fields.percpu
+            & self.fields.sock
+            & self.fields.vmalloc
+            & self.fields.shmem
+            & self.fields.zswap
+            & self.fields.zswapped
+            & self.fields.zswap_incomp
+            & self.fields.file_mapped
+            & self.fields.file_dirty
+            & self.fields.file_writeback
+            & self.fields.swapcached
+            & self.fields.anon_thp
+            & self.fields.file_thp
+            & self.fields.shmem_thp
+            & self.fields.inactive_anon
+            & self.fields.active_anon
+            & self.fields.inactive_file
+            & self.fields.active_file
+            & self.fields.unevictable
+            & self.fields.slab_reclaimable
+            & self.fields.slab_unreclaimable
+            & self.fields.slab
+            & self.fields.hugetlb
+            & self.fields.workingset_refault_anon
+            & self.fields.workingset_refault_file
+            & self.fields.workingset_activate_anon
+            & self.fields.workingset_activate_file
+            & self.fields.workingset_restore_anon
+            & self.fields.workingset_restore_file
+            & self.fields.workingset_nodereclaim
+            & self.fields.pgdemote_kswapd
+            & self.fields.pgdemote_direct
+            & self.fields.pgdemote_khugepaged
+            & self.fields.pgdemote_proactive
+            & self.fields.pgsteal_kswapd
+            & self.fields.pgsteal_direct
+            & self.fields.pgsteal_khugepaged
+            & self.fields.pgsteal_proactive
+            & self.fields.pgscan_kswapd
+            & self.fields.pgscan_direct
+            & self.fields.pgscan_khugepaged
+            & self.fields.pgscan_proactive
+            & self.fields.pgrefill
+            & self.fields.pgpromote_success
+            & self.fields.pgscan
+            & self.fields.pgsteal
+            & self.fields.pswpin
+            & self.fields.pswpout
+            & self.fields.pgfault
+            & self.fields.pgmajfault
+            & self.fields.pgactivate
+            & self.fields.pgdeactivate
+            & self.fields.pglazyfree
+            & self.fields.pglazyfreed
+            & self.fields.swpin_zero
+            & self.fields.swpout_zero
+            & self.fields.zswpin
+            & self.fields.zswpout
+            & self.fields.zswpwb
+            & self.fields.thp_fault_alloc
+            & self.fields.thp_collapse_alloc
+            & self.fields.thp_swpout
+            & self.fields.thp_swpout_fallback
+            & self.fields.numa_pages_migrated
+            & self.fields.numa_pte_updates
+            & self.fields.numa_hint_faults
+    }
+}
+
+impl Default for CgroupV2MemoryStatConfigFields {
+    fn default() -> Self {
+        Self {
+            anon: true,
+            file: true,
+            kernel: true,
+            kernel_stack: true,
+            pagetables: true,
+            sec_pagetables: true,
+            percpu: true,
+            sock: true,
+            vmalloc: true,
+            shmem: true,
+            zswap: true,
+            zswapped: true,
+            zswap_incomp: true,
+            file_mapped: true,
+            file_dirty: true,
+            file_writeback: true,
+            swapcached: true,
+            anon_thp: true,
+            file_thp: true,
+            shmem_thp: true,
+            inactive_anon: true,
+            active_anon: true,
+            inactive_file: true,
+            active_file: true,
+            unevictable: true,
+            slab_reclaimable: true,
+            slab_unreclaimable: true,
+            slab: true,
+            hugetlb: true,
+            workingset_refault_anon: true,
+            workingset_refault_file: true,
+            workingset_activate_anon: true,
+            workingset_activate_file: true,
+            workingset_restore_anon: true,
+            workingset_restore_file: true,
+            workingset_nodereclaim: true,
+            pgdemote_kswapd: true,
+            pgdemote_direct: true,
+            pgdemote_khugepaged: true,
+            pgdemote_proactive: true,
+            pgsteal_kswapd: true,
+            pgsteal_direct: true,
+            pgsteal_khugepaged: true,
+            pgsteal_proactive: true,
+            pgscan_kswapd: true,
+            pgscan_direct: true,
+            pgscan_khugepaged: true,
+            pgscan_proactive: true,
+            pgrefill: true,
+            pgpromote_success: true,
+            pgscan: true,
+            pgsteal: true,
+            pswpin: true,
+            pswpout: true,
+            pgfault: true,
+            pgmajfault: true,
+            pgactivate: true,
+            pgdeactivate: true,
+            pglazyfree: true,
+            pglazyfreed: true,
+            swpin_zero: true,
+            swpout_zero: true,
+            zswpin: true,
+            zswpout: true,
+            zswpwb: true,
+            thp_fault_alloc: true,
+            thp_collapse_alloc: true,
+            thp_swpout: true,
+            thp_swpout_fallback: true,
+            numa_pages_migrated: true,
+            numa_pte_updates: true,
+            numa_hint_faults: true,
+        }
+    }
+}

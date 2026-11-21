@@ -1,4 +1,5 @@
 pub mod cgroup_constants;
+pub mod config;
 mod enums;
 mod errors;
 pub mod procfs_constants;

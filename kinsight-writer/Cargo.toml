@@ -1,0 +1,11 @@
+[package]
+name = "kinsight-writer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+kinsight-common = { path = "../kinsight-common" }
+kinsight-proc-parser = {path = "../kinsight-proc-parser" }
+kinsight-proc-pid-parser = {path = "../kinsight-proc-pid-parser" }
+kinsight-gpu-parser = {path = "../kinsight-gpu-parser" }
+kinsight-cgroups-v2 = {path = "../kinsight-cgroups-v2" }

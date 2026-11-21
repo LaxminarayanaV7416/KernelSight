@@ -106,7 +106,9 @@ dependencies = [
 name = "kinsight-common"
 version = "0.1.0"
 dependencies = [
+ "basic-toml",
  "rustix",
+ "serde",
  "signal-hook",
 ]
 
@@ -134,6 +136,17 @@ name = "kinsight-proc-pid-parser"
 version = "0.1.0"
 dependencies = [
  "kinsight-common",
+]
+
+[[package]]
+name = "kinsight-writer"
+version = "0.1.0"
+dependencies = [
+ "kinsight-cgroups-v2",
+ "kinsight-common",
+ "kinsight-gpu-parser",
+ "kinsight-proc-parser",
+ "kinsight-proc-pid-parser",
 ]
 
 [[package]]

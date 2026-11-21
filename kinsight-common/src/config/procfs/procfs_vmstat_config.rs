@@ -1,0 +1,1010 @@
+use super::super::config::ProcFSConfig;
+use super::super::config::ProcFSConfigTrait;
+use serde::Deserialize;
+use std::collections::HashMap;
+
+// its the load avg config
+// its from the /proc/loadavg
+
+#[derive(Debug, Default, Deserialize)]
+pub struct ProcVmstatConfigFields {
+    pub nr_free_pages: bool,
+    pub nr_free_pages_blocks: bool,
+    pub nr_zone_inactive_anon: bool,
+    pub nr_zone_active_anon: bool,
+    pub nr_zone_inactive_file: bool,
+    pub nr_zone_active_file: bool,
+    pub nr_zone_unevictable: bool,
+    pub nr_zone_write_pending: bool,
+    pub nr_mlock: bool,
+    pub nr_zspages: bool,
+    pub nr_free_cma: bool,
+    pub nr_unaccepted: bool,
+    pub numa_hit: bool,
+    pub numa_miss: bool,
+    pub numa_foreign: bool,
+    pub numa_interleave: bool,
+    pub numa_local: bool,
+    pub numa_other: bool,
+    pub nr_inactive_anon: bool,
+    pub nr_active_anon: bool,
+    pub nr_inactive_file: bool,
+    pub nr_active_file: bool,
+    pub nr_unevictable: bool,
+    pub nr_slab_reclaimable: bool,
+    pub nr_slab_unreclaimable: bool,
+    pub nr_isolated_anon: bool,
+    pub nr_isolated_file: bool,
+    pub workingset_nodes: bool,
+    pub workingset_refault_anon: bool,
+    pub workingset_refault_file: bool,
+    pub workingset_activate_anon: bool,
+    pub workingset_activate_file: bool,
+    pub workingset_restore_anon: bool,
+    pub workingset_restore_file: bool,
+    pub workingset_nodereclaim: bool,
+    pub nr_anon_pages: bool,
+    pub nr_mapped: bool,
+    pub nr_file_pages: bool,
+    pub nr_dirty: bool,
+    pub nr_writeback: bool,
+    pub nr_shmem: bool,
+    pub nr_shmem_hugepages: bool,
+    pub nr_shmem_pmdmapped: bool,
+    pub nr_file_hugepages: bool,
+    pub nr_file_pmdmapped: bool,
+    pub nr_anon_transparent_hugepages: bool,
+    pub nr_vmscan_write: bool,
+    pub nr_vmscan_immediate_reclaim: bool,
+    pub nr_dirtied: bool,
+    pub nr_written: bool,
+    pub nr_throttled_written: bool,
+    pub nr_kernel_misc_reclaimable: bool,
+    pub nr_foll_pin_acquired: bool,
+    pub nr_foll_pin_released: bool,
+    pub nr_vmalloc: bool,
+    pub nr_kernel_stack: bool,
+    pub nr_page_table_pages: bool,
+    pub nr_sec_page_table_pages: bool,
+    pub nr_iommu_pages: bool,
+    pub nr_swapcached: bool,
+    pub pgpromote_success: bool,
+    pub pgpromote_candidate: bool,
+    pub pgpromote_candidate_nrl: bool,
+    pub pgdemote_kswapd: bool,
+    pub pgdemote_direct: bool,
+    pub pgdemote_khugepaged: bool,
+    pub pgdemote_proactive: bool,
+    pub pgsteal_kswapd: bool,
+    pub pgsteal_direct: bool,
+    pub pgsteal_khugepaged: bool,
+    pub pgsteal_proactive: bool,
+    pub pgsteal_anon: bool,
+    pub pgsteal_file: bool,
+    pub pgscan_kswapd: bool,
+    pub pgscan_direct: bool,
+    pub pgscan_khugepaged: bool,
+    pub pgscan_proactive: bool,
+    pub pgscan_anon: bool,
+    pub pgscan_file: bool,
+    pub pgrefill: bool,
+    pub nr_hugetlb: bool,
+    pub nr_balloon_pages: bool,
+    pub nr_kernel_file_pages: bool,
+    pub nr_gpu_active: bool,
+    pub nr_gpu_reclaim: bool,
+    pub nr_dirty_threshold: bool,
+    pub nr_dirty_background_threshold: bool,
+    pub nr_memmap_pages: bool,
+    pub nr_memmap_boot_pages: bool,
+    pub pgpgin: bool,
+    pub pgpgout: bool,
+    pub pswpin: bool,
+    pub pswpout: bool,
+    pub pgalloc_dma: bool,
+    pub pgalloc_dma32: bool,
+    pub pgalloc_normal: bool,
+    pub pgalloc_movable: bool,
+    pub pgalloc_device: bool,
+    pub allocstall_dma: bool,
+    pub allocstall_dma32: bool,
+    pub allocstall_normal: bool,
+    pub allocstall_movable: bool,
+    pub allocstall_device: bool,
+    pub pgskip_dma: bool,
+    pub pgskip_dma32: bool,
+    pub pgskip_normal: bool,
+    pub pgskip_movable: bool,
+    pub pgskip_device: bool,
+    pub pgfree: bool,
+    pub pgactivate: bool,
+    pub pgdeactivate: bool,
+    pub pglazyfree: bool,
+    pub pgfault: bool,
+    pub pgmajfault: bool,
+    pub pglazyfreed: bool,
+    pub pgreuse: bool,
+    pub pgscan_direct_throttle: bool,
+    pub zone_reclaim_success: bool,
+    pub zone_reclaim_failed: bool,
+    pub pginodesteal: bool,
+    pub slabs_scanned: bool,
+    pub kswapd_inodesteal: bool,
+    pub kswapd_low_wmark_hit_quickly: bool,
+    pub kswapd_high_wmark_hit_quickly: bool,
+    pub pageoutrun: bool,
+    pub pgrotated: bool,
+    pub drop_pagecache: bool,
+    pub drop_slab: bool,
+    pub oom_kill: bool,
+    pub numa_pte_updates: bool,
+    pub numa_huge_pte_updates: bool,
+    pub numa_hint_faults: bool,
+    pub numa_hint_faults_local: bool,
+    pub numa_pages_migrated: bool,
+    pub pgmigrate_success: bool,
+    pub pgmigrate_fail: bool,
+    pub thp_migration_success: bool,
+    pub thp_migration_fail: bool,
+    pub thp_migration_split: bool,
+    pub compact_migrate_scanned: bool,
+    pub compact_free_scanned: bool,
+    pub compact_isolated: bool,
+    pub compact_stall: bool,
+    pub compact_fail: bool,
+    pub compact_success: bool,
+    pub compact_daemon_wake: bool,
+    pub compact_daemon_migrate_scanned: bool,
+    pub compact_daemon_free_scanned: bool,
+    pub htlb_buddy_alloc_success: bool,
+    pub htlb_buddy_alloc_fail: bool,
+    pub cma_alloc_success: bool,
+    pub cma_alloc_fail: bool,
+    pub unevictable_pgs_culled: bool,
+    pub unevictable_pgs_scanned: bool,
+    pub unevictable_pgs_rescued: bool,
+    pub unevictable_pgs_mlocked: bool,
+    pub unevictable_pgs_munlocked: bool,
+    pub unevictable_pgs_cleared: bool,
+    pub unevictable_pgs_stranded: bool,
+    pub thp_fault_alloc: bool,
+    pub thp_fault_fallback: bool,
+    pub thp_fault_fallback_charge: bool,
+    pub thp_collapse_alloc: bool,
+    pub thp_collapse_alloc_failed: bool,
+    pub thp_file_alloc: bool,
+    pub thp_file_fallback: bool,
+    pub thp_file_fallback_charge: bool,
+    pub thp_file_mapped: bool,
+    pub thp_split_page: bool,
+    pub thp_split_page_failed: bool,
+    pub thp_deferred_split_page: bool,
+    pub thp_underused_split_page: bool,
+    pub thp_split_pmd: bool,
+    pub thp_scan_exceed_none_pte: bool,
+    pub thp_scan_exceed_swap_pte: bool,
+    pub thp_scan_exceed_share_pte: bool,
+    pub thp_split_pud: bool,
+    pub thp_zero_page_alloc: bool,
+    pub thp_zero_page_alloc_failed: bool,
+    pub thp_swpout: bool,
+    pub thp_swpout_fallback: bool,
+    pub balloon_inflate: bool,
+    pub balloon_deflate: bool,
+    pub balloon_migrate: bool,
+    pub swap_ra: bool,
+    pub swap_ra_hit: bool,
+    pub swpin_zero: bool,
+    pub swpout_zero: bool,
+    pub ksm_swpin_copy: bool,
+    pub cow_ksm: bool,
+    pub zswpin: bool,
+    pub zswpout: bool,
+    pub zswpwb: bool,
+    pub direct_map_level2_splits: bool,
+    pub direct_map_level3_splits: bool,
+    pub direct_map_level2_collapses: bool,
+    pub direct_map_level3_collapses: bool,
+    pub nr_unstable: bool,
+}
+
+pub type ProcVmstatConfig = ProcFSConfig<ProcVmstatConfigFields>;
+
+impl ProcFSConfigTrait for ProcVmstatConfig {
+    fn get_hashmap(&self) -> HashMap<usize, bool> {
+        HashMap::from([
+            (1, self.fields.nr_free_pages),
+            (2, self.fields.nr_free_pages_blocks),
+            (3, self.fields.nr_zone_inactive_anon),
+            (4, self.fields.nr_zone_active_anon),
+            (5, self.fields.nr_zone_inactive_file),
+            (6, self.fields.nr_zone_active_file),
+            (7, self.fields.nr_zone_unevictable),
+            (8, self.fields.nr_zone_write_pending),
+            (9, self.fields.nr_mlock),
+            (10, self.fields.nr_zspages),
+            (11, self.fields.nr_free_cma),
+            (12, self.fields.nr_unaccepted),
+            (13, self.fields.numa_hit),
+            (14, self.fields.numa_miss),
+            (15, self.fields.numa_foreign),
+            (16, self.fields.numa_interleave),
+            (17, self.fields.numa_local),
+            (18, self.fields.numa_other),
+            (19, self.fields.nr_inactive_anon),
+            (20, self.fields.nr_active_anon),
+            (21, self.fields.nr_inactive_file),
+            (22, self.fields.nr_active_file),
+            (23, self.fields.nr_unevictable),
+            (24, self.fields.nr_slab_reclaimable),
+            (25, self.fields.nr_slab_unreclaimable),
+            (26, self.fields.nr_isolated_anon),
+            (27, self.fields.nr_isolated_file),
+            (28, self.fields.workingset_nodes),
+            (29, self.fields.workingset_refault_anon),
+            (30, self.fields.workingset_refault_file),
+            (31, self.fields.workingset_activate_anon),
+            (32, self.fields.workingset_activate_file),
+            (33, self.fields.workingset_restore_anon),
+            (34, self.fields.workingset_restore_file),
+            (35, self.fields.workingset_nodereclaim),
+            (36, self.fields.nr_anon_pages),
+            (37, self.fields.nr_mapped),
+            (38, self.fields.nr_file_pages),
+            (39, self.fields.nr_dirty),
+            (40, self.fields.nr_writeback),
+            (41, self.fields.nr_shmem),
+            (42, self.fields.nr_shmem_hugepages),
+            (43, self.fields.nr_shmem_pmdmapped),
+            (44, self.fields.nr_file_hugepages),
+            (45, self.fields.nr_file_pmdmapped),
+            (46, self.fields.nr_anon_transparent_hugepages),
+            (47, self.fields.nr_vmscan_write),
+            (48, self.fields.nr_vmscan_immediate_reclaim),
+            (49, self.fields.nr_dirtied),
+            (50, self.fields.nr_written),
+            (51, self.fields.nr_throttled_written),
+            (52, self.fields.nr_kernel_misc_reclaimable),
+            (53, self.fields.nr_foll_pin_acquired),
+            (54, self.fields.nr_foll_pin_released),
+            (55, self.fields.nr_vmalloc),
+            (56, self.fields.nr_kernel_stack),
+            (57, self.fields.nr_page_table_pages),
+            (58, self.fields.nr_sec_page_table_pages),
+            (59, self.fields.nr_iommu_pages),
+            (60, self.fields.nr_swapcached),
+            (61, self.fields.pgpromote_success),
+            (62, self.fields.pgpromote_candidate),
+            (63, self.fields.pgpromote_candidate_nrl),
+            (64, self.fields.pgdemote_kswapd),
+            (65, self.fields.pgdemote_direct),
+            (66, self.fields.pgdemote_khugepaged),
+            (67, self.fields.pgdemote_proactive),
+            (68, self.fields.pgsteal_kswapd),
+            (69, self.fields.pgsteal_direct),
+            (70, self.fields.pgsteal_khugepaged),
+            (71, self.fields.pgsteal_proactive),
+            (72, self.fields.pgsteal_anon),
+            (73, self.fields.pgsteal_file),
+            (74, self.fields.pgscan_kswapd),
+            (75, self.fields.pgscan_direct),
+            (76, self.fields.pgscan_khugepaged),
+            (77, self.fields.pgscan_proactive),
+            (78, self.fields.pgscan_anon),
+            (79, self.fields.pgscan_file),
+            (80, self.fields.pgrefill),
+            (81, self.fields.nr_hugetlb),
+            (82, self.fields.nr_balloon_pages),
+            (83, self.fields.nr_kernel_file_pages),
+            (84, self.fields.nr_gpu_active),
+            (85, self.fields.nr_gpu_reclaim),
+            (86, self.fields.nr_dirty_threshold),
+            (87, self.fields.nr_dirty_background_threshold),
+            (88, self.fields.nr_memmap_pages),
+            (89, self.fields.nr_memmap_boot_pages),
+            (90, self.fields.pgpgin),
+            (91, self.fields.pgpgout),
+            (92, self.fields.pswpin),
+            (93, self.fields.pswpout),
+            (94, self.fields.pgalloc_dma),
+            (95, self.fields.pgalloc_dma32),
+            (96, self.fields.pgalloc_normal),
+            (97, self.fields.pgalloc_movable),
+            (98, self.fields.pgalloc_device),
+            (99, self.fields.allocstall_dma),
+            (100, self.fields.allocstall_dma32),
+            (101, self.fields.allocstall_normal),
+            (102, self.fields.allocstall_movable),
+            (103, self.fields.allocstall_device),
+            (104, self.fields.pgskip_dma),
+            (105, self.fields.pgskip_dma32),
+            (106, self.fields.pgskip_normal),
+            (107, self.fields.pgskip_movable),
+            (108, self.fields.pgskip_device),
+            (109, self.fields.pgfree),
+            (110, self.fields.pgactivate),
+            (111, self.fields.pgdeactivate),
+            (112, self.fields.pglazyfree),
+            (113, self.fields.pgfault),
+            (114, self.fields.pgmajfault),
+            (115, self.fields.pglazyfreed),
+            (116, self.fields.pgreuse),
+            (117, self.fields.pgscan_direct_throttle),
+            (118, self.fields.zone_reclaim_success),
+            (119, self.fields.zone_reclaim_failed),
+            (120, self.fields.pginodesteal),
+            (121, self.fields.slabs_scanned),
+            (122, self.fields.kswapd_inodesteal),
+            (123, self.fields.kswapd_low_wmark_hit_quickly),
+            (124, self.fields.kswapd_high_wmark_hit_quickly),
+            (125, self.fields.pageoutrun),
+            (126, self.fields.pgrotated),
+            (127, self.fields.drop_pagecache),
+            (128, self.fields.drop_slab),
+            (129, self.fields.oom_kill),
+            (130, self.fields.numa_pte_updates),
+            (131, self.fields.numa_huge_pte_updates),
+            (132, self.fields.numa_hint_faults),
+            (133, self.fields.numa_hint_faults_local),
+            (134, self.fields.numa_pages_migrated),
+            (135, self.fields.pgmigrate_success),
+            (136, self.fields.pgmigrate_fail),
+            (137, self.fields.thp_migration_success),
+            (138, self.fields.thp_migration_fail),
+            (139, self.fields.thp_migration_split),
+            (140, self.fields.compact_migrate_scanned),
+            (141, self.fields.compact_free_scanned),
+            (142, self.fields.compact_isolated),
+            (143, self.fields.compact_stall),
+            (144, self.fields.compact_fail),
+            (145, self.fields.compact_success),
+            (146, self.fields.compact_daemon_wake),
+            (147, self.fields.compact_daemon_migrate_scanned),
+            (148, self.fields.compact_daemon_free_scanned),
+            (149, self.fields.htlb_buddy_alloc_success),
+            (150, self.fields.htlb_buddy_alloc_fail),
+            (151, self.fields.cma_alloc_success),
+            (152, self.fields.cma_alloc_fail),
+            (153, self.fields.unevictable_pgs_culled),
+            (154, self.fields.unevictable_pgs_scanned),
+            (155, self.fields.unevictable_pgs_rescued),
+            (156, self.fields.unevictable_pgs_mlocked),
+            (157, self.fields.unevictable_pgs_munlocked),
+            (158, self.fields.unevictable_pgs_cleared),
+            (159, self.fields.unevictable_pgs_stranded),
+            (160, self.fields.thp_fault_alloc),
+            (161, self.fields.thp_fault_fallback),
+            (162, self.fields.thp_fault_fallback_charge),
+            (163, self.fields.thp_collapse_alloc),
+            (164, self.fields.thp_collapse_alloc_failed),
+            (165, self.fields.thp_file_alloc),
+            (166, self.fields.thp_file_fallback),
+            (167, self.fields.thp_file_fallback_charge),
+            (168, self.fields.thp_file_mapped),
+            (169, self.fields.thp_split_page),
+            (170, self.fields.thp_split_page_failed),
+            (171, self.fields.thp_deferred_split_page),
+            (172, self.fields.thp_underused_split_page),
+            (173, self.fields.thp_split_pmd),
+            (174, self.fields.thp_scan_exceed_none_pte),
+            (175, self.fields.thp_scan_exceed_swap_pte),
+            (176, self.fields.thp_scan_exceed_share_pte),
+            (177, self.fields.thp_split_pud),
+            (178, self.fields.thp_zero_page_alloc),
+            (179, self.fields.thp_zero_page_alloc_failed),
+            (180, self.fields.thp_swpout),
+            (181, self.fields.thp_swpout_fallback),
+            (182, self.fields.balloon_inflate),
+            (183, self.fields.balloon_deflate),
+            (184, self.fields.balloon_migrate),
+            (185, self.fields.swap_ra),
+            (186, self.fields.swap_ra_hit),
+            (187, self.fields.swpin_zero),
+            (188, self.fields.swpout_zero),
+            (189, self.fields.ksm_swpin_copy),
+            (190, self.fields.cow_ksm),
+            (191, self.fields.zswpin),
+            (192, self.fields.zswpout),
+            (193, self.fields.zswpwb),
+            (194, self.fields.direct_map_level2_splits),
+            (195, self.fields.direct_map_level3_splits),
+            (196, self.fields.direct_map_level2_collapses),
+            (197, self.fields.direct_map_level3_collapses),
+            (198, self.fields.nr_unstable),
+        ])
+    }
+
+    fn get_field_string_to_struct_ids(&self) -> HashMap<&'static str, (usize, bool)> {
+        HashMap::from([
+            ("nr_free_pages", (1, self.fields.nr_free_pages)),
+            (
+                "nr_free_pages_blocks",
+                (2, self.fields.nr_free_pages_blocks),
+            ),
+            (
+                "nr_zone_inactive_anon",
+                (3, self.fields.nr_zone_inactive_anon),
+            ),
+            ("nr_zone_active_anon", (4, self.fields.nr_zone_active_anon)),
+            (
+                "nr_zone_inactive_file",
+                (5, self.fields.nr_zone_inactive_file),
+            ),
+            ("nr_zone_active_file", (6, self.fields.nr_zone_active_file)),
+            ("nr_zone_unevictable", (7, self.fields.nr_zone_unevictable)),
+            (
+                "nr_zone_write_pending",
+                (8, self.fields.nr_zone_write_pending),
+            ),
+            ("nr_mlock", (9, self.fields.nr_mlock)),
+            ("nr_zspages", (10, self.fields.nr_zspages)),
+            ("nr_free_cma", (11, self.fields.nr_free_cma)),
+            ("nr_unaccepted", (12, self.fields.nr_unaccepted)),
+            ("numa_hit", (13, self.fields.numa_hit)),
+            ("numa_miss", (14, self.fields.numa_miss)),
+            ("numa_foreign", (15, self.fields.numa_foreign)),
+            ("numa_interleave", (16, self.fields.numa_interleave)),
+            ("numa_local", (17, self.fields.numa_local)),
+            ("numa_other", (18, self.fields.numa_other)),
+            ("nr_inactive_anon", (19, self.fields.nr_inactive_anon)),
+            ("nr_active_anon", (20, self.fields.nr_active_anon)),
+            ("nr_inactive_file", (21, self.fields.nr_inactive_file)),
+            ("nr_active_file", (22, self.fields.nr_active_file)),
+            ("nr_unevictable", (23, self.fields.nr_unevictable)),
+            ("nr_slab_reclaimable", (24, self.fields.nr_slab_reclaimable)),
+            (
+                "nr_slab_unreclaimable",
+                (25, self.fields.nr_slab_unreclaimable),
+            ),
+            ("nr_isolated_anon", (26, self.fields.nr_isolated_anon)),
+            ("nr_isolated_file", (27, self.fields.nr_isolated_file)),
+            ("workingset_nodes", (28, self.fields.workingset_nodes)),
+            (
+                "workingset_refault_anon",
+                (29, self.fields.workingset_refault_anon),
+            ),
+            (
+                "workingset_refault_file",
+                (30, self.fields.workingset_refault_file),
+            ),
+            (
+                "workingset_activate_anon",
+                (31, self.fields.workingset_activate_anon),
+            ),
+            (
+                "workingset_activate_file",
+                (32, self.fields.workingset_activate_file),
+            ),
+            (
+                "workingset_restore_anon",
+                (33, self.fields.workingset_restore_anon),
+            ),
+            (
+                "workingset_restore_file",
+                (34, self.fields.workingset_restore_file),
+            ),
+            (
+                "workingset_nodereclaim",
+                (35, self.fields.workingset_nodereclaim),
+            ),
+            ("nr_anon_pages", (36, self.fields.nr_anon_pages)),
+            ("nr_mapped", (37, self.fields.nr_mapped)),
+            ("nr_file_pages", (38, self.fields.nr_file_pages)),
+            ("nr_dirty", (39, self.fields.nr_dirty)),
+            ("nr_writeback", (40, self.fields.nr_writeback)),
+            ("nr_shmem", (41, self.fields.nr_shmem)),
+            ("nr_shmem_hugepages", (42, self.fields.nr_shmem_hugepages)),
+            ("nr_shmem_pmdmapped", (43, self.fields.nr_shmem_pmdmapped)),
+            ("nr_file_hugepages", (44, self.fields.nr_file_hugepages)),
+            ("nr_file_pmdmapped", (45, self.fields.nr_file_pmdmapped)),
+            (
+                "nr_anon_transparent_hugepages",
+                (46, self.fields.nr_anon_transparent_hugepages),
+            ),
+            ("nr_vmscan_write", (47, self.fields.nr_vmscan_write)),
+            (
+                "nr_vmscan_immediate_reclaim",
+                (48, self.fields.nr_vmscan_immediate_reclaim),
+            ),
+            ("nr_dirtied", (49, self.fields.nr_dirtied)),
+            ("nr_written", (50, self.fields.nr_written)),
+            (
+                "nr_throttled_written",
+                (51, self.fields.nr_throttled_written),
+            ),
+            (
+                "nr_kernel_misc_reclaimable",
+                (52, self.fields.nr_kernel_misc_reclaimable),
+            ),
+            (
+                "nr_foll_pin_acquired",
+                (53, self.fields.nr_foll_pin_acquired),
+            ),
+            (
+                "nr_foll_pin_released",
+                (54, self.fields.nr_foll_pin_released),
+            ),
+            ("nr_vmalloc", (55, self.fields.nr_vmalloc)),
+            ("nr_kernel_stack", (56, self.fields.nr_kernel_stack)),
+            ("nr_page_table_pages", (57, self.fields.nr_page_table_pages)),
+            (
+                "nr_sec_page_table_pages",
+                (58, self.fields.nr_sec_page_table_pages),
+            ),
+            ("nr_iommu_pages", (59, self.fields.nr_iommu_pages)),
+            ("nr_swapcached", (60, self.fields.nr_swapcached)),
+            ("pgpromote_success", (61, self.fields.pgpromote_success)),
+            ("pgpromote_candidate", (62, self.fields.pgpromote_candidate)),
+            (
+                "pgpromote_candidate_nrl",
+                (63, self.fields.pgpromote_candidate_nrl),
+            ),
+            ("pgdemote_kswapd", (64, self.fields.pgdemote_kswapd)),
+            ("pgdemote_direct", (65, self.fields.pgdemote_direct)),
+            ("pgdemote_khugepaged", (66, self.fields.pgdemote_khugepaged)),
+            ("pgdemote_proactive", (67, self.fields.pgdemote_proactive)),
+            ("pgsteal_kswapd", (68, self.fields.pgsteal_kswapd)),
+            ("pgsteal_direct", (69, self.fields.pgsteal_direct)),
+            ("pgsteal_khugepaged", (70, self.fields.pgsteal_khugepaged)),
+            ("pgsteal_proactive", (71, self.fields.pgsteal_proactive)),
+            ("pgsteal_anon", (72, self.fields.pgsteal_anon)),
+            ("pgsteal_file", (73, self.fields.pgsteal_file)),
+            ("pgscan_kswapd", (74, self.fields.pgscan_kswapd)),
+            ("pgscan_direct", (75, self.fields.pgscan_direct)),
+            ("pgscan_khugepaged", (76, self.fields.pgscan_khugepaged)),
+            ("pgscan_proactive", (77, self.fields.pgscan_proactive)),
+            ("pgscan_anon", (78, self.fields.pgscan_anon)),
+            ("pgscan_file", (79, self.fields.pgscan_file)),
+            ("pgrefill", (80, self.fields.pgrefill)),
+            ("nr_hugetlb", (81, self.fields.nr_hugetlb)),
+            ("nr_balloon_pages", (82, self.fields.nr_balloon_pages)),
+            (
+                "nr_kernel_file_pages",
+                (83, self.fields.nr_kernel_file_pages),
+            ),
+            ("nr_gpu_active", (84, self.fields.nr_gpu_active)),
+            ("nr_gpu_reclaim", (85, self.fields.nr_gpu_reclaim)),
+            ("nr_dirty_threshold", (86, self.fields.nr_dirty_threshold)),
+            (
+                "nr_dirty_background_threshold",
+                (87, self.fields.nr_dirty_background_threshold),
+            ),
+            ("nr_memmap_pages", (88, self.fields.nr_memmap_pages)),
+            (
+                "nr_memmap_boot_pages",
+                (89, self.fields.nr_memmap_boot_pages),
+            ),
+            ("pgpgin", (90, self.fields.pgpgin)),
+            ("pgpgout", (91, self.fields.pgpgout)),
+            ("pswpin", (92, self.fields.pswpin)),
+            ("pswpout", (93, self.fields.pswpout)),
+            ("pgalloc_dma", (94, self.fields.pgalloc_dma)),
+            ("pgalloc_dma32", (95, self.fields.pgalloc_dma32)),
+            ("pgalloc_normal", (96, self.fields.pgalloc_normal)),
+            ("pgalloc_movable", (97, self.fields.pgalloc_movable)),
+            ("pgalloc_device", (98, self.fields.pgalloc_device)),
+            ("allocstall_dma", (99, self.fields.allocstall_dma)),
+            ("allocstall_dma32", (100, self.fields.allocstall_dma32)),
+            ("allocstall_normal", (101, self.fields.allocstall_normal)),
+            ("allocstall_movable", (102, self.fields.allocstall_movable)),
+            ("allocstall_device", (103, self.fields.allocstall_device)),
+            ("pgskip_dma", (104, self.fields.pgskip_dma)),
+            ("pgskip_dma32", (105, self.fields.pgskip_dma32)),
+            ("pgskip_normal", (106, self.fields.pgskip_normal)),
+            ("pgskip_movable", (107, self.fields.pgskip_movable)),
+            ("pgskip_device", (108, self.fields.pgskip_device)),
+            ("pgfree", (109, self.fields.pgfree)),
+            ("pgactivate", (110, self.fields.pgactivate)),
+            ("pgdeactivate", (111, self.fields.pgdeactivate)),
+            ("pglazyfree", (112, self.fields.pglazyfree)),
+            ("pgfault", (113, self.fields.pgfault)),
+            ("pgmajfault", (114, self.fields.pgmajfault)),
+            ("pglazyfreed", (115, self.fields.pglazyfreed)),
+            ("pgreuse", (116, self.fields.pgreuse)),
+            (
+                "pgscan_direct_throttle",
+                (117, self.fields.pgscan_direct_throttle),
+            ),
+            (
+                "zone_reclaim_success",
+                (118, self.fields.zone_reclaim_success),
+            ),
+            (
+                "zone_reclaim_failed",
+                (119, self.fields.zone_reclaim_failed),
+            ),
+            ("pginodesteal", (120, self.fields.pginodesteal)),
+            ("slabs_scanned", (121, self.fields.slabs_scanned)),
+            ("kswapd_inodesteal", (122, self.fields.kswapd_inodesteal)),
+            (
+                "kswapd_low_wmark_hit_quickly",
+                (123, self.fields.kswapd_low_wmark_hit_quickly),
+            ),
+            (
+                "kswapd_high_wmark_hit_quickly",
+                (124, self.fields.kswapd_high_wmark_hit_quickly),
+            ),
+            ("pageoutrun", (125, self.fields.pageoutrun)),
+            ("pgrotated", (126, self.fields.pgrotated)),
+            ("drop_pagecache", (127, self.fields.drop_pagecache)),
+            ("drop_slab", (128, self.fields.drop_slab)),
+            ("oom_kill", (129, self.fields.oom_kill)),
+            ("numa_pte_updates", (130, self.fields.numa_pte_updates)),
+            (
+                "numa_huge_pte_updates",
+                (131, self.fields.numa_huge_pte_updates),
+            ),
+            ("numa_hint_faults", (132, self.fields.numa_hint_faults)),
+            (
+                "numa_hint_faults_local",
+                (133, self.fields.numa_hint_faults_local),
+            ),
+            (
+                "numa_pages_migrated",
+                (134, self.fields.numa_pages_migrated),
+            ),
+            ("pgmigrate_success", (135, self.fields.pgmigrate_success)),
+            ("pgmigrate_fail", (136, self.fields.pgmigrate_fail)),
+            (
+                "thp_migration_success",
+                (137, self.fields.thp_migration_success),
+            ),
+            ("thp_migration_fail", (138, self.fields.thp_migration_fail)),
+            (
+                "thp_migration_split",
+                (139, self.fields.thp_migration_split),
+            ),
+            (
+                "compact_migrate_scanned",
+                (140, self.fields.compact_migrate_scanned),
+            ),
+            (
+                "compact_free_scanned",
+                (141, self.fields.compact_free_scanned),
+            ),
+            ("compact_isolated", (142, self.fields.compact_isolated)),
+            ("compact_stall", (143, self.fields.compact_stall)),
+            ("compact_fail", (144, self.fields.compact_fail)),
+            ("compact_success", (145, self.fields.compact_success)),
+            (
+                "compact_daemon_wake",
+                (146, self.fields.compact_daemon_wake),
+            ),
+            (
+                "compact_daemon_migrate_scanned",
+                (147, self.fields.compact_daemon_migrate_scanned),
+            ),
+            (
+                "compact_daemon_free_scanned",
+                (148, self.fields.compact_daemon_free_scanned),
+            ),
+            (
+                "htlb_buddy_alloc_success",
+                (149, self.fields.htlb_buddy_alloc_success),
+            ),
+            (
+                "htlb_buddy_alloc_fail",
+                (150, self.fields.htlb_buddy_alloc_fail),
+            ),
+            ("cma_alloc_success", (151, self.fields.cma_alloc_success)),
+            ("cma_alloc_fail", (152, self.fields.cma_alloc_fail)),
+            (
+                "unevictable_pgs_culled",
+                (153, self.fields.unevictable_pgs_culled),
+            ),
+            (
+                "unevictable_pgs_scanned",
+                (154, self.fields.unevictable_pgs_scanned),
+            ),
+            (
+                "unevictable_pgs_rescued",
+                (155, self.fields.unevictable_pgs_rescued),
+            ),
+            (
+                "unevictable_pgs_mlocked",
+                (156, self.fields.unevictable_pgs_mlocked),
+            ),
+            (
+                "unevictable_pgs_munlocked",
+                (157, self.fields.unevictable_pgs_munlocked),
+            ),
+            (
+                "unevictable_pgs_cleared",
+                (158, self.fields.unevictable_pgs_cleared),
+            ),
+            (
+                "unevictable_pgs_stranded",
+                (159, self.fields.unevictable_pgs_stranded),
+            ),
+            ("thp_fault_alloc", (160, self.fields.thp_fault_alloc)),
+            ("thp_fault_fallback", (161, self.fields.thp_fault_fallback)),
+            (
+                "thp_fault_fallback_charge",
+                (162, self.fields.thp_fault_fallback_charge),
+            ),
+            ("thp_collapse_alloc", (163, self.fields.thp_collapse_alloc)),
+            (
+                "thp_collapse_alloc_failed",
+                (164, self.fields.thp_collapse_alloc_failed),
+            ),
+            ("thp_file_alloc", (165, self.fields.thp_file_alloc)),
+            ("thp_file_fallback", (166, self.fields.thp_file_fallback)),
+            (
+                "thp_file_fallback_charge",
+                (167, self.fields.thp_file_fallback_charge),
+            ),
+            ("thp_file_mapped", (168, self.fields.thp_file_mapped)),
+            ("thp_split_page", (169, self.fields.thp_split_page)),
+            (
+                "thp_split_page_failed",
+                (170, self.fields.thp_split_page_failed),
+            ),
+            (
+                "thp_deferred_split_page",
+                (171, self.fields.thp_deferred_split_page),
+            ),
+            (
+                "thp_underused_split_page",
+                (172, self.fields.thp_underused_split_page),
+            ),
+            ("thp_split_pmd", (173, self.fields.thp_split_pmd)),
+            (
+                "thp_scan_exceed_none_pte",
+                (174, self.fields.thp_scan_exceed_none_pte),
+            ),
+            (
+                "thp_scan_exceed_swap_pte",
+                (175, self.fields.thp_scan_exceed_swap_pte),
+            ),
+            (
+                "thp_scan_exceed_share_pte",
+                (176, self.fields.thp_scan_exceed_share_pte),
+            ),
+            ("thp_split_pud", (177, self.fields.thp_split_pud)),
+            (
+                "thp_zero_page_alloc",
+                (178, self.fields.thp_zero_page_alloc),
+            ),
+            (
+                "thp_zero_page_alloc_failed",
+                (179, self.fields.thp_zero_page_alloc_failed),
+            ),
+            ("thp_swpout", (180, self.fields.thp_swpout)),
+            (
+                "thp_swpout_fallback",
+                (181, self.fields.thp_swpout_fallback),
+            ),
+            ("balloon_inflate", (182, self.fields.balloon_inflate)),
+            ("balloon_deflate", (183, self.fields.balloon_deflate)),
+            ("balloon_migrate", (184, self.fields.balloon_migrate)),
+            ("swap_ra", (185, self.fields.swap_ra)),
+            ("swap_ra_hit", (186, self.fields.swap_ra_hit)),
+            ("swpin_zero", (187, self.fields.swpin_zero)),
+            ("swpout_zero", (188, self.fields.swpout_zero)),
+            ("ksm_swpin_copy", (189, self.fields.ksm_swpin_copy)),
+            ("cow_ksm", (190, self.fields.cow_ksm)),
+            ("zswpin", (191, self.fields.zswpin)),
+            ("zswpout", (192, self.fields.zswpout)),
+            ("zswpwb", (193, self.fields.zswpwb)),
+            (
+                "direct_map_level2_splits",
+                (194, self.fields.direct_map_level2_splits),
+            ),
+            (
+                "direct_map_level3_splits",
+                (195, self.fields.direct_map_level3_splits),
+            ),
+            (
+                "direct_map_level2_collapses",
+                (196, self.fields.direct_map_level2_collapses),
+            ),
+            (
+                "direct_map_level3_collapses",
+                (197, self.fields.direct_map_level3_collapses),
+            ),
+            ("nr_unstable", (198, self.fields.nr_unstable)),
+        ])
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.allow
+            & self.fields.nr_free_pages
+            & self.fields.nr_free_pages_blocks
+            & self.fields.nr_zone_inactive_anon
+            & self.fields.nr_zone_active_anon
+            & self.fields.nr_zone_inactive_file
+            & self.fields.nr_zone_active_file
+            & self.fields.nr_zone_unevictable
+            & self.fields.nr_zone_write_pending
+            & self.fields.nr_mlock
+            & self.fields.nr_zspages
+            & self.fields.nr_free_cma
+            & self.fields.nr_unaccepted
+            & self.fields.numa_hit
+            & self.fields.numa_miss
+            & self.fields.numa_foreign
+            & self.fields.numa_interleave
+            & self.fields.numa_local
+            & self.fields.numa_other
+            & self.fields.nr_inactive_anon
+            & self.fields.nr_active_anon
+            & self.fields.nr_inactive_file
+            & self.fields.nr_active_file
+            & self.fields.nr_unevictable
+            & self.fields.nr_slab_reclaimable
+            & self.fields.nr_slab_unreclaimable
+            & self.fields.nr_isolated_anon
+            & self.fields.nr_isolated_file
+            & self.fields.workingset_nodes
+            & self.fields.workingset_refault_anon
+            & self.fields.workingset_refault_file
+            & self.fields.workingset_activate_anon
+            & self.fields.workingset_activate_file
+            & self.fields.workingset_restore_anon
+            & self.fields.workingset_restore_file
+            & self.fields.workingset_nodereclaim
+            & self.fields.nr_anon_pages
+            & self.fields.nr_mapped
+            & self.fields.nr_file_pages
+            & self.fields.nr_dirty
+            & self.fields.nr_writeback
+            & self.fields.nr_shmem
+            & self.fields.nr_shmem_hugepages
+            & self.fields.nr_shmem_pmdmapped
+            & self.fields.nr_file_hugepages
+            & self.fields.nr_file_pmdmapped
+            & self.fields.nr_anon_transparent_hugepages
+            & self.fields.nr_vmscan_write
+            & self.fields.nr_vmscan_immediate_reclaim
+            & self.fields.nr_dirtied
+            & self.fields.nr_written
+            & self.fields.nr_throttled_written
+            & self.fields.nr_kernel_misc_reclaimable
+            & self.fields.nr_foll_pin_acquired
+            & self.fields.nr_foll_pin_released
+            & self.fields.nr_vmalloc
+            & self.fields.nr_kernel_stack
+            & self.fields.nr_page_table_pages
+            & self.fields.nr_sec_page_table_pages
+            & self.fields.nr_iommu_pages
+            & self.fields.nr_swapcached
+            & self.fields.pgpromote_success
+            & self.fields.pgpromote_candidate
+            & self.fields.pgpromote_candidate_nrl
+            & self.fields.pgdemote_kswapd
+            & self.fields.pgdemote_direct
+            & self.fields.pgdemote_khugepaged
+            & self.fields.pgdemote_proactive
+            & self.fields.pgsteal_kswapd
+            & self.fields.pgsteal_direct
+            & self.fields.pgsteal_khugepaged
+            & self.fields.pgsteal_proactive
+            & self.fields.pgsteal_anon
+            & self.fields.pgsteal_file
+            & self.fields.pgscan_kswapd
+            & self.fields.pgscan_direct
+            & self.fields.pgscan_khugepaged
+            & self.fields.pgscan_proactive
+            & self.fields.pgscan_anon
+            & self.fields.pgscan_file
+            & self.fields.pgrefill
+            & self.fields.nr_hugetlb
+            & self.fields.nr_balloon_pages
+            & self.fields.nr_kernel_file_pages
+            & self.fields.nr_gpu_active
+            & self.fields.nr_gpu_reclaim
+            & self.fields.nr_dirty_threshold
+            & self.fields.nr_dirty_background_threshold
+            & self.fields.nr_memmap_pages
+            & self.fields.nr_memmap_boot_pages
+            & self.fields.pgpgin
+            & self.fields.pgpgout
+            & self.fields.pswpin
+            & self.fields.pswpout
+            & self.fields.pgalloc_dma
+            & self.fields.pgalloc_dma32
+            & self.fields.pgalloc_normal
+            & self.fields.pgalloc_movable
+            & self.fields.pgalloc_device
+            & self.fields.allocstall_dma
+            & self.fields.allocstall_dma32
+            & self.fields.allocstall_normal
+            & self.fields.allocstall_movable
+            & self.fields.allocstall_device
+            & self.fields.pgskip_dma
+            & self.fields.pgskip_dma32
+            & self.fields.pgskip_normal
+            & self.fields.pgskip_movable
+            & self.fields.pgskip_device
+            & self.fields.pgfree
+            & self.fields.pgactivate
+            & self.fields.pgdeactivate
+            & self.fields.pglazyfree
+            & self.fields.pgfault
+            & self.fields.pgmajfault
+            & self.fields.pglazyfreed
+            & self.fields.pgreuse
+            & self.fields.pgscan_direct_throttle
+            & self.fields.zone_reclaim_success
+            & self.fields.zone_reclaim_failed
+            & self.fields.pginodesteal
+            & self.fields.slabs_scanned
+            & self.fields.kswapd_inodesteal
+            & self.fields.kswapd_low_wmark_hit_quickly
+            & self.fields.kswapd_high_wmark_hit_quickly
+            & self.fields.pageoutrun
+            & self.fields.pgrotated
+            & self.fields.drop_pagecache
+            & self.fields.drop_slab
+            & self.fields.oom_kill
+            & self.fields.numa_pte_updates
+            & self.fields.numa_huge_pte_updates
+            & self.fields.numa_hint_faults
+            & self.fields.numa_hint_faults_local
+            & self.fields.numa_pages_migrated
+            & self.fields.pgmigrate_success
+            & self.fields.pgmigrate_fail
+            & self.fields.thp_migration_success
+            & self.fields.thp_migration_fail
+            & self.fields.thp_migration_split
+            & self.fields.compact_migrate_scanned
+            & self.fields.compact_free_scanned
+            & self.fields.compact_isolated
+            & self.fields.compact_stall
+            & self.fields.compact_fail
+            & self.fields.compact_success
+            & self.fields.compact_daemon_wake
+            & self.fields.compact_daemon_migrate_scanned
+            & self.fields.compact_daemon_free_scanned
+            & self.fields.htlb_buddy_alloc_success
+            & self.fields.htlb_buddy_alloc_fail
+            & self.fields.cma_alloc_success
+            & self.fields.cma_alloc_fail
+            & self.fields.unevictable_pgs_culled
+            & self.fields.unevictable_pgs_scanned
+            & self.fields.unevictable_pgs_rescued
+            & self.fields.unevictable_pgs_mlocked
+            & self.fields.unevictable_pgs_munlocked
+            & self.fields.unevictable_pgs_cleared
+            & self.fields.unevictable_pgs_stranded
+            & self.fields.thp_fault_alloc
+            & self.fields.thp_fault_fallback
+            & self.fields.thp_fault_fallback_charge
+            & self.fields.thp_collapse_alloc
+            & self.fields.thp_collapse_alloc_failed
+            & self.fields.thp_file_alloc
+            & self.fields.thp_file_fallback
+            & self.fields.thp_file_fallback_charge
+            & self.fields.thp_file_mapped
+            & self.fields.thp_split_page
+            & self.fields.thp_split_page_failed
+            & self.fields.thp_deferred_split_page
+            & self.fields.thp_underused_split_page
+            & self.fields.thp_split_pmd
+            & self.fields.thp_scan_exceed_none_pte
+            & self.fields.thp_scan_exceed_swap_pte
+            & self.fields.thp_scan_exceed_share_pte
+            & self.fields.thp_split_pud
+            & self.fields.thp_zero_page_alloc
+            & self.fields.thp_zero_page_alloc_failed
+            & self.fields.thp_swpout
+            & self.fields.thp_swpout_fallback
+            & self.fields.balloon_inflate
+            & self.fields.balloon_deflate
+            & self.fields.balloon_migrate
+            & self.fields.swap_ra
+            & self.fields.swap_ra_hit
+            & self.fields.swpin_zero
+            & self.fields.swpout_zero
+            & self.fields.ksm_swpin_copy
+            & self.fields.cow_ksm
+            & self.fields.zswpin
+            & self.fields.zswpout
+            & self.fields.zswpwb
+            & self.fields.direct_map_level2_splits
+            & self.fields.direct_map_level3_splits
+            & self.fields.direct_map_level2_collapses
+            & self.fields.direct_map_level3_collapses
+            & self.fields.nr_unstable
+    }
+}
