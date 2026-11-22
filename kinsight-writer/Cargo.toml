@@ -7,5 +7,6 @@ edition = "2024"
 kinsight-common = { path = "../kinsight-common" }
 kinsight-proc-parser = {path = "../kinsight-proc-parser" }
 kinsight-proc-pid-parser = {path = "../kinsight-proc-pid-parser" }
-kinsight-gpu-parser = {path = "../kinsight-gpu-parser" }
+# kinsight-gpu-parser = {path = "../kinsight-gpu-parser" }
 kinsight-cgroups-v2 = {path = "../kinsight-cgroups-v2" }
+papaya = "0.2.5"

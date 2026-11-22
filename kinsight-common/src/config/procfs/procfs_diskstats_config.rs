@@ -7,7 +7,7 @@ use std::collections::HashMap;
 // its from the /sys/block/<device>/stat
 // its same as the /proc/diskstats
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcDiskStatsConfigFields {
     pub reads_completed: bool,
     pub reads_merged: bool,
@@ -26,6 +26,30 @@ pub struct ProcDiskStatsConfigFields {
     pub time_spent_discarding: bool,
     pub flushes_completed: bool,
     pub time_spent_flushing: bool,
+}
+
+impl Default for ProcDiskStatsConfigFields {
+    fn default() -> Self {
+        Self {
+            reads_completed: true,
+            reads_merged: true,
+            sectors_read: true,
+            time_spent_reading: true,
+            writes_completed: true,
+            writes_merged: true,
+            sectors_written: true,
+            time_spent_writing: true,
+            ios_in_progress: true,
+            time_spent_doing_io: true,
+            weighted_time_spent_doing_io: true,
+            discards_completed: true,
+            discards_merged: true,
+            sectors_discarded: true,
+            time_spent_discarding: true,
+            flushes_completed: true,
+            time_spent_flushing: true,
+        }
+    }
 }
 
 pub type ProcDiskStatsConfig = ProcFSConfig<ProcDiskStatsConfigFields>;

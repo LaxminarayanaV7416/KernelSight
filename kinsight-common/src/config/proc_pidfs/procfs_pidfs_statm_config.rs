@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // its the PID statm config
 // its from the /proc/<PID>/statm
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcPidfsStatmConfigFields {
     pub size: bool,
     pub resident: bool,
@@ -15,6 +15,20 @@ pub struct ProcPidfsStatmConfigFields {
     pub lib: bool,
     pub data: bool,
     pub dirty: bool,
+}
+
+impl Default for ProcPidfsStatmConfigFields {
+    fn default() -> Self {
+        Self {
+            size: true,
+            resident: true,
+            shared: true,
+            text: true,
+            lib: true,
+            data: true,
+            dirty: true,
+        }
+    }
 }
 
 pub type ProcPidfsStatmConfig = ProcFSConfig<ProcPidfsStatmConfigFields>;

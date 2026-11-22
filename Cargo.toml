@@ -9,6 +9,7 @@ members = [
     "kinsight-ebpf",
     "kinsight-proc-pid-parser",
     "kinsight-writer",
+    "kinsight-parser",
     # "proc-parser"
 ]
 

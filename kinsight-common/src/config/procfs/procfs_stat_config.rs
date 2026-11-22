@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // its the load avg config
 // its from the /proc/loadavg
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcStatConfigFields {
     pub cpu: bool,
     pub cpu_cores: bool,
@@ -17,6 +17,22 @@ pub struct ProcStatConfigFields {
     pub processes_running: bool,
     pub processes_blocked: bool,
     pub softirq: bool,
+}
+
+impl Default for ProcStatConfigFields {
+    fn default() -> Self {
+        Self {
+            cpu: true,
+            cpu_cores: true,
+            intr: true,
+            ctxt: true,
+            btime: true,
+            processes: true,
+            processes_running: true,
+            processes_blocked: true,
+            softirq: true,
+        }
+    }
 }
 
 pub type ProcStatConfig = ProcFSConfig<ProcStatConfigFields>;

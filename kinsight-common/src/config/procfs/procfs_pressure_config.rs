@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // its the load avg config
 // its from the /proc/pressure/cpu
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcPressureConfigFields {
     pub some_avg_10: bool,
     pub some_avg_60: bool,
@@ -16,6 +16,21 @@ pub struct ProcPressureConfigFields {
     pub full_avg_60: bool,
     pub full_avg_300: bool,
     pub full_total: bool,
+}
+
+impl Default for ProcPressureConfigFields {
+    fn default() -> Self {
+        Self {
+            some_avg_10: true,
+            some_avg_60: true,
+            some_avg_300: true,
+            some_total: true,
+            full_avg_10: true,
+            full_avg_60: true,
+            full_avg_300: true,
+            full_total: true,
+        }
+    }
 }
 
 pub type ProcPressureConfig = ProcFSConfig<ProcPressureConfigFields>;

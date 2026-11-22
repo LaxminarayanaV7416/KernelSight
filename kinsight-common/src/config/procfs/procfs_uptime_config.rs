@@ -6,10 +6,19 @@ use std::collections::HashMap;
 // its the Uptime config
 // its from the /proc/uptime
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcUptimeConfigFields {
     pub suspended_time: bool,
     pub idle_time: bool,
+}
+
+impl Default for ProcUptimeConfigFields {
+    fn default() -> Self {
+        Self {
+            suspended_time: true,
+            idle_time: true,
+        }
+    }
 }
 
 pub type ProcUptimeConfig = ProcFSConfig<ProcUptimeConfigFields>;
@@ -27,16 +36,3 @@ impl ProcFSConfigTrait for ProcUptimeConfig {
         self.allow & self.fields.suspended_time & self.fields.idle_time
     }
 }
-
-// #[derive(Debug, Default, Deserialize)]
-// pub struct ProcUptimeConfig {
-//     pub allow: bool,
-//     pub heart_beat: u64,
-//     pub fields:
-// }
-//
-// impl ProcUptimeConfig {
-//     pub fn get_hashmap(&self) -> HashMap<usize, bool> {
-//         HashMap::from([(1, self.suspended_time), (2, self.idle_time)])
-//     }
-// }

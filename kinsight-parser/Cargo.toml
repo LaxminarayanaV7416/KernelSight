@@ -1,0 +1,12 @@
+[package]
+name = "kinsight-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+kinsight-common = { path = "../kinsight-common" }
+kinsight-proc-parser = {path = "../kinsight-proc-parser" }
+kinsight-proc-pid-parser = {path = "../kinsight-proc-pid-parser" }
+kinsight-writer = {path = "../kinsight-writer" }
+kinsight-cgroups-v2 = {path = "../kinsight-cgroups-v2" }
+papaya = "0.2.5"

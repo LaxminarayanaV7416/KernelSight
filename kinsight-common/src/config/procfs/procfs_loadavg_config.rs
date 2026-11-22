@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // its the load avg config
 // its from the /proc/loadavg
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcLoadAvgConfigFields {
     pub load_avg_1m: bool,
     pub load_avg_5m: bool,
@@ -14,6 +14,19 @@ pub struct ProcLoadAvgConfigFields {
     pub num_runnable: bool,
     pub num_total: bool,
     pub last_pid: bool,
+}
+
+impl Default for ProcLoadAvgConfigFields {
+    fn default() -> Self {
+        Self {
+            load_avg_1m: true,
+            load_avg_5m: true,
+            load_avg_15m: true,
+            num_runnable: true,
+            num_total: true,
+            last_pid: true,
+        }
+    }
 }
 
 pub type ProcLoadAvgConfig = ProcFSConfig<ProcLoadAvgConfigFields>;

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // its the status config
 // its from the /proc/<PID>/status
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcPIDStatusConfigFields {
     #[serde(rename = "Name")]
     pub name: bool,
@@ -127,6 +127,74 @@ pub struct ProcPIDStatusConfigFields {
     pub x86_thread_features: bool,
     #[serde(rename = "x86_Thread_features_locked")]
     pub x86_thread_features_locked: bool,
+}
+
+impl Default for ProcPIDStatusConfigFields {
+    fn default() -> Self {
+        Self {
+            name: true,
+            umask: true,
+            state: true,
+            tgid: true,
+            ngid: true,
+            pid: true,
+            ppid: true,
+            tracer_pid: true,
+            uid: true,
+            gid: true,
+            fd_size: true,
+            groups: true,
+            nstgid: true,
+            nspid: true,
+            nspgid: true,
+            nssid: true,
+            kthread: true,
+            vm_peak: true,
+            vm_size: true,
+            vm_lck: true,
+            vm_pin: true,
+            vm_hwm: true,
+            vm_rss: true,
+            rss_anon: true,
+            rss_file: true,
+            rss_shmem: true,
+            vm_data: true,
+            vm_stk: true,
+            vm_exe: true,
+            vm_lib: true,
+            vm_pte: true,
+            vm_swap: true,
+            hugetlb_pages: true,
+            core_dumping: true,
+            thp_enabled: true,
+            untag_mask: true,
+            threads: true,
+            sigq: true,
+            sigpnd: true,
+            shdpnd: true,
+            sigblk: true,
+            sigign: true,
+            sigcgt: true,
+            capinh: true,
+            capprm: true,
+            capeff: true,
+            capbnd: true,
+            capamb: true,
+            nonewprivs: true,
+            seccomp: true,
+            seccomp_filters: true,
+            speculation_store_bypass: true,
+            speculationindirectbranch: true,
+            cpus_allowed: true,
+            cpus_allowed_list: true,
+            mems_allowed: true,
+            mems_allowed_list: true,
+            voluntary_ctxt_switches: true,
+            nonvoluntary_ctxt_switches: true,
+            x86_thread_features: true,
+            x86_thread_features_locked: true,
+        }
+    }
 }
 
 pub type ProcPIDStatusConfig = ProcFSConfig<ProcPIDStatusConfigFields>;

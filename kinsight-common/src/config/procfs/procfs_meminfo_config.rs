@@ -3,7 +3,7 @@ use super::super::config::ProcFSConfigTrait;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ProcMemInfoConfigFields {
     #[serde(rename = "MemTotal")]
     pub mem_total: bool,
@@ -125,6 +125,73 @@ pub struct ProcMemInfoConfigFields {
     pub mem_direct_map_2m: bool,
     #[serde(rename = "DirectMap1G")]
     pub mem_direct_map_1g: bool,
+}
+
+impl Default for ProcMemInfoConfigFields {
+    fn default() -> Self {
+        Self {
+            mem_total: true,
+            mem_free: true,
+            mem_available: true,
+            mem_buffers: true,
+            mem_cached: true,
+            mem_swap_cached: true,
+            mem_active: true,
+            mem_inactive: true,
+            mem_active_anon: true,
+            mem_inactive_anon: true,
+            mem_active_file: true,
+            mem_inactive_file: true,
+            mem_unevictable: true,
+            mem_mlocked: true,
+            mem_swap_total: true,
+            mem_swap_free: true,
+            mem_zswap: true,
+            mem_zswapped: true,
+            mem_dirty: true,
+            mem_write_back: true,
+            mem_anon_pages: true,
+            mem_mapped: true,
+            mem_shmem: true,
+            mem_k_reclaimable: true,
+            mem_slab: true,
+            mem_s_reclaimable: true,
+            mem_s_unreclaim: true,
+            mem_kernel_stack: true,
+            mem_page_tables: true,
+            mem_sec_page_tables: true,
+            mem_nfs_unstable: true,
+            mem_bounce: true,
+            mem_write_back_tmp: true,
+            mem_commit_limit: true,
+            mem_committed_as: true,
+            mem_vmalloc_total: true,
+            mem_vmalloc_used: true,
+            mem_vmalloc_chunk: true,
+            mem_percpu: true,
+            mem_hardware_corrupted: true,
+            mem_anon_huge_pages: true,
+            mem_shmem_huge_pages: true,
+            mem_shmem_pmd_mapped: true,
+            mem_file_huge_pages: true,
+            mem_file_pmd_mapped: true,
+            mem_cma_total: true,
+            mem_cma_free: true,
+            mem_unaccepted: true,
+            mem_balloon: true,
+            mem_gpu_active: true,
+            mem_gpu_reclaim: true,
+            mem_huge_pages_total: true,
+            mem_huge_pages_free: true,
+            mem_huge_pages_reserved: true,
+            mem_huge_pages_surp: true,
+            mem_huge_page_size: true,
+            mem_hugetlb: true,
+            mem_direct_map_4k: true,
+            mem_direct_map_2m: true,
+            mem_direct_map_1g: true,
+        }
+    }
 }
 
 pub type ProcMemInfoConfig = ProcFSConfig<ProcMemInfoConfigFields>;
