@@ -1,3 +1,7 @@
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::LazyLock;
+
 pub const PROC_FS_ROOT_PATH: &str = "/proc";
 pub const SYS_FS_ROOT_PATH: &str = "/sys";
 
@@ -144,3 +148,12 @@ pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 
 // ---------------------- miscellenous slugs ---------
 pub const SYS_FS_BLOCK_SLUG: &str = "block";
+
+pub static PROC_STAT_FILE_PATH: LazyLock<Box<PathBuf>> =
+    LazyLock::new(|| Box::new(Path::new(PROC_FS_ROOT_PATH).join(PROC_STAT_FILE_SLUG)));
+
+pub static PROC_MEMINFO_FILE_PATH: LazyLock<Box<PathBuf>> =
+    LazyLock::new(|| Box::new(Path::new(PROC_FS_ROOT_PATH).join(PROC_MEMINFO_FILE_SLUG)));
+
+pub static PROC_LOADAVG_FILE_PATH: LazyLock<Box<PathBuf>> =
+    LazyLock::new(|| Box::new(Path::new(PROC_FS_ROOT_PATH).join(PROC_LOADAVG_FILE_SLUG)));
