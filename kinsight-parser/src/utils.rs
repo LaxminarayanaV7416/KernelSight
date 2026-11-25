@@ -35,3 +35,7 @@ pub fn get_cpu_usage(current: &ProcFSStatCPUFields, previous: &ProcFSStatCPUFiel
         _ => None,
     }
 }
+
+pub fn calcualte_diff_delta(current: u64, previous: u64, time_delta: f64) -> f64 {
+    100.0 * current.saturating_sub(previous) as f64 / time_delta
+}

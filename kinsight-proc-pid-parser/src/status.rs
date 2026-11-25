@@ -311,10 +311,10 @@ pub struct ProcPIDStatusFields {
     pub seccomp_filters: u64,
     pub speculation_store_bypass: String,
     pub speculationindirectbranch: String,
-    pub cpus_allowed: String,
-    pub cpus_allowed_list: String,
-    pub mems_allowed: String,
-    pub mems_allowed_list: String,
+    pub cpus_allowed: u64,
+    pub cpus_allowed_list: u64,
+    pub mems_allowed: u64,
+    pub mems_allowed_list: u64,
     pub voluntary_ctxt_switches: u64,
     pub nonvoluntary_ctxt_switches: u64,
     pub x86_thread_features: u64,
@@ -349,27 +349,7 @@ impl ProcFSPIDStatusReader {
     fn is_string_field(field: usize) -> bool {
         matches!(
             field,
-            1 | 2
-                | 3
-                | 12
-                | 36
-                | 38
-                | 39
-                | 40
-                | 41
-                | 42
-                | 43
-                | 44
-                | 45
-                | 46
-                | 47
-                | 48
-                | 52
-                | 53
-                | 54
-                | 55
-                | 56
-                | 57
+            1 | 2 | 3 | 12 | 36 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 52 | 53
         )
     }
 
@@ -410,6 +390,10 @@ impl ProcFSPIDStatusReader {
             49 => self.values.nonewprivs = value,
             50 => self.values.seccomp = value,
             51 => self.values.seccomp_filters = value,
+            54 => self.values.cpus_allowed = value,
+            55 => self.values.cpus_allowed_list = value,
+            56 => self.values.mems_allowed = value,
+            57 => self.values.mems_allowed_list = value,
             58 => self.values.voluntary_ctxt_switches = value,
             59 => self.values.nonvoluntary_ctxt_switches = value,
             60 => self.values.x86_thread_features = value,
@@ -460,10 +444,6 @@ impl ProcFSPIDStatusReader {
             48 => self.values.capamb = value,
             52 => self.values.speculation_store_bypass = value,
             53 => self.values.speculationindirectbranch = value,
-            54 => self.values.cpus_allowed = value,
-            55 => self.values.cpus_allowed_list = value,
-            56 => self.values.mems_allowed = value,
-            57 => self.values.mems_allowed_list = value,
             _ => {}
         }
     }

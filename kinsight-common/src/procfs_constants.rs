@@ -168,3 +168,11 @@ pub static PROC_PRESSURE_CPU_FILE_PATH: LazyLock<Box<PathBuf>> = LazyLock::new(|
             .join(PROC_PRESSURE_CPU_FILE_SLUG),
     )
 });
+
+pub static PROC_PRESSURE_MEMORY_FILE_PATH: LazyLock<Box<PathBuf>> = LazyLock::new(|| {
+    Box::new(
+        Path::new(PROC_FS_ROOT_PATH)
+            .join(PROC_PRESSURE_FOLDER_SLUG)
+            .join(PROC_PRESSURE_MEMORY_FILE_SLUG),
+    )
+});

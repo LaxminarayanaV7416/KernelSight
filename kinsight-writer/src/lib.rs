@@ -4,4 +4,4 @@ mod messages;
 
 pub use enums::{PIDActions, ProcFSPID};
 pub use message_pool::MessagePool;
-pub use messages::{CpuSystemMetrics, MemorySystemMetrics};
+pub use messages::{CpuPIDMetrics, CpuSystemMetrics, MemorySystemMetrics, NetworkMetrics};
