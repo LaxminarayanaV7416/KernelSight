@@ -12,6 +12,6 @@ pub use diskstats::{DiskStatsFields, DiskStatsReader};
 pub use loadavg::{ProcFSLoadAvgReader, ProcLoadAvgFields};
 pub use meminfo::{ProcFSMemInfoReader, ProcMemInfoFields};
 pub use pressure_util::{ProcProcessGeneralFields, ProcProcessGeneralReader};
-pub use stat::{ProcFSStatReader, ProcStatFields};
+pub use stat::{ProcFSStatCPUFields, ProcFSStatReader, ProcStatFields};
 pub use uptime::{ProcFSUptimeReader, ProcUptimeFields};
 pub use vmstat::{ProcFSVmStatReader, ProcVmStatFields};

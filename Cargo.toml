@@ -37,7 +37,8 @@ opt-level = 3
 [dependencies]
 # proc-parser = { path = "./proc-parser" }
 kinsight-common = { path = "./kinsight-common" }
-"kinsight-parser" = {path = "./kinsight-parser" }
+kinsight-parser = {path = "./kinsight-parser" }
+kinsight-writer = {path = "./kinsight-writer" }
 serde = { workspace = true }
 basic-toml = { workspace = true }
 libc = { workspace = true }

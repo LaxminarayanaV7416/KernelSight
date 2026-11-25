@@ -157,3 +157,14 @@ pub static PROC_MEMINFO_FILE_PATH: LazyLock<Box<PathBuf>> =
 
 pub static PROC_LOADAVG_FILE_PATH: LazyLock<Box<PathBuf>> =
     LazyLock::new(|| Box::new(Path::new(PROC_FS_ROOT_PATH).join(PROC_LOADAVG_FILE_SLUG)));
+
+pub static PROC_VMSTAT_FILE_PATH: LazyLock<Box<PathBuf>> =
+    LazyLock::new(|| Box::new(Path::new(PROC_FS_ROOT_PATH).join(PROC_VMSTAT_FILE_SLUG)));
+
+pub static PROC_PRESSURE_CPU_FILE_PATH: LazyLock<Box<PathBuf>> = LazyLock::new(|| {
+    Box::new(
+        Path::new(PROC_FS_ROOT_PATH)
+            .join(PROC_PRESSURE_FOLDER_SLUG)
+            .join(PROC_PRESSURE_CPU_FILE_SLUG),
+    )
+});

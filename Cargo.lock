@@ -93,6 +93,7 @@ dependencies = [
  "basic-toml",
  "kinsight-common",
  "kinsight-parser",
+ "kinsight-writer",
  "libc",
  "serde",
  "signal-hook",

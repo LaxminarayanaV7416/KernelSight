@@ -1,15 +1,20 @@
 use super::kinsight_utils::PROCFS_ROOT_PARSER_THREAD_NAME;
+use super::utils::get_cpu_usage;
+use kinsight_common::CPU_CORES;
 use kinsight_common::KinsightDataParserTrait;
 use kinsight_common::ProcParserError;
 use kinsight_common::Result;
 use kinsight_common::config::{Config, ProcFSConfigTrait};
 use kinsight_common::monotonic;
 use kinsight_common::procfs_constants::{
-    PROC_LOADAVG_FILE_PATH, PROC_MEMINFO_FILE_PATH, PROC_STAT_FILE_PATH,
+    PROC_LOADAVG_FILE_PATH, PROC_MEMINFO_FILE_PATH, PROC_PRESSURE_CPU_FILE_PATH,
+    PROC_STAT_FILE_PATH, PROC_VMSTAT_FILE_PATH,
 };
 use kinsight_proc_parser::ProcFSLoadAvgReader;
 use kinsight_proc_parser::ProcFSMemInfoReader;
 use kinsight_proc_parser::ProcFSStatReader;
+use kinsight_proc_parser::ProcFSVmStatReader;
+use kinsight_proc_parser::ProcProcessGeneralReader;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -17,6 +22,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+/*
+ * Lets get some calculations laid down
+ * System Wide CPU and Scheduler metrics
+ * *************************************
+ * CPU Utilization per core and total from /proc/stat (Done)
+ * User / System CPU time
+ * ***** User seconds - /proc/stat cpu.user + cpu.nice / cpu hz
+ * ***** System seconds - /proc/stat cpu.system / cpu hz
+ * IO Wait time /proc/stat - iowait/ cpu hz
+ * CPU Steal
+ * Runnable thread count - /proc/stat procs_running
+ * I/O-blocked task count - /proc/stat procs_blocked
+ */
 
 pub fn procfs_root_scanner(
     global_heart_rate: &'static u64,
@@ -31,15 +50,22 @@ pub fn procfs_root_scanner(
         RefCell::new(ProcFSMemInfoReader::new(&PROC_MEMINFO_FILE_PATH)?);
     let proc_loadavg_reader: RefCell<ProcFSLoadAvgReader> =
         RefCell::new(ProcFSLoadAvgReader::new(&PROC_LOADAVG_FILE_PATH)?);
+    let proc_vmstat_reader: RefCell<ProcFSVmStatReader> =
+        RefCell::new(ProcFSVmStatReader::new(&PROC_VMSTAT_FILE_PATH)?);
+    let proc_pressure_cpu_reader: RefCell<ProcProcessGeneralReader> =
+        RefCell::new(ProcProcessGeneralReader::new(&PROC_PRESSURE_CPU_FILE_PATH)?);
 
     let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
     let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
     let proc_loadavg_filter_map = Box::new(config.procfs.loadavg.get_hashmap());
+    let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
+    let proc_pressure_cpu_filter_map = Box::new(config.procfs.pressure.cpu.get_hashmap());
+
     // let prev_time = monotonic();
     let thread_handler = thread_builder
         .spawn(move || {
             let mut has_previous_sample = false;
-
+            let mut cpu_core_usage: Vec<f64> = Vec::with_capacity(*CPU_CORES);
             while !signaller.load(Ordering::Relaxed) {
                 let current_time = monotonic();
 
@@ -58,6 +84,16 @@ pub fn procfs_root_scanner(
                     reader.read_and_parse(&proc_loadavg_filter_map)
                 };
 
+                let vmstat_read_status = {
+                    let mut reader = proc_vmstat_reader.borrow_mut();
+                    reader.read_and_parse(&proc_vmstat_filter_map)
+                };
+
+                let pressure_cpu_read_status = {
+                    let mut reader = proc_pressure_cpu_reader.borrow_mut();
+                    reader.read_and_parse(&proc_pressure_cpu_filter_map)
+                };
+
                 if stat_read_status {
                     if has_previous_sample {
                         let reader = proc_stat_reader.borrow();
@@ -65,47 +101,26 @@ pub fn procfs_root_scanner(
                         let current = reader.values();
                         let previous = reader.prev_values();
 
-                        let current_idle = current.cpu.idle + current.cpu.iowait;
-
-                        let previous_idle = previous.cpu.idle + previous.cpu.iowait;
-
-                        let current_non_idle = current.cpu.user
-                            + current.cpu.nice
-                            + current.cpu.system
-                            + current.cpu.irq
-                            + current.cpu.softirq
-                            + current.cpu.steal;
-
-                        let previous_non_idle = previous.cpu.user
-                            + previous.cpu.nice
-                            + previous.cpu.system
-                            + previous.cpu.irq
-                            + previous.cpu.softirq
-                            + previous.cpu.steal;
-
-                        let current_total = current_idle + current_non_idle;
-
-                        let previous_total = previous_idle + previous_non_idle;
-
-                        // checked_sub avoids panicking if counters unexpectedly
-                        // decrease, for example after a reset or malformed read.
-                        let idle_delta = current_idle.checked_sub(previous_idle);
-
-                        let total_delta = current_total.checked_sub(previous_total);
-
-                        match (idle_delta, total_delta) {
-                            (Some(idle_delta), Some(total_delta)) if total_delta > 0 => {
-                                let busy_delta = total_delta.saturating_sub(idle_delta);
-                                let cpu_usage = 100.0 * busy_delta as f64 / total_delta as f64;
-                                println!("CPU USAGE: {:.2}% -- {}", cpu_usage, current_time,);
+                        match get_cpu_usage(&current.cpu, &previous.cpu) {
+                            Some(cpu_usage) => {
+                                println!("CPU Usage: {}, {}", cpu_usage, current_time)
                             }
+                            None => println!("Error its an empty value"),
+                        }
 
-                            _ => {
-                                eprintln!(
-                                    "Unable to calculate CPU usage: \
-                                     invalid CPU counter delta"
-                                );
+                        cpu_core_usage.clear();
+                        for (curr_cpu, prev_cpu) in
+                            current.cpu_cores.iter().zip(&previous.cpu_cores)
+                        {
+                            match get_cpu_usage(&curr_cpu, &prev_cpu) {
+                                Some(cpu_usage) => {
+                                    cpu_core_usage.push(cpu_usage);
+                                }
+                                None => println!("Error its an empty value"),
                             }
+                        }
+                        for (idx, core_usage) in cpu_core_usage.iter().enumerate() {
+                            println!("CPU CORE-{}: {}", idx, core_usage);
                         }
                     } else {
                         // CPU usage is a delta between two samples. The first

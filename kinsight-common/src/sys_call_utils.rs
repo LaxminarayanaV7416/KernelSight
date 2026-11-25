@@ -12,6 +12,7 @@ pub fn get_available_core_count() -> Result<usize> {
 
 pub fn monotonic() -> f64 {
     // this is the rustix version and I feel its way faster than libc wrapper
+    // this returns the seconds + nano seconds after precision
     let real_time = clock_gettime(ClockId::MonotonicCoarse);
     (real_time.tv_sec as f64) + (real_time.tv_nsec as f64 / 1_000_000_000.0)
 }

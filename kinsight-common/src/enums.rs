@@ -1,5 +1,6 @@
 use super::cgroup_constants::CGROUP_V2_MOUNT_PATH;
 use super::get_available_core_count;
+use rustix::param::clock_ticks_per_second;
 use std::process::Command;
 use std::sync::LazyLock;
 
@@ -30,6 +31,6 @@ pub fn cgroup_classifier() -> CgroupType {
 // run once and determine during runtime
 // you have access these using dereferncing as of C style
 // eg., *CPU_CORES gives you the number of available logical CPUs
-pub static CPU_CORES: LazyLock<usize> =
-    LazyLock::new(|| get_available_core_count().unwrap_or(1));
+pub static CPU_CORES: LazyLock<usize> = LazyLock::new(|| get_available_core_count().unwrap_or(1));
 pub static CGROUP_TYPE: LazyLock<CgroupType> = LazyLock::new(cgroup_classifier);
+pub static CPU_HZ: LazyLock<u64> = LazyLock::new(clock_ticks_per_second);

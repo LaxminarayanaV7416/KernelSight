@@ -5,6 +5,6 @@ edition = "2024"
 
 [dependencies]
 basic-toml.workspace = true
-rustix = { version = "1.1.6", features = ["thread", "time"] }
+rustix = { version = "1.1.6", features = ["thread", "time", "param"] }
 serde.workspace = true
 signal-hook = "0.4.6"
