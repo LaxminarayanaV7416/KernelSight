@@ -20,7 +20,7 @@ Inter-|   Receive                                                |  Transmit
 
 #[derive(Debug)]
 pub struct ProcFSNetDevReader {
-    reader: KinsightReader<128>,
+    reader: KinsightReader<16384>,
     values: Box<ProcNetDevFields>,
     previous_values: Box<ProcNetDevFields>,
 }

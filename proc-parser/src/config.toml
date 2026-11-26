@@ -248,6 +248,21 @@ num_runnable = true
 num_total = true
 last_pid = true
 
+# ------- /proc/net/dev -------------
+[procfs.net_dev]
+allow = true
+heart_beat = 100
+
+[procfs.net_dev.fields]
+total_download_bytes = true
+total_donwload_packets = true
+bad_packets_downloaded = true
+recieved_packets_dropped = true
+total_upload_bytes = true
+total_upload_packets = true
+bad_packets_uploaded = true
+sent_packets_dropped = true
+
 # ------- /proc/meminfo -------------
 [procfs.meminfo]
 allow = true

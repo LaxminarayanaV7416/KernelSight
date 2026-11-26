@@ -7,19 +7,24 @@ use kinsight_common::Result;
 use kinsight_common::config::{Config, ProcFSConfigTrait};
 use kinsight_common::monotonic;
 use kinsight_common::procfs_constants::{
-    PROC_LOADAVG_FILE_PATH, PROC_MEMINFO_FILE_PATH, PROC_PRESSURE_CPU_FILE_PATH,
-    PROC_PRESSURE_MEMORY_FILE_PATH, PROC_STAT_FILE_PATH, PROC_VMSTAT_FILE_PATH,
+    PROC_LOADAVG_FILE_PATH, PROC_MEMINFO_FILE_PATH, PROC_NET_DEV_FILE_PATH,
+    PROC_PRESSURE_CPU_FILE_PATH, PROC_PRESSURE_MEMORY_FILE_PATH, PROC_STAT_FILE_PATH,
+    PROC_VMSTAT_FILE_PATH,
 };
 use kinsight_proc_parser::ProcFSLoadAvgReader;
 use kinsight_proc_parser::ProcFSMemInfoReader;
+use kinsight_proc_parser::ProcFSNetDevReader;
 use kinsight_proc_parser::ProcFSStatReader;
 use kinsight_proc_parser::ProcFSVmStatReader;
 use kinsight_proc_parser::ProcProcessGeneralReader;
 use kinsight_writer::CpuSystemMetrics;
 use kinsight_writer::MemorySystemMetrics;
 use kinsight_writer::MessagePool;
+use kinsight_writer::NetworkMetrics;
+use kinsight_writer::SystemWideMetrics;
 use std::cell::RefCell;
-use std::mem::swap;
+use std::collections::HashMap;
+use std::mem::{replace, swap, take};
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -66,6 +71,8 @@ pub fn procfs_metrics_collector(
     let proc_pressure_memory_reader: RefCell<ProcProcessGeneralReader> = RefCell::new(
         ProcProcessGeneralReader::new(&PROC_PRESSURE_MEMORY_FILE_PATH)?,
     );
+    let proc_net_dev_reader: RefCell<ProcFSNetDevReader> =
+        RefCell::new(ProcFSNetDevReader::new(&PROC_NET_DEV_FILE_PATH)?);
 
     let proc_stat_filter_map = Box::new(config.procfs.stat.get_hashmap());
     let proc_meminfo_filter_map = Box::new(config.procfs.meminfo.get_field_string_to_struct_ids());
@@ -73,13 +80,14 @@ pub fn procfs_metrics_collector(
     let proc_vmstat_filter_map = Box::new(config.procfs.vmstat.get_hashmap());
     let proc_pressure_cpu_filter_map = Box::new(config.procfs.pressure.cpu.get_hashmap());
     let proc_pressure_memory_filter_map = Box::new(config.procfs.pressure.memory.get_hashmap());
+    let proc_net_dev_filter_map = Box::new(config.procfs.net_dev.get_hashmap());
 
+    let mut system_wide_metrics = Box::new(SystemWideMetrics::default());
     let mut cpu_system_metrics = Box::new(CpuSystemMetrics::default());
     let mut memory_system_metrics = Box::new(MemorySystemMetrics::default());
+    let mut network_system_map: HashMap<String, NetworkMetrics> = HashMap::new();
     // TODO: for now capacity is hardcoded
-    let cpu_system_metrics_msg_pool: MessagePool<Box<CpuSystemMetrics>> = MessagePool::new(10);
-    let memory_system_metrics_msg_pool: MessagePool<Box<MemorySystemMetrics>> =
-        MessagePool::new(10);
+    let system_metrics_msg_pool: MessagePool<Box<SystemWideMetrics>> = MessagePool::new(10);
 
     let mut prev_time = monotonic();
     let thread_handler = thread_builder
@@ -87,10 +95,8 @@ pub fn procfs_metrics_collector(
             let mut has_previous_sample = false;
             while !signaller.load(Ordering::Relaxed) {
                 let mut current_time = monotonic();
-                cpu_system_metrics.time = current_time;
-                cpu_system_metrics.time_delta = current_time - prev_time;
-                memory_system_metrics.time = current_time;
-                memory_system_metrics.time_delta = cpu_system_metrics.time_delta;
+                system_wide_metrics.time = current_time;
+                system_wide_metrics.time_delta = current_time - prev_time;
 
                 // replace the current time with prev time
                 swap(&mut prev_time, &mut current_time);
@@ -125,6 +131,11 @@ pub fn procfs_metrics_collector(
                     reader.read_and_parse(&proc_pressure_memory_filter_map)
                 };
 
+                let proc_net_dev_read_status = {
+                    let mut reader = proc_net_dev_reader.borrow_mut();
+                    reader.read_and_parse(&proc_net_dev_filter_map)
+                };
+
                 if has_previous_sample {
                     if stat_read_status {
                         let reader = proc_stat_reader.borrow();
@@ -136,7 +147,7 @@ pub fn procfs_metrics_collector(
                         if pressure_cpu_read_status {
                             let current = pressure_reader.values();
                             let previous = pressure_reader.prev_values();
-                            let elapsed = cpu_system_metrics.time_delta;
+                            let elapsed = system_wide_metrics.time_delta;
                             if elapsed > 0.0 {
                                 let stalled_microseconds =
                                     current.some_total.saturating_sub(previous.some_total);
@@ -149,7 +160,7 @@ pub fn procfs_metrics_collector(
                         cpu_system_metrics.ctxt_per_time_delta = calcualte_diff_delta(
                             current.ctxt,
                             previous.ctxt,
-                            cpu_system_metrics.time_delta,
+                            system_wide_metrics.time_delta,
                         );
                         cpu_system_metrics.total_ctxt = current.ctxt;
                         cpu_system_metrics.processes_running = current.processes_running;
@@ -157,7 +168,7 @@ pub fn procfs_metrics_collector(
                         cpu_system_metrics.softirq_time_delta = calcualte_diff_delta(
                             current.softirq,
                             previous.softirq,
-                            cpu_system_metrics.time_delta,
+                            system_wide_metrics.time_delta,
                         );
 
                         match get_cpu_usage(&current.cpu, &previous.cpu) {
@@ -224,7 +235,7 @@ pub fn procfs_metrics_collector(
                         let current = reader.values();
                         let previous = reader.prev_values();
 
-                        let elapsed = memory_system_metrics.time_delta;
+                        let elapsed = system_wide_metrics.time_delta;
                         if elapsed > 0.0 {
                             memory_system_metrics.page_fault_time_delta =
                                 current.pgfault.saturating_sub(previous.pgfault) as f64 / elapsed;
@@ -242,7 +253,7 @@ pub fn procfs_metrics_collector(
                         let current = reader.values();
                         let previous = reader.prev_values();
 
-                        let elapsed = memory_system_metrics.time_delta;
+                        let elapsed = system_wide_metrics.time_delta;
 
                         if elapsed > 0.0 {
                             let stalled_microseconds =
@@ -253,8 +264,61 @@ pub fn procfs_metrics_collector(
                         }
                     }
 
-                    println!("{:?}", cpu_system_metrics);
-                    println!("{:?}", memory_system_metrics);
+                    if proc_net_dev_read_status {
+                        let reader = proc_net_dev_reader.borrow();
+
+                        let current = reader.values();
+                        let previous = reader.prev_values();
+                        let elapsed = system_wide_metrics.time_delta;
+
+                        for (key, value) in &current.interfaces {
+                            let mut temp = NetworkMetrics::default();
+                            temp.total_download_bytes = value.total_download_bytes;
+                            temp.total_donwload_packets = value.total_donwload_packets;
+                            temp.bad_packets_downloaded = value.bad_packets_downloaded;
+                            temp.recieved_packets_dropped = value.recieved_packets_dropped;
+                            temp.total_upload_bytes = value.total_upload_bytes;
+                            temp.total_upload_packets = value.total_upload_packets;
+                            temp.bad_packets_uploaded = value.bad_packets_uploaded;
+                            temp.sent_packets_dropped = value.sent_packets_dropped;
+                            if elapsed > 0.0 {
+                                if let Some(previous_interface) = previous.interfaces.get(key) {
+                                    let download_byte_delta = value
+                                        .total_download_bytes
+                                        .saturating_sub(previous_interface.total_download_bytes);
+
+                                    let upload_byte_delta = value
+                                        .total_upload_bytes
+                                        .saturating_sub(previous_interface.total_upload_bytes);
+
+                                    let download_packet_delta = value
+                                        .total_donwload_packets
+                                        .saturating_sub(previous_interface.total_donwload_packets);
+
+                                    let upload_packet_delta = value
+                                        .total_upload_packets
+                                        .saturating_sub(previous_interface.total_upload_packets);
+
+                                    temp.rate_download_bytes = download_byte_delta as f64 / elapsed;
+
+                                    temp.rate_upload_bytes = upload_byte_delta as f64 / elapsed;
+
+                                    temp.rate_donwload_packets =
+                                        download_packet_delta as f64 / elapsed;
+
+                                    temp.rate_upload_packets = upload_packet_delta as f64 / elapsed;
+                                }
+                            }
+
+                            network_system_map.insert(key.clone(), temp);
+                        }
+                    }
+
+                    system_wide_metrics.cpu_metrics = take(&mut cpu_system_metrics);
+                    system_wide_metrics.memory_metrics = take(&mut memory_system_metrics);
+                    system_wide_metrics.network_metrics = take(&mut network_system_map);
+
+                    println!("{:?}", system_wide_metrics);
                 } else {
                     // CPU usage is a delta between two samples. The first
                     // successful read only initializes the baseline.

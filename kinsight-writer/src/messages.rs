@@ -1,7 +1,7 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Default)]
 pub struct CpuSystemMetrics {
-    pub time: f64,
-    pub time_delta: f64,
     pub cpu_utilization_percentage: f64,         // Done
     pub cpu_core_utilization_per_core: Vec<f64>, // Done
     pub ctxt_per_time_delta: f64,                // curr - prev / time
@@ -16,8 +16,6 @@ pub struct CpuSystemMetrics {
 
 #[derive(Debug, Default)]
 pub struct MemorySystemMetrics {
-    pub time: f64,
-    pub time_delta: f64,
     pub total_ram: u64, // Read MemTotal directly (total usable RAM after kernel binary & reserved boot allocations).
     pub available_ram: u64, // Read MemAvailable directly (kernel estimate of RAM available for new workloads without swapping).
     pub ram_used: u64,      // memtotal - memavailable
@@ -69,6 +67,25 @@ pub struct CpuPIDMetrics {
 
 #[derive(Debug, Default)]
 pub struct NetworkMetrics {
+    pub total_download_bytes: u64,     // direct map from /proc/net/dev
+    pub total_donwload_packets: u64,   // direct map from /proc/net/dev
+    pub bad_packets_downloaded: u64,   // direct map from /proc/net/dev
+    pub recieved_packets_dropped: u64, // direct map from /proc/net/dev
+    pub total_upload_bytes: u64,       // direct map from /proc/net/dev
+    pub total_upload_packets: u64,     // direct map from /proc/net/dev
+    pub bad_packets_uploaded: u64,     // direct map from /proc/net/dev
+    pub sent_packets_dropped: u64,     // direct map from /proc/net/dev
+    pub rate_download_bytes: f64,      // curr - prev/ time_delta
+    pub rate_upload_bytes: f64,        // curr - prev / time_delta
+    pub rate_donwload_packets: f64,
+    pub rate_upload_packets: f64,
+}
+
+#[derive(Debug, Default)]
+pub struct SystemWideMetrics {
     pub time: f64,
     pub time_delta: f64,
+    pub cpu_metrics: CpuSystemMetrics,
+    pub memory_metrics: MemorySystemMetrics,
+    pub network_metrics: HashMap<String, NetworkMetrics>,
 }

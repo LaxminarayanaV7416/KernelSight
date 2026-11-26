@@ -146,6 +146,9 @@ pub const PROC_PID_STATUS_FILE_SLUG: &str = "status";
 // NOTE: We are not going to monitor any subfolders under /proc/<pid>
 // This is because it becomes very inappropriate to do so, daemon gets very beefier
 
+pub const PROC_NET_SLUG: &str = "net";
+pub const PROC_NET_DEV_FILE_SLUG: &str = "dev";
+
 // ---------------------- miscellenous slugs ---------
 pub const SYS_FS_BLOCK_SLUG: &str = "block";
 
@@ -174,5 +177,13 @@ pub static PROC_PRESSURE_MEMORY_FILE_PATH: LazyLock<Box<PathBuf>> = LazyLock::ne
         Path::new(PROC_FS_ROOT_PATH)
             .join(PROC_PRESSURE_FOLDER_SLUG)
             .join(PROC_PRESSURE_MEMORY_FILE_SLUG),
+    )
+});
+
+pub static PROC_NET_DEV_FILE_PATH: LazyLock<Box<PathBuf>> = LazyLock::new(|| {
+    Box::new(
+        Path::new(PROC_FS_ROOT_PATH)
+            .join(PROC_NET_SLUG)
+            .join(PROC_NET_DEV_FILE_SLUG),
     )
 });
