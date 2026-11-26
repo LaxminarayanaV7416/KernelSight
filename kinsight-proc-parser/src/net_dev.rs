@@ -218,25 +218,21 @@ impl KinsightDataParserTrait<ProcNetDevFields, HashMap<usize, bool>> for ProcFSN
                     if let (Some(start), Some(end)) = (name_start, name_end) {
                         // Build an owned key only when inserting. Existing keys
                         // are updated without allocating a new String.
-                        let interface_name = {
-                            let bytes = &self.reader.buffer[start..end];
+                        if let Ok(interface_name) =
+                            std::str::from_utf8(&self.reader.buffer[start..end])
+                        {
+                            let interface_name = interface_name.trim();
 
-                            std::str::from_utf8(bytes)
-                                .ok()
-                                .map(str::trim)
-                                .filter(|name| !name.is_empty())
-                                .map(str::to_owned)
-                        };
-
-                        if let Some(interface_name) = interface_name {
-                            if let Some(existing) =
-                                self.values.interfaces.get_mut(interface_name.as_str())
-                            {
-                                *existing = interface_values;
-                            } else {
-                                self.values
-                                    .interfaces
-                                    .insert(interface_name, interface_values);
+                            if !interface_name.is_empty() {
+                                if let Some(existing) =
+                                    self.values.interfaces.get_mut(interface_name)
+                                {
+                                    *existing = interface_values;
+                                } else {
+                                    self.values
+                                        .interfaces
+                                        .insert(interface_name.to_owned(), interface_values);
+                                }
                             }
                         }
                     }
@@ -306,24 +302,17 @@ impl KinsightDataParserTrait<ProcNetDevFields, HashMap<usize, bool>> for ProcFSN
             }
 
             if let (Some(start), Some(end)) = (name_start, name_end) {
-                let interface_name = {
-                    let bytes = &self.reader.buffer[start..end];
+                if let Ok(interface_name) = std::str::from_utf8(&self.reader.buffer[start..end]) {
+                    let interface_name = interface_name.trim();
 
-                    std::str::from_utf8(bytes)
-                        .ok()
-                        .map(str::trim)
-                        .filter(|name| !name.is_empty())
-                        .map(str::to_owned)
-                };
-
-                if let Some(interface_name) = interface_name {
-                    if let Some(existing) = self.values.interfaces.get_mut(interface_name.as_str())
-                    {
-                        *existing = interface_values;
-                    } else {
-                        self.values
-                            .interfaces
-                            .insert(interface_name, interface_values);
+                    if !interface_name.is_empty() {
+                        if let Some(existing) = self.values.interfaces.get_mut(interface_name) {
+                            *existing = interface_values;
+                        } else {
+                            self.values
+                                .interfaces
+                                .insert(interface_name.to_owned(), interface_values);
+                        }
                     }
                 }
             }
