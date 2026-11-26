@@ -17,6 +17,7 @@ use super::proc_pidfs::ProcPidfsStatmConfig;
 use super::procfs::ProcDiskStatsConfig;
 use super::procfs::ProcLoadAvgConfig;
 use super::procfs::ProcMemInfoConfig;
+use super::procfs::ProcNetDevConfig;
 use super::procfs::ProcPressureConfig;
 use super::procfs::ProcStatConfig;
 use super::procfs::ProcUptimeConfig;
@@ -68,6 +69,7 @@ pub struct ProcFS {
     pub meminfo: ProcMemInfoConfig,
     pub diskstats: ProcDiskStatsConfig,
     pub pressure: ProcFSPressure,
+    pub net_dev: ProcNetDevConfig,
     pub pid: ProcFSPID,
 }
 

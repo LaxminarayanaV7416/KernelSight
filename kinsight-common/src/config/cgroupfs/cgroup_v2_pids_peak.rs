@@ -26,6 +26,6 @@ impl ProcFSConfigTrait for CgroupV2PidsPeakConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.pids
+        self.allow
     }
 }

@@ -40,8 +40,5 @@ impl ProcFSConfigTrait for ProcPidfsSchedstatConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.time_on_cpu
-            & self.fields.time_waiting
-            & self.fields.timeslices_run_count
     }
 }

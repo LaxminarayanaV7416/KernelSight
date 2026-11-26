@@ -55,13 +55,5 @@ impl ProcFSConfigTrait for CgroupV2IoPressureConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.some_avg_10
-            & self.fields.some_avg_60
-            & self.fields.some_avg_300
-            & self.fields.some_total
-            & self.fields.full_avg_10
-            & self.fields.full_avg_60
-            & self.fields.full_avg_300
-            & self.fields.full_total
     }
 }

@@ -52,12 +52,5 @@ impl ProcFSConfigTrait for ProcPidfsStatmConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.size
-            & self.fields.resident
-            & self.fields.shared
-            & self.fields.text
-            & self.fields.lib
-            & self.fields.data
-            & self.fields.dirty
     }
 }

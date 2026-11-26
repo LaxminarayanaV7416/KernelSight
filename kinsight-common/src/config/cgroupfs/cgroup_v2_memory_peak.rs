@@ -20,7 +20,7 @@ impl ProcFSConfigTrait for CgroupV2MemoryPeakConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.memory
+        self.allow
     }
 }
 

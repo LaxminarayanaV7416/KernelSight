@@ -20,14 +20,12 @@ impl ProcFSConfigTrait for CgroupV2MemoryCurrentConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.memory
+        self.allow
     }
 }
 
 impl Default for CgroupV2MemoryCurrentConfigFields {
     fn default() -> Self {
-        Self {
-            memory: true,
-        }
+        Self { memory: true }
     }
 }

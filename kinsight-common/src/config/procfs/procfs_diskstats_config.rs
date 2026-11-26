@@ -83,22 +83,5 @@ impl ProcFSConfigTrait for ProcDiskStatsConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.reads_completed
-            & self.fields.reads_merged
-            & self.fields.sectors_read
-            & self.fields.time_spent_reading
-            & self.fields.writes_completed
-            & self.fields.writes_merged
-            & self.fields.sectors_written
-            & self.fields.time_spent_writing
-            & self.fields.ios_in_progress
-            & self.fields.time_spent_doing_io
-            & self.fields.weighted_time_spent_doing_io
-            & self.fields.discards_completed
-            & self.fields.discards_merged
-            & self.fields.sectors_discarded
-            & self.fields.time_spent_discarding
-            & self.fields.flushes_completed
-            & self.fields.time_spent_flushing
     }
 }

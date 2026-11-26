@@ -20,7 +20,7 @@ impl ProcFSConfigTrait for CgroupV2PidsCurrentConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.pids
+        self.allow
     }
 }
 

@@ -75,15 +75,5 @@ impl ProcFSConfigTrait for CgroupV2CpuStatConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.usage_usec
-            & self.fields.user_usec
-            & self.fields.system_usec
-            & self.fields.nice_usec
-            & self.fields.core_sched_force_idle_usec
-            & self.fields.nr_periods
-            & self.fields.nr_throttled
-            & self.fields.throttled_usec
-            & self.fields.nr_bursts
-            & self.fields.burst_usec
     }
 }

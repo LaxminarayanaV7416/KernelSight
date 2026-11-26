@@ -184,57 +184,5 @@ impl ProcFSConfigTrait for ProcPidfsStatConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.pid
-            & self.fields.comm
-            & self.fields.state
-            & self.fields.ppid
-            & self.fields.pgrp
-            & self.fields.session
-            & self.fields.tty_nr
-            & self.fields.tpgid
-            & self.fields.flags
-            & self.fields.minflt
-            & self.fields.cminflt
-            & self.fields.majflt
-            & self.fields.cmajflt
-            & self.fields.utime
-            & self.fields.stime
-            & self.fields.cutime
-            & self.fields.cstime
-            & self.fields.priority
-            & self.fields.nice
-            & self.fields.num_threads
-            & self.fields.itrealvalue
-            & self.fields.starttime
-            & self.fields.vsize
-            & self.fields.rss
-            & self.fields.rsslim
-            & self.fields.startcode
-            & self.fields.endcode
-            & self.fields.startstack
-            & self.fields.kstkesp
-            & self.fields.kstkeip
-            & self.fields.signal
-            & self.fields.blocked
-            & self.fields.sigignore
-            & self.fields.sigcatch
-            & self.fields.wchan
-            & self.fields.nswap
-            & self.fields.cnswap
-            & self.fields.exit_signal
-            & self.fields.processor
-            & self.fields.rt_priority
-            & self.fields.policy
-            & self.fields.delayacct_blkio_ticks
-            & self.fields.guest_time
-            & self.fields.cguest_time
-            & self.fields.start_data
-            & self.fields.end_data
-            & self.fields.start_brk
-            & self.fields.arg_start
-            & self.fields.arg_end
-            & self.fields.env_start
-            & self.fields.env_end
-            & self.fields.exit_code
     }
 }

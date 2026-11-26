@@ -20,7 +20,7 @@ impl ProcFSConfigTrait for CgroupV2PidsEventsConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.max
+        self.allow
     }
 }
 

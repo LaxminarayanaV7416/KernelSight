@@ -30,6 +30,6 @@ impl ProcFSConfigTrait for CgroupV2CgroupEventsConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.populated & self.fields.frozen
+        self.allow
     }
 }

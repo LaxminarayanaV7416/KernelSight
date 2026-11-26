@@ -33,6 +33,6 @@ impl ProcFSConfigTrait for ProcUptimeConfig {
     }
 
     fn is_enabled(&self) -> bool {
-        self.allow & self.fields.suspended_time & self.fields.idle_time
+        self.allow
     }
 }

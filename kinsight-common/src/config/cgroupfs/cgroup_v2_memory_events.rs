@@ -43,13 +43,6 @@ impl ProcFSConfigTrait for CgroupV2MemoryEventConfig {
 
     fn is_enabled(&self) -> bool {
         self.allow
-            & self.fields.low
-            & self.fields.high
-            & self.fields.max
-            & self.fields.oom
-            & self.fields.oom_kill
-            & self.fields.oom_group_kill
-            & self.fields.sock_throttled
     }
 }
 
