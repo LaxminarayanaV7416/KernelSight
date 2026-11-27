@@ -1,5 +1,6 @@
-mod procfs_parser;
 mod kinsight_utils;
+mod procfs_parser;
+mod procfs_pid_parser;
 mod sensors;
 mod utils;
 

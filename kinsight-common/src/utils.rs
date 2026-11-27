@@ -3,12 +3,7 @@ use signal_hook::flag;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Receiver, Sender, channel};
 
-pub fn initiate_mpsc_channel<T>() -> (Sender<T>, Receiver<T>) {
-    let (transmitter, receiver): (Sender<T>, Receiver<T>) = channel::<T>();
-    (transmitter, receiver)
-}
 
 pub fn signal_handler(signaller: &Arc<AtomicBool>) {
     // register for SIGTERM and SIGINT

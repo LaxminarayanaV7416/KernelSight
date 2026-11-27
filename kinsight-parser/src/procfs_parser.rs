@@ -1,4 +1,5 @@
 use super::kinsight_utils::PROCFS_ROOT_PARSER_THREAD_NAME;
+use super::procfs_pid_parser::PidsProcFS;
 use super::utils::calcualte_diff_delta;
 use super::utils::get_cpu_usage;
 use kinsight_common::KinsightDataParserTrait;
@@ -82,6 +83,8 @@ pub fn procfs_metrics_collector(
     let mut system_wide_metrics = Box::new(SystemWideMetrics::default());
     // TODO: for now capacity is hardcoded
     let system_metrics_msg_pool: MessagePool<SystemWideMetrics> = MessagePool::new(10);
+
+    let mut pids = PidsProcFS::new();
 
     let mut prev_time = monotonic();
     let thread_handler = thread_builder

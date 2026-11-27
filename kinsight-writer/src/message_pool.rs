@@ -1,5 +1,5 @@
 use std::iter::repeat_with;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
@@ -46,4 +46,10 @@ impl<T: Default> MessagePool<T> {
         }
         transmitter.send(slot).is_ok()
     }
+}
+
+pub fn initiate_mpsc_channel<T>() -> (Sender<Arc<RwLock<T>>>, Receiver<Arc<RwLock<T>>>) {
+    let (transmitter, receiver): (Sender<Arc<RwLock<T>>>, Receiver<Arc<RwLock<T>>>) =
+        channel::<Arc<RwLock<T>>>();
+    (transmitter, receiver)
 }

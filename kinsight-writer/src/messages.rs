@@ -38,6 +38,31 @@ pub struct MemorySystemMetrics {
 }
 
 #[derive(Debug, Default)]
+pub struct NetworkMetrics {
+    pub total_download_bytes: u64,     // direct map from /proc/net/dev
+    pub total_donwload_packets: u64,   // direct map from /proc/net/dev
+    pub bad_packets_downloaded: u64,   // direct map from /proc/net/dev
+    pub recieved_packets_dropped: u64, // direct map from /proc/net/dev
+    pub total_upload_bytes: u64,       // direct map from /proc/net/dev
+    pub total_upload_packets: u64,     // direct map from /proc/net/dev
+    pub bad_packets_uploaded: u64,     // direct map from /proc/net/dev
+    pub sent_packets_dropped: u64,     // direct map from /proc/net/dev
+    pub rate_download_bytes: f64,      // curr - prev/ time_delta
+    pub rate_upload_bytes: f64,        // curr - prev / time_delta
+    pub rate_donwload_packets: f64,
+    pub rate_upload_packets: f64,
+}
+
+#[derive(Debug, Default)]
+pub struct SystemWideMetrics {
+    pub time: f64,
+    pub time_delta: f64,
+    pub cpu_metrics: CpuSystemMetrics,
+    pub memory_metrics: MemorySystemMetrics,
+    pub network_metrics: HashMap<String, NetworkMetrics>,
+}
+
+#[derive(Debug, Default)]
 pub struct CpuPIDMetrics {
     pub time: f64,
     pub time_delta: f64,
@@ -63,29 +88,7 @@ pub struct CpuPIDMetrics {
     pub total_program_size: u64,     // vmsize from direct value from status
     pub resident_set_size: u64,      // vmrss from status
     pub shared_data: u64,            // rss_file + rssshmem from status
-}
-
-#[derive(Debug, Default)]
-pub struct NetworkMetrics {
-    pub total_download_bytes: u64,     // direct map from /proc/net/dev
-    pub total_donwload_packets: u64,   // direct map from /proc/net/dev
-    pub bad_packets_downloaded: u64,   // direct map from /proc/net/dev
-    pub recieved_packets_dropped: u64, // direct map from /proc/net/dev
-    pub total_upload_bytes: u64,       // direct map from /proc/net/dev
-    pub total_upload_packets: u64,     // direct map from /proc/net/dev
-    pub bad_packets_uploaded: u64,     // direct map from /proc/net/dev
-    pub sent_packets_dropped: u64,     // direct map from /proc/net/dev
-    pub rate_download_bytes: f64,      // curr - prev/ time_delta
-    pub rate_upload_bytes: f64,        // curr - prev / time_delta
-    pub rate_donwload_packets: f64,
-    pub rate_upload_packets: f64,
-}
-
-#[derive(Debug, Default)]
-pub struct SystemWideMetrics {
-    pub time: f64,
-    pub time_delta: f64,
-    pub cpu_metrics: CpuSystemMetrics,
-    pub memory_metrics: MemorySystemMetrics,
-    pub network_metrics: HashMap<String, NetworkMetrics>,
+    pub cgroup: String,
+    pub comm: String,
+    pub cmdline: String,
 }
